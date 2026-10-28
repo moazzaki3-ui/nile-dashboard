@@ -181,7 +181,7 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
   </div>
 </div>
 <header>
-  <div><div class="sub">شركة نايل للتطوير — مشاريع الأهرام</div><h1>🏗️ لوحة متابعة التخطيط الشامل</h1><div style="font-size:.7rem;color:var(--accent2);letter-spacing:.08em;margin-top:3px">✦ Design by <span style="color:#38bdf8;font-weight:700">Eng. Moaz Zaki</span> ✦</div></div>
+  <div><div class="sub">مشاريع الأهرام</div><h1>🏗️ لوحة متابعة التخطيط الشامل</h1><div style="font-size:.7rem;color:var(--accent2);letter-spacing:.08em;margin-top:3px">✦ Design by <span style="color:#38bdf8;font-weight:700">Eng. Moaz Zaki</span> ✦</div></div>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <span class="badge" id="dateLabel"></span>
     <div id="headerUser">
@@ -199,6 +199,7 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
   <div class="tab" onclick="showTab('rates')">📋 التحديثات</div>
   <div class="tab" onclick="showTab('deviations')">📉 الانحرافات</div>
   <div class="tab" onclick="showTab('chat')">💬 تحديث البيانات</div>
+  <div class="tab" onclick="showTab('deliveries')">📦 التوريدات</div>
   <div class="tab" id="adminTab" onclick="showTab('admin')" style="display:none">⚙️ الإدارة</div>
 </div>
 
@@ -354,6 +355,10 @@ function applyPermissions(role){
   // only admin & editor can export/import/reset data
   const canData=(role==='admin'||role==='editor');
   if(formData)formData.style.display=canData?'':'none';
+  const delivForm=document.getElementById('deliveriesFormSection');
+  if(delivForm)delivForm.style.display=canAdd?'':'none';
+  // apply tab visibility by role
+  if(typeof _applyTabVisibility==='function')_applyTabVisibility(role);
   // show role badge in header
   const lbl=document.getElementById('userLabel');
   if(lbl&&window._CURRENT_ROLE){
@@ -384,6 +389,7 @@ function doLogout(){
 }
 function applySession(sess){
   window._CURRENT_ROLE=sess.role||'viewer';
+  window._CURRENT_SESSION=sess;
   document.getElementById('loginOverlay').style.display='none';
   document.getElementById('userLabel').textContent='👤 '+sess.fullname;
   document.getElementById('headerUser').style.display='flex';
@@ -458,8 +464,73 @@ function renderAdminPanel(){
     html+='</tbody></table>';
   }
   wrap.innerHTML=html;
+  const tp=document.getElementById('tabPermContainer');
+  if(tp&&typeof renderTabPermissions==='function')tp.innerHTML=renderTabPermissions();
 }
 // ========== /AUTH SYSTEM ==========
+
+// ===== TAB VISIBILITY SETTINGS =====
+const _TAB_PERM_KEY='nile_tab_perm';
+const _TABS_CONFIG=[
+  {id:'portfolio',label:'📊 المحفظة'},
+  {id:'projects',label:'📋 جميع المشاريع'},
+  {id:'updates',label:'📝 تقرير الموقف'},
+  {id:'cashflow',label:'💰 الكاش فلو'},
+  {id:'financial',label:'📋 الاحتياجات المالية'},
+  {id:'rates',label:'📋 التحديثات'},
+  {id:'deviations',label:'📉 الانحرافات'},
+  {id:'chat',label:'💬 تحديث البيانات'},
+  {id:'deliveries',label:'📦 التوريدات'},
+];
+function _getTabPerm(){
+  try{const d=localStorage.getItem(_TAB_PERM_KEY);if(d)return JSON.parse(d);}catch(e){}
+  const def={};_TABS_CONFIG.forEach(t=>{def[t.id]={admin:true,editor:true,supervisor:true,viewer:true};});return def;
+}
+function _saveTabPerm(p){try{localStorage.setItem(_TAB_PERM_KEY,JSON.stringify(p));}catch(e){}}
+function _applyTabVisibility(role){
+  const perm=_getTabPerm();
+  _TABS_CONFIG.forEach(t=>{
+    const btn=document.querySelector('.tab[onclick*="\''+t.id+'\'"]');
+    if(!btn)return;
+    const pr=perm[t.id];
+    const allowed=!pr||pr[role]!==false;
+    btn.style.display=allowed?'':'none';
+  });
+}
+function saveTabPermissions(){
+  const p={};
+  _TABS_CONFIG.forEach(t=>{
+    p[t.id]={admin:true};
+    ['editor','supervisor','viewer'].forEach(r=>{
+      const cb=document.getElementById('tp_'+t.id+'_'+r);
+      p[t.id][r]=cb?cb.checked:true;
+    });
+  });
+  _saveTabPerm(p);
+  applyPermissions(window._CURRENT_ROLE||'viewer');
+  const n=document.getElementById('tabPermNotice');
+  if(n){n.style.display='';setTimeout(()=>{n.style.display='none';},2500);}
+}
+function renderTabPermissions(){
+  const p=_getTabPerm();
+  const roles=[{id:'editor',label:'✏️ محرر'},{id:'supervisor',label:'👷 مشرف'},{id:'viewer',label:'👁 مشاهد'}];
+  const thead='<tr style="background:var(--panel)"><th style="text-align:right;padding:8px 12px">التبويب</th>'
+    +'<th style="text-align:center;padding:8px 6px;font-size:.75rem">⚙️ مسؤول</th>'
+    +roles.map(r=>'<th style="text-align:center;padding:8px 6px;font-size:.75rem">'+r.label+'</th>').join('')+'</tr>';
+  const rows=_TABS_CONFIG.map(t=>{
+    const cells=roles.map(r=>{
+      const chk=(p[t.id]===undefined||p[t.id][r.id]!==false)?'checked':'';
+      return '<td style="text-align:center"><input type="checkbox" id="tp_'+t.id+'_'+r.id+'" '+chk+'></td>';
+    }).join('');
+    return '<tr><td style="padding:7px 12px;font-size:.82rem"><b>'+t.label+'</b></td>'
+      +'<td style="text-align:center"><span style="color:var(--green)">✓</span></td>'+cells+'</tr>';
+  }).join('');
+  return '<div id="tabPermNotice" style="display:none;background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:.8rem">✅ تم حفظ إعدادات ظهور التبويبات</div>'
+    +'<div style="overflow-x:auto"><table class="project-table"><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
+    +'<p style="font-size:.73rem;color:var(--muted);margin-top:8px">💡 المسؤول يرى دائماً جميع التبويبات — التغييرات تُطبق فور الحفظ على الجلسة الحالية</p>'
+    +'<button class="form-btn form-btn-primary" onclick="saveTabPermissions()" style="margin-top:10px">💾 حفظ الإعدادات</button>';
+}
+// ===== / TAB VISIBILITY SETTINGS =====
 
 const PROJECTS = [{"code": "P-001", "name": "137A", "loc": "NORTH REHAB", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-002", "name": "138A", "loc": "NORTH REHAB", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-003", "name": "117A", "loc": "NORTH REHAB", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-004", "name": "59A", "loc": "NORTH REHAB", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-005", "name": "33I", "loc": "NORTH REHAB", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-006", "name": "98A", "loc": "NORTH REHAB", "status": "جارى تشطيب الوجهات", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 80}, {"code": "P-007", "name": "162B", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-008", "name": "79C", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-009", "name": "56B", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-010", "name": "36D", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-011", "name": "139E", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-012", "name": "50E", "loc": "1ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-013", "name": "51E", "loc": "1ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-014", "name": "52L", "loc": "2ST", "status": "جارى تشطيب الوجهات", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 80}, {"code": "P-015", "name": "58C", "loc": "3ST", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-016", "name": "226J", "loc": "2ST", "status": "جارى تشطيب الوجهات", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 80}, {"code": "P-017", "name": "160J", "loc": "2ST", "status": "جارى تشطيب الوجهات", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 80}, {"code": "P-018", "name": "231K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-019", "name": "232K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "جارى", "garage": "جارى", "landscape": "", "meters": "تم", "notes": "", "pct": 93}, {"code": "P-020", "name": "91K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "جارى", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 93}, {"code": "P-021", "name": "122K", "loc": "4ST", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-022", "name": "90K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-023", "name": "159K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "جارى", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 93}, {"code": "P-024", "name": "160K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-025", "name": "154K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-026", "name": "156K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-027", "name": "91C", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-028", "name": "106G", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-029", "name": "47H", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-030", "name": "61K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-031", "name": "60K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-032", "name": "59K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-033", "name": "58K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-034", "name": "145A", "loc": "7ST", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-035", "name": "53A", "loc": "2ST", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-036", "name": "31K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-037", "name": "81C", "loc": "1st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-038", "name": "66A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-039", "name": "65A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-040", "name": "73J", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-041", "name": "158F", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-042", "name": "306J", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-043", "name": "222A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-044", "name": "234A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-045", "name": "194A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-046", "name": "61I", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-047", "name": "289J", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-048", "name": "49D", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-049", "name": "74A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-050", "name": "79A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-051", "name": "184A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-052", "name": "185A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-053", "name": "214A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-054", "name": "35G", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-055", "name": "61M", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-056", "name": "137E", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-057", "name": "102K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "تم صب ارضية الجراج", "pct": 96}, {"code": "P-058", "name": "112K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "تم صب ارضية الجراج", "pct": 96}, {"code": "P-059", "name": "50K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-060", "name": "63K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-061", "name": "201K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-062", "name": "87K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-063", "name": "86K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-064", "name": "85K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-065", "name": "83K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-066", "name": "81K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-067", "name": "80K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-068", "name": "79K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-069", "name": "84K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-070", "name": "39K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-071", "name": "146K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-072", "name": "203K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-073", "name": "37L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-074", "name": "53Q", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-075", "name": "46Q", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-076", "name": "97H", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-077", "name": "83L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-078", "name": "84L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-079", "name": "54L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-080", "name": "158H", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-081", "name": "55N", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-082", "name": "90L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-083", "name": "101I", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-084", "name": "3I", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-085", "name": "1N", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-086", "name": "6L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-087", "name": "25G", "loc": "5st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-088", "name": "85E", "loc": "5st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}, {"code": "P-089", "name": "117I", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-090", "name": "125A", "loc": "7st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-091", "name": "143A", "loc": "7st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-092", "name": "92F", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-093", "name": "17J", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}, {"code": "P-094", "name": "18J", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}, {"code": "P-095", "name": "13E", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-096", "name": "28A", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-097", "name": "34A", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-098", "name": "181A", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-099", "name": "2C", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-100", "name": "3C", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-101", "name": "16E", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-102", "name": "125G", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-103", "name": "100G", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-104", "name": "77", "loc": "louts", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-105", "name": "98", "loc": "louts", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-106", "name": "47", "loc": "louts", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-107", "name": "101D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-108", "name": "32K", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-109", "name": "274D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-110", "name": "69G", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-111", "name": "75D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-112", "name": "76D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-113", "name": "78A", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-114", "name": "72D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-115", "name": "43A", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-116", "name": "516", "loc": "andalus", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-117", "name": "517", "loc": "andalus", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-118", "name": "158J", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-119", "name": "159J", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-120", "name": "152J", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-121", "name": "167J", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-122", "name": "138I", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "تم", "meters": "", "notes": "", "pct": 95}, {"code": "P-123", "name": "137I", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "تم", "meters": "", "notes": "", "pct": 95}, {"code": "P-124", "name": "151I", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "تم", "notes": "", "pct": 95}, {"code": "P-125", "name": "104K", "loc": "4 st", "status": "جارى اعمال الهيكل", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 35}, {"code": "P-126", "name": "13A", "loc": "7st", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-127", "name": "170A", "loc": "7st", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-128", "name": "60A", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-129", "name": "126A", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-130", "name": "89B", "loc": "NORTH HOUSE", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-131", "name": "90B", "loc": "NORTH HOUSE", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-132", "name": "55G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-133", "name": "56G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-134", "name": "57G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-135", "name": "58G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-136", "name": "59G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-137", "name": "119A", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-138", "name": "120A", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-139", "name": "5B", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-140", "name": "6B", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-141", "name": "8B", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-142", "name": "22", "loc": "narges", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-143", "name": "23", "loc": "narges", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-144", "name": "24", "loc": "narges", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-145", "name": "60D", "loc": "NORTH REHAB", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-146", "name": "35B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-147", "name": "36B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-148", "name": "57B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-149", "name": "58B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-150", "name": "59B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-151", "name": "89G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-152", "name": "90G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-153", "name": "91G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-154", "name": "92G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-155", "name": "93G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-156", "name": "94G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-157", "name": "95G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-158", "name": "96G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-159", "name": "66A", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-160", "name": "156", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-161", "name": "157", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-162", "name": "158", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-163", "name": "145", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-164", "name": "146", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-165", "name": "41", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-166", "name": "34", "loc": "جنوب السويس", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}, {"code": "P-167", "name": "88", "loc": "جنوب السويس", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}];
 const UPDATES = [{"code": "P-125", "name": "104K", "loc": "4th Settlement", "status": "جارى اعمال الهيكل", "pct": 20, "bl_days": 70, "start": "2026-10-12", "day": 13, "current_activity": "جارى نجارة سقف الأول (يوم ١٤/٧٠)", "packages": [{"n": "هيكل الأرضي (Ground)", "p": 100, "note": "تم ١٢-٢٢ أكتوبر — أعمدة + سقف"}, {"n": "هيكل الأول (1st Floor)", "p": 75, "note": "أعمدة تمت ٢٠/١٠ — جارى نجارة السقف ٢٥/١٠"}, {"n": "هيكل الثاني والثالث", "p": 5, "note": "بدأت أعمدة الثاني ٢٥ أكتوبر — ينتهي ٧ نوفمبر"}, {"n": "مباني (بناء)", "p": 5, "note": "بدأ ٢٣ أكتوبر — ينتهي ٢٦ نوفمبر"}, {"n": "تشطيب + بياض", "p": 0, "note": "يبدأ ٢٥ نوفمبر — ينتهي ١٠ ديسمبر"}, {"n": "كهرباء (سلب)", "p": 10, "note": "تأسيس سلب الأرضي جاري"}, {"n": "صحي (سلب)", "p": 5, "note": "تأسيس الأرضي جاري"}, {"n": "سور + واجهة", "p": 0, "note": "يبدأ ١٦ نوفمبر — ينتهي ٢٠ ديسمبر"}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-032", "name": "61K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 96, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي مرمات بعد انتهاء السباكه بالبدروم"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": ""}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور بعد صب البدروم"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات"}]}, {"code": "P-031", "name": "60K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 96, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي مرمات بعد انتهاء السباكه بالبدروم"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": ""}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور بعد صب البدروم"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات"}]}, {"code": "P-030", "name": "59K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 96, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي مرمات بعد انتهاء السباكه بالبدروم"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": ""}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور بعد صب البدروم"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات"}]}, {"code": "P-029", "name": "58K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 93, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 90, "note": "متبقي تشطيب البدروم بعد الصب"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 80, "note": "تركيب باب الرامب بعد صب البدروم"}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات وجريلات"}]}, {"code": "P-036", "name": "31K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 96, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي دهان البدروم بعد الصب"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": "لم يتم عمل باب للرامب"}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات وجريلات"}]}, {"code": "P-028", "name": "106G", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 95, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي دهان البدروم بعد الصب ومرمات السباكه"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": ""}, {"n": "حجر", "p": 95, "note": "صنفره"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات وجريلات"}]}, {"code": "P-029", "name": "47H", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 88, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 90, "note": "متبقي دهان البدروم بعد الصب والسور الامامي"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 50, "note": "تم التصنيع ومتبقي التركيب بعد تشطيب السور"}, {"n": "حجر", "p": 95, "note": "متبقي تركيب بازلت السور"}, {"n": "الوميتال", "p": 90, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات وجريلات"}]}, {"code": "P-034", "name": "145A", "loc": "7th Settlement", "status": "جارى التشطيب الداخلي", "pct": 45, "start": "2026-04-14", "packages": [{"n": "خرسانات", "p": 80, "note": "متبقي الروف"}, {"n": "مباني", "p": 60, "note": "تم الارضي والاول وجاري التاني"}, {"n": "بياض", "p": 0, "note": "لم يبدأ"}, {"n": "رخام", "p": 0, "note": ""}, {"n": "كريتال", "p": 0, "note": ""}, {"n": "حجر", "p": 0, "note": ""}, {"n": "الوميتال", "p": 0, "note": ""}, {"n": "صحي", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-016", "name": "226J", "loc": "2nd Settlement", "status": "جارى تشطيب الوجهات", "pct": 78, "start": "2025-11-05", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض داخلي", "p": 100, "note": "تم الانتهاء"}, {"n": "بياض خارجي", "p": 85, "note": "جاري الواجهة الامامية والجانبية"}, {"n": "حجر", "p": 70, "note": "جاري تشطيب حجر الواجهه الامامية"}, {"n": "الوميتال", "p": 50, "note": "جاري تصنيع شبابيك الواجهه الامامية"}, {"n": "بياض السلم", "p": 80, "note": "جاري"}, {"n": "سباكة خارجية", "p": 85, "note": "جاري الجانبية اليسري"}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-017", "name": "160J", "loc": "2nd Settlement", "status": "جارى تشطيب الوجهات", "pct": 80, "start": "2025-08-05", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض داخلي", "p": 100, "note": "تم الانتهاء"}, {"n": "بياض خارجي", "p": 80, "note": "جاري الجانبية اليسري والروف والبدروم"}, {"n": "حجر", "p": 0, "note": "لم يبدأ"}, {"n": "الوميتال", "p": 0, "note": ""}, {"n": "بياض السلم", "p": 100, "note": "تم"}, {"n": "سباكة خارجية", "p": 90, "note": "تم الخلفية"}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-014", "name": "52L", "loc": "2nd Settlement", "status": "جارى تشطيب الوجهات", "pct": 77, "start": "2025-07-09", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض داخلي", "p": 100, "note": "تم الانتهاء"}, {"n": "بياض البدروم", "p": 100, "note": "تم"}, {"n": "بياض الخارجي", "p": 75, "note": "جاري الجانبية اليسري والنواحي"}, {"n": "مصيص سقف البدروم", "p": 60, "note": "جاري"}, {"n": "سباكة خارجية", "p": 90, "note": "تم الخلفية"}, {"n": "بياض المنور", "p": 100, "note": "تم"}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-015", "name": "58C", "loc": "3rd Settlement", "status": "جارى التشطيب الداخلي", "pct": 55, "start": "2025-10-21", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 90, "note": "B+G+1+2 تم، الثالث جاري، الروف جاري"}, {"n": "بياض الارضي", "p": 100, "note": "تم"}, {"n": "بياض البدروم", "p": 80, "note": "جاري الانتهاء"}, {"n": "بياض الادوار", "p": 30, "note": "جاري تجهيزات الأول والثاني"}, {"n": "كهرباء", "p": 50, "note": "جاري الأول والثاني"}, {"n": "صحي", "p": 0, "note": ""}, {"n": "الوميتال", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-021", "name": "122K", "loc": "4th Settlement", "status": "جارى التشطيب الداخلي", "pct": 65, "start": "2026-03-04", "packages": [{"n": "خرسانات", "p": 100, "note": "تم"}, {"n": "مباني", "p": 100, "note": "تم جميع الادوار"}, {"n": "بياض الارضي", "p": 50, "note": "تم 50٪"}, {"n": "بياض الأول", "p": 40, "note": "جاري"}, {"n": "تأسيس بياض وكهرباء الثاني", "p": 50, "note": ""}, {"n": "تأسيس بياض وكهرباء الثالث", "p": 50, "note": ""}, {"n": "صحي", "p": 20, "note": "تأسيس"}, {"n": "الوميتال", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-025", "name": "154K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 97, "packages": [{"n": "خرسانات + مباني + بياض", "p": 100, "note": ""}, {"n": "حجر الواجهة", "p": 100, "note": "تم"}, {"n": "حجر المدخل", "p": 95, "note": "جاري تركيب المتبقي"}, {"n": "الوميتال الواجهة", "p": 100, "note": "تم"}, {"n": "رخام المدخل", "p": 80, "note": "جاري 80٪"}, {"n": "صواعد السباكة", "p": 100, "note": "تم"}, {"n": "كريتال", "p": 100, "note": "تم"}, {"n": "اللوجو", "p": 50, "note": "جاري التصنيع"}]}, {"code": "P-026", "name": "156K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 99, "packages": [{"n": "خرسانات + مباني + بياض", "p": 100, "note": ""}, {"n": "حجر الواجهة", "p": 100, "note": "تم"}, {"n": "حجر المدخل + السور", "p": 100, "note": "تم"}, {"n": "الوميتال الواجهة", "p": 100, "note": "تم"}, {"n": "رخام المدخل", "p": 100, "note": "تم الملاحظات"}, {"n": "صواعد السباكة", "p": 100, "note": "تم"}, {"n": "كريتال", "p": 100, "note": "تم السطح + المدخل + السور"}, {"n": "ابواب مصفحة", "p": 100, "note": "تم"}]}, {"code": "P-023", "name": "159K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 97, "packages": [{"n": "خرسانات + مباني + بياض", "p": 100, "note": ""}, {"n": "حجر الواجهة", "p": 100, "note": "تم"}, {"n": "حجر المدخل", "p": 100, "note": "تم"}, {"n": "الوميتال الواجهة", "p": 100, "note": "تم النواقص والملاحظات"}, {"n": "رخام المدخل والسلم", "p": 100, "note": "تم"}, {"n": "كريتال السطح + المدخل + السور", "p": 95, "note": "متبقي الرامب"}, {"n": "بياض البدروم", "p": 100, "note": "تم"}, {"n": "صب ارضية البدروم", "p": 90, "note": "جاري توريد المون"}]}, {"code": "P-024", "name": "160K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 98, "packages": [{"n": "خرسانات + مباني + بياض", "p": 100, "note": ""}, {"n": "حجر الواجهة", "p": 100, "note": "تم"}, {"n": "حجر المدخل + السور", "p": 100, "note": "تم"}, {"n": "الوميتال الواجهة", "p": 100, "note": "تم"}, {"n": "رخام المدخل والسلم", "p": 100, "note": "تم"}, {"n": "كريتال السطح + المدخل + السور + الرامب", "p": 100, "note": "تم"}, {"n": "صب ارضية البدروم", "p": 100, "note": "تم"}, {"n": "باب المدخل", "p": 90, "note": "تم التركيب - جاري التعديل"}]}, {"code": "P-035", "name": "53A", "loc": "2nd Settlement", "status": "جارى التشطيب الداخلي", "pct": 55, "start": "2026-06-09", "current_activity": "مباني الأرضي جاري — مباني السور حطة ثانية جاري", "packages": [{"n": "خرسانات", "p": 100, "note": "تم حتى سقف الثالث"}, {"n": "عزل وردم القواعد", "p": 100, "note": "تم"}, {"n": "بياض وعزل الواجهة الخارجي", "p": 100, "note": "تم"}, {"n": "مباني السور", "p": 50, "note": "حطة أولى تمت — حطة ثانية جاري"}, {"n": "مباني الأدوار", "p": 25, "note": "الأرضي جاري — باقي الأدوار لم تبدأ"}, {"n": "بياض داخلي", "p": 0, "note": ""}, {"n": "كهرباء (تأسيس)", "p": 0, "note": ""}, {"n": "صحي (تأسيس)", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-004", "name": "59A", "loc": "North Rehab", "status": "جارى التشطيب الداخلي", "pct": 55, "start": "2025-12-01", "current_activity": "مباني الثالث والروف جاري — الترتيب على البياض الداخلي", "packages": [{"n": "خرسانات", "p": 100, "note": "تم هيكل كامل"}, {"n": "مباني", "p": 90, "note": "البدروم والأرضي والأول والثاني تمت — الثالث والروف جاري"}, {"n": "شد سقالات الواجهات", "p": 20, "note": "جاري الترتيب"}, {"n": "تشوين خامات البياض", "p": 30, "note": "جاري الترتيب"}, {"n": "بياض داخلي", "p": 0, "note": "لم يبدأ — يبدأ بعد اكتمال المباني"}, {"n": "كهرباء (تأسيس)", "p": 0, "note": ""}, {"n": "صحي (تأسيس)", "p": 0, "note": ""}, {"n": "الوميتال", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-006", "name": "98A", "loc": "North Rehab", "status": "جارى تشطيب الوجهات", "pct": 80, "start": "2025-11-19", "current_activity": "بياض الواجهات الجانبية جاري — الترتيب على الأمامية", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض داخلي", "p": 100, "note": "تم بالكامل"}, {"n": "بياض خارجي جانبي", "p": 50, "note": "جاري — توريد المواد جاري"}, {"n": "بياض الواجهة الأمامية", "p": 0, "note": "الترتيب على شد السقالة"}, {"n": "الوميتال", "p": 0, "note": ""}, {"n": "سباكة خارجية", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-005", "name": "33I", "loc": "North Rehab", "status": "جارى التشطيب الداخلي", "pct": 50, "start": "2026-03-11", "current_activity": "مباني الثاني والثالث جاري — تشوين مواد الأرضي", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني البدروم", "p": 100, "note": "تم"}, {"n": "مباني الأول", "p": 100, "note": "تم بالواجهة"}, {"n": "مباني الأرضي", "p": 20, "note": "جاري تشوين المواد"}, {"n": "مباني الثاني والثالث", "p": 40, "note": "جاري الاستكمال"}, {"n": "بياض داخلي", "p": 0, "note": ""}, {"n": "كهرباء", "p": 0, "note": ""}, {"n": "صحي", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-003", "name": "117A", "loc": "North Rehab", "status": "جارى التشطيب الداخلي", "pct": 55, "start": "2025-09-25", "current_activity": "بياض الأول جاري — تشوين مواد الثاني والثالث", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض الأرضي", "p": 100, "note": "تم"}, {"n": "بياض الأول", "p": 50, "note": "جاري"}, {"n": "بياض الثاني والثالث", "p": 0, "note": "جاري تشوين المواد"}, {"n": "تأسيس كهرباء الثاني والثالث", "p": 100, "note": "تم"}, {"n": "كهرباء (باقي)", "p": 0, "note": ""}, {"n": "صحي (تأسيس)", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}];
@@ -476,7 +547,8 @@ PROJECTS.forEach(p=>{
 function showTab(t){
   if(t==='chat'){populateFormDropdowns();renderChangelog();}
   if(t==='admin'){renderAdminPanel();}
-  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','admin'].forEach(id=>{
+  if(t==='deliveries'){renderDeliveries();}
+  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','deliveries','admin'].forEach(id=>{
     const el=document.getElementById('tab-'+id);if(el)el.classList.toggle('hidden',id!==t);
   });
   document.querySelectorAll('.tab').forEach(el=>{
@@ -1762,9 +1834,127 @@ function refreshAll(){
   renderChangelog();
 }
 
+// ============ DELIVERIES / استلامات التوريدات ============
+let _DELIVERIES=[];
+const _DELIV_KEY='nile_deliveries';
+function loadDeliveries(){
+  try{const d=localStorage.getItem(_DELIV_KEY);if(d)_DELIVERIES=JSON.parse(d);}catch(e){_DELIVERIES=[];}
+}
+function saveDeliveries(){
+  try{localStorage.setItem(_DELIV_KEY,JSON.stringify(_DELIVERIES));}catch(e){}
+}
+function addDelivery(){
+  const code=document.getElementById('delivProject').value;
+  const item=document.getElementById('delivItem').value.trim();
+  const material=document.getElementById('delivMaterial').value.trim();
+  const qty=parseFloat(document.getElementById('delivQty').value)||0;
+  const unit=document.getElementById('delivUnit').value;
+  const invoice=document.getElementById('delivInvoice').value.trim();
+  const supplier=document.getElementById('delivSupplier').value.trim();
+  const note=document.getElementById('delivNote').value.trim();
+  if(!code){alert('⚠️ اختر مشروع أولاً');return;}
+  if(!item){alert('⚠️ اختر أو ادخل البند');return;}
+  if(!material){alert('⚠️ ادخل اسم الخامة');return;}
+  if(!qty||qty<=0){alert('⚠️ ادخل كمية صحيحة');return;}
+  const sess=window._CURRENT_SESSION||{};
+  const rec={id:Date.now(),date:todayAr(),dateISO:new Date().toISOString().split('T')[0],project:code,item,material,qty,unit,invoice,supplier,note,user:sess.fullname||'مستخدم'};
+  _DELIVERIES.unshift(rec);
+  saveDeliveries();
+  document.getElementById('delivMaterial').value='';
+  document.getElementById('delivQty').value='';
+  document.getElementById('delivInvoice').value='';
+  document.getElementById('delivSupplier').value='';
+  document.getElementById('delivNote').value='';
+  renderDeliveries();
+  const nb=document.getElementById('delivNotice');
+  if(nb){nb.textContent='✅ تم تسجيل الاستلام: '+material+' — '+qty+' '+unit;nb.style.display='block';setTimeout(()=>nb.style.display='none',3500);}
+}
+function deleteDelivery(id){
+  const role=window._CURRENT_ROLE||'viewer';
+  if(role!=='admin'&&role!=='editor'){alert('❌ ليس لديك صلاحية الحذف');return;}
+  if(!confirm('هل تريد حذف هذا الاستلام؟')) return;
+  _DELIVERIES=_DELIVERIES.filter(d=>d.id!==id);
+  saveDeliveries();
+  renderDeliveries();
+}
+function renderDeliveries(){
+  loadDeliveries();
+  const projFilter=(document.getElementById('delivFilterProj')||{}).value||'';
+  const itemFilter=((document.getElementById('delivFilterItem')||{}).value||'').toLowerCase().trim();
+  const filtered=_DELIVERIES.filter(d=>(!projFilter||d.project===projFilter)&&(!itemFilter||d.item.toLowerCase().includes(itemFilter)||d.material.toLowerCase().includes(itemFilter)));
+
+  // KPIs
+  const kDiv=document.getElementById('delivKpis');
+  if(kDiv){
+    const total=_DELIVERIES.length;
+    const projects=[...new Set(_DELIVERIES.map(d=>d.project))].length;
+    const items=[...new Set(_DELIVERIES.map(d=>d.item))].length;
+    const lastDate=_DELIVERIES.length?_DELIVERIES[0].date:'—';
+    kDiv.innerHTML=
+      '<div class="kpi blue"><div class="kpi-val">'+total+'</div><div class="kpi-lbl">إجمالي الاستلامات</div></div>'+
+      '<div class="kpi green"><div class="kpi-val">'+projects+'</div><div class="kpi-lbl">مشاريع بتوريدات</div></div>'+
+      '<div class="kpi orange"><div class="kpi-val">'+items+'</div><div class="kpi-lbl">بنود مسجّلة</div></div>'+
+      '<div class="kpi"><div class="kpi-val" style="font-size:.9rem;font-weight:700">'+lastDate+'</div><div class="kpi-lbl">آخر استلام</div></div>';
+  }
+
+  // Summary by project grouped by item
+  const sumDiv=document.getElementById('delivSummary');
+  if(sumDiv){
+    if(!_DELIVERIES.length){sumDiv.innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد استلامات مسجلة بعد. استخدم النموذج أعلاه لتسجيل أول استلام.</div>';}
+    else{
+      const byProj={};
+      _DELIVERIES.forEach(d=>{
+        const pk=d.project;
+        if(!byProj[pk])byProj[pk]={};
+        if(!byProj[pk][d.item])byProj[pk][d.item]=[];
+        byProj[pk][d.item].push(d);
+      });
+      sumDiv.innerHTML=Object.entries(byProj).map(([pk,items])=>{
+        const pn=(ACTIVE_NAMES[pk]||pk)+' ('+pk+')';
+        const rows=Object.entries(items).map(([itm,recs])=>{
+          const mats=[...new Set(recs.map(r=>r.material))].join(' | ');
+          return '<tr><td><b>'+itm+'</b></td><td style="color:var(--accent2);font-weight:700;text-align:center">'+recs.length+'</td><td style="font-size:.72rem">'+mats+'</td><td style="color:var(--muted);text-align:center">'+recs[0].date+'</td></tr>';
+        }).join('');
+        return '<div class="form-section" style="margin-bottom:10px"><div style="font-weight:800;font-size:.9rem;color:var(--accent2);margin-bottom:10px">🏗️ عمارة '+pn+'</div><table class="project-table"><thead><tr><th>البند</th><th>عدد الاستلامات</th><th>الخامات المستلمة</th><th>آخر استلام</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+      }).join('');
+    }
+  }
+
+  // Full log
+  const logDiv=document.getElementById('delivLog');
+  if(logDiv){
+    const fp=document.getElementById('delivFilterProj');
+    if(fp&&!fp.dataset.built){
+      fp.dataset.built='1';
+      const opts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+ACTIVE_NAMES[c]+'</option>').join('');
+      fp.innerHTML='<option value="">كل المشاريع</option>'+opts;
+    }
+    if(!filtered.length){logDiv.innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد استلامات بالفلتر الحالي.</div>';return;}
+    const role=window._CURRENT_ROLE||'viewer';
+    const canDel=(role==='admin'||role==='editor');
+    const rows=filtered.map((d,i)=>'<tr>'+
+      '<td style="color:var(--muted);text-align:center">'+(i+1)+'</td>'+
+      '<td style="white-space:nowrap">'+d.date+'</td>'+
+      '<td><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.68rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
+      '<td>'+d.item+'</td>'+
+      '<td><b>'+d.material+'</b></td>'+
+      '<td style="text-align:center">'+d.qty+' '+(d.unit||'')+'</td>'+
+      '<td style="font-size:.72rem">'+(d.supplier||'—')+'</td>'+
+      '<td style="font-size:.72rem">'+(d.invoice||'—')+'</td>'+
+      '<td style="font-size:.72rem;color:var(--muted);max-width:120px">'+(d.note||'—')+'</td>'+
+      '<td style="font-size:.68rem;color:var(--muted)">'+(d.user||'—')+'</td>'+
+      (canDel?'<td style="text-align:center"><button onclick="deleteDelivery('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button></td>':'')+
+      '</tr>').join('');
+    const extraTh=canDel?'<th>حذف</th>':'';
+    logDiv.innerHTML='<div style="overflow-x:auto"><table class="project-table"><thead><tr><th>#</th><th>التاريخ</th><th>المشروع</th><th>البند</th><th>الخامة</th><th>الكمية</th><th>المورد</th><th>الفاتورة</th><th>ملاحظة</th><th>المسجّل</th>'+extraTh+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+}
+// ============ / DELIVERIES ============
+
 // Init: wrapped in startApp(), called after successful login
 function startApp(){
   loadFromStorage();
+  loadDeliveries();
   populateFormDropdowns();
   renderChangelog();
 }
@@ -1776,6 +1966,112 @@ function startApp(){
 })();
 
 </script>
+
+<!-- DELIVERIES TAB -->
+<div id="tab-deliveries" class="content hidden">
+  <div class="section-title">📦 استلامات التوريدات — تسجيل ومتابعة الخامات</div>
+  <div class="kpi-grid" id="delivKpis"></div>
+
+  <div id="deliveriesFormSection" class="form-section">
+    <h3>➕ تسجيل استلام جديد</h3>
+    <div id="delivNotice" style="display:none;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:.82rem"></div>
+    <div class="form-row">
+      <div class="form-group" style="min-width:200px">
+        <label>المشروع *</label>
+        <select id="delivProject">
+          <option value="">-- اختر مشروع --</option>
+          <option value="P-125">P-125 — 104K</option>
+          <option value="P-003">P-003 — 117A</option>
+          <option value="P-004">P-004 — 59A</option>
+          <option value="P-005">P-005 — 33I</option>
+          <option value="P-006">P-006 — 98A</option>
+          <option value="P-014">P-014 — 52L</option>
+          <option value="P-015">P-015 — 58C</option>
+          <option value="P-016">P-016 — 226J</option>
+          <option value="P-017">P-017 — 160J</option>
+          <option value="P-021">P-021 — 122K</option>
+          <option value="P-034">P-034 — 145A</option>
+          <option value="P-035">P-035 — 53A</option>
+        </select>
+      </div>
+      <div class="form-group" style="min-width:200px">
+        <label>البند *</label>
+        <input type="text" id="delivItem" list="delivItemsList" placeholder="اختر أو اكتب البند" autocomplete="off">
+        <datalist id="delivItemsList">
+          <option value="هيكل — خرسانة وحديد">
+          <option value="أعمال التشطيب الداخلي">
+          <option value="كهرباء">
+          <option value="سباكة">
+          <option value="بلاط / سيراميك">
+          <option value="جبس بورد">
+          <option value="دهانات">
+          <option value="ألمنيوم وزجاج">
+          <option value="أبواب ونجارة">
+          <option value="عزل">
+          <option value="رخام">
+          <option value="طوب وخرسانة عادية">
+          <option value="واجهات حجر">
+          <option value="أخرى">
+        </datalist>
+      </div>
+      <div class="form-group" style="flex:2;min-width:220px">
+        <label>اسم الخامة * (مثال: حديد تسليح 12مم — بلاط سيراميك 60×60)</label>
+        <input type="text" id="delivMaterial" placeholder="اكتب اسم الخامة بالتفصيل">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="min-width:120px">
+        <label>الكمية *</label>
+        <input type="number" id="delivQty" placeholder="0" min="0" step="0.01">
+      </div>
+      <div class="form-group" style="min-width:110px">
+        <label>الوحدة</label>
+        <select id="delivUnit">
+          <option value="طن">طن</option>
+          <option value="م²">م²</option>
+          <option value="م.ط">م.ط</option>
+          <option value="متر">متر</option>
+          <option value="كيلوجرام">كيلوجرام</option>
+          <option value="لتر">لتر</option>
+          <option value="م³">م³</option>
+          <option value="عدد">عدد</option>
+          <option value="صفيحة">صفيحة</option>
+          <option value="كيس">كيس</option>
+        </select>
+      </div>
+      <div class="form-group" style="min-width:170px">
+        <label>المورد / اسم الشركة</label>
+        <input type="text" id="delivSupplier" placeholder="اسم المورد أو الشركة">
+      </div>
+      <div class="form-group" style="min-width:150px">
+        <label>رقم الفاتورة / المستند</label>
+        <input type="text" id="delivInvoice" placeholder="مثال: INV-2026-001">
+      </div>
+      <div class="form-group" style="flex:2;min-width:170px">
+        <label>ملاحظة (اختياري)</label>
+        <input type="text" id="delivNote" placeholder="أي تفاصيل إضافية...">
+      </div>
+      <div class="form-group" style="justify-content:flex-end">
+        <label style="color:transparent">.</label>
+        <button class="form-btn form-btn-green" onclick="addDelivery()">✅ تسجيل الاستلام</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:16px">📊 حصر التوريدات الإجمالي — مجمّع لكل عمارة</div>
+  <div id="delivSummary"></div>
+
+  <div class="section-title" style="margin-top:16px;flex-wrap:wrap;gap:8px">
+    <span>📋 سجل الاستلامات التفصيلي</span>
+    <span style="display:inline-flex;gap:8px;margin-right:10px">
+      <select id="delivFilterProj" onchange="renderDeliveries()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none">
+        <option value="">كل المشاريع</option>
+      </select>
+      <input id="delivFilterItem" oninput="renderDeliveries()" placeholder="🔍 فلتر خامة / بند..." style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none;width:180px">
+    </span>
+  </div>
+  <div id="delivLog" style="margin-top:10px"></div>
+</div>
 
 <!-- ADMIN PANEL TAB -->
 <div id="tab-admin" class="content hidden">
@@ -1819,6 +2115,10 @@ function startApp(){
       • كلمات المرور محفوظة في المتصفح — هذا التطبيق على GitHub Pages فقط.<br>
       • الجلسة تبقى مفتوحة لمدة 7 أيام بدون الحاجة لإعادة الدخول.
     </p>
+  </div>
+  <div class="section-title" style="margin-top:18px">👁 إعدادات ظهور التبويبات للأدوار</div>
+  <div class="admin-section" id="tabPermContainer">
+    <p style="color:var(--muted);font-size:.82rem">جارٍ التحميل...</p>
   </div>
 </div>
 
