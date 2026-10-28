@@ -342,14 +342,14 @@ function _checkCreds(u,p){
   if(x)return{username:x.username,role:x.role||'viewer',fullname:x.fullname||x.username};
   return null;
 }
-const _ROLE_LABEL={admin:'👑 Chairman',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',viewer:'👁 مشاهد'};
+const _ROLE_LABEL={admin:'📊 Projects Manager',chairman:'👑 Chairman',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',viewer:'👁 مشاهد'};
 function applyPermissions(role){
   // chat input + add forms
   const chatIn=document.getElementById('chatInputSection');
   const formUpd=document.getElementById('formUpdateSection');
   const formData=document.getElementById('formDataSection');
   // admin & editor & supervisor can add updates; viewer cannot
-  const canAdd=(role==='admin'||role==='editor'||role==='engineer'||role==='supervisor');
+  const canAdd=(role==='admin'||role==='chairman'||role==='editor'||role==='engineer'||role==='supervisor');
   if(chatIn)chatIn.style.display=canAdd?'':'none';
   if(formUpd)formUpd.style.display=canAdd?'':'none';
   // only admin & editor can export/import/reset data
@@ -429,8 +429,8 @@ function changeUserPwd(uname){
   if(u){u.password=np.trim();_saveUsers(users);alert('✓ تم تغيير كلمة المرور');}
 }
 function changeUserRole(uname){
-  const roles=['viewer','supervisor','engineer','editor','admin'];
-  const labels={'viewer':'مشاهد','supervisor':'Site Engineer','engineer':'Technical Office Eng.','editor':'Technical Office Manager','admin':'Chairman'};
+  const roles=['viewer','supervisor','engineer','editor','chairman','admin'];
+  const labels={'viewer':'مشاهد','supervisor':'Site Engineer','engineer':'Technical Office Eng.','editor':'Technical Office Manager','chairman':'Chairman','admin':'Projects Manager'};
   const users=_getUsers();const u=users.find(x=>x.username===uname);
   if(!u)return;
   const cur=u.role||'viewer';
@@ -453,7 +453,7 @@ function renderAdminPanel(){
     html='<table class="user-table"><thead><tr><th>اسم المستخدم</th><th>الاسم الكامل</th><th>الصلاحية</th><th>تاريخ الإضافة</th><th>إجراءات</th></tr></thead><tbody>';
     users.forEach(u=>{
       const rl=u.role||'viewer';
-      const rlColors={admin:'#6366f1',editor:'#22c55e',supervisor:'#f97316',viewer:'#64748b'};
+      const rlColors={admin:'#6366f1',chairman:'#a855f7',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',viewer:'#64748b'};
       const rlBadge='<span style="background:'+rlColors[rl]+'22;color:'+rlColors[rl]+';border:1px solid '+rlColors[rl]+'44;border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700">'+(_ROLE_LABEL[rl]||rl)+'</span>';
       html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td><td>'+rlBadge+'</td><td>'+(u.createdAt||'—')+'</td>'
         +'<td><button class="del-btn kb" onclick="changeUserPwd(\''+u.username+'\')">🔑 باسورد</button>'
@@ -512,7 +512,7 @@ function saveTabPermissions(){
 }
 function renderTabPermissions(){
   const p=_getTabPerm();
-  const roles=[{id:'editor',label:'🏗️ Technical Office Manager'},{id:'engineer',label:'📐 Technical Office Eng.'},{id:'supervisor',label:'👷 Site Engineer'},{id:'viewer',label:'👁 مشاهد'}];
+  const roles=[{id:'chairman',label:'👑 Chairman'},{id:'editor',label:'🏗️ Technical Office Manager'},{id:'engineer',label:'📐 Technical Office Eng.'},{id:'supervisor',label:'👷 Site Engineer'},{id:'viewer',label:'👁 مشاهد'}];
   const thead='<tr style="background:var(--panel)"><th style="text-align:right;padding:8px 12px">التبويب</th>'
     +'<th style="text-align:center;padding:8px 6px;font-size:.75rem">👑 Chairman</th>'
     +roles.map(r=>'<th style="text-align:center;padding:8px 6px;font-size:.75rem">'+r.label+'</th>').join('')+'</tr>';
@@ -2097,7 +2097,8 @@ function startApp(){
           <option value="supervisor">👷 Site Engineer</option>
           <option value="engineer">📐 Technical Office Eng.</option>
           <option value="editor">🏗️ Technical Office Manager</option>
-          <option value="admin">👑 Chairman</option>
+          <option value="chairman">👑 Chairman</option>
+          <option value="admin">📊 Projects Manager</option>
         </select>
       </div>
       <button class="form-btn form-btn-primary" onclick="addUser()" style="margin-top:20px">إضافة ✓</button>
