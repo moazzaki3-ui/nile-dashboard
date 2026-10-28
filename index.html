@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة متابعة التخطيط — نايل للتطوير</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--panel:#1a1d27;--card:#222638;--border:#2e3248;
+  --accent:#6366f1;--accent2:#22d3ee;--accent3:#f59e0b;--accent4:#10b981;
+  --text:#e2e8f0;--muted:#8892a4;--red:#ef4444;--orange:#f97316;--green:#22c55e;--yellow:#eab308;
+}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+header{background:linear-gradient(135deg,#1e1b4b,#312e81);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap}
+header h1{font-size:1.15rem;font-weight:900;color:#fff}
+header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
+.badge{background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid #4f46e5;border-radius:20px;padding:3px 12px;font-size:.72rem;white-space:nowrap}
+.tabs{display:flex;gap:4px;padding:10px 20px 0;background:var(--panel);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{padding:9px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-weight:600;font-size:.8rem;color:var(--muted);transition:.15s;border:1px solid transparent;border-bottom:none;white-space:nowrap}
+.tab.active{background:var(--card);color:var(--accent);border-color:var(--border)}
+.tab:hover:not(.active){color:var(--text)}
+.content{padding:16px 20px;max-width:1400px;margin:0 auto}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;right:0;width:3px;height:100%;background:var(--accent)}
+.kpi.green::before{background:var(--green)}.kpi.yellow::before{background:var(--yellow)}
+.kpi.red::before{background:var(--red)}.kpi.blue::before{background:var(--accent2)}.kpi.orange::before{background:var(--orange)}
+.kpi-val{font-size:1.8rem;font-weight:900;line-height:1}
+.kpi-lbl{font-size:.7rem;color:var(--muted);margin-top:3px}
+.kpi-sub{font-size:.72rem;color:var(--muted);margin-top:1px}
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+@media(max-width:700px){.charts-row{grid-template-columns:1fr}}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px}
+.chart-title{font-weight:700;font-size:.85rem;margin-bottom:12px;color:var(--text)}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:.76rem}
+.bar-row .lbl{width:95px;text-align:right;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.bar-wrap{flex:1;background:rgba(255,255,255,.06);border-radius:3px;height:16px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:.5s}
+.bar-val{width:32px;text-align:left;color:var(--muted);flex-shrink:0}
+.section-title{font-size:.95rem;font-weight:700;margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.filter-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filter-row select,.filter-row input{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;font-family:'Cairo',sans-serif;font-size:.78rem;outline:none}
+.filter-row select:focus,.filter-row input:focus{border-color:var(--accent)}
+.filter-tr td{padding:3px 3px;background:var(--panel);vertical-align:middle}
+.filter-tr select,.filter-tr input{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 6px;font-family:'Cairo',sans-serif;font-size:.72rem;outline:none;box-sizing:border-box}
+.filter-tr select:focus,.filter-tr input:focus{border-color:var(--accent)}
+.project-table{width:100%;border-collapse:collapse;font-size:.76rem}
+.project-table th{background:var(--panel);color:var(--muted);padding:7px 8px;text-align:right;font-weight:600;border-bottom:2px solid var(--border);white-space:nowrap}
+.project-table td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.project-table tr:hover td{background:rgba(255,255,255,.025)}
+.status-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:.68rem;font-weight:600;white-space:nowrap}
+.s-done{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
+.s-facade{background:rgba(234,179,8,.15);color:#fbbf24;border:1px solid rgba(234,179,8,.3)}
+.s-internal{background:rgba(249,115,22,.15);color:#fb923c;border:1px solid rgba(249,115,22,.3)}
+.s-struct{background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3)}
+.s-permit{background:rgba(148,163,184,.15);color:#94a3b8;border:1px solid rgba(148,163,184,.3)}
+.pct-bar{width:60px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:4px}
+.pct-fill{height:100%;border-radius:3px}
+.tag{display:inline-block;padding:1px 5px;border-radius:5px;font-size:.64rem;margin:1px}
+.tag-done{background:rgba(34,197,94,.2);color:#4ade80}
+.tag-progress{background:rgba(249,115,22,.2);color:#fb923c}
+.tag-empty{background:rgba(148,163,184,.07);color:rgba(148,163,184,.4)}
+.count-info{font-size:.76rem;color:var(--muted);margin-bottom:7px}
+.update-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.update-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px}
+.update-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.update-name{font-weight:900;font-size:1rem}
+.update-loc{font-size:.72rem;color:var(--muted);margin-top:2px}
+.pkg-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:.74rem}
+.pkg-lbl{width:110px;text-align:right;flex-shrink:0;color:var(--text)}
+.pkg-track{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.pkg-fill{height:100%;border-radius:4px}
+.pkg-pct{width:30px;text-align:left;flex-shrink:0;font-size:.7rem}
+.pkg-note{font-size:.64rem;color:var(--muted);padding-right:116px;margin-bottom:4px;line-height:1.3}
+.loc-map{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.loc-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:.15s}
+.loc-card:hover,.loc-card.active{border-color:var(--accent);background:#252940}
+.loc-name{font-weight:700;font-size:.83rem;margin-bottom:5px}
+.loc-pct-bar{height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-bottom:5px}
+.loc-pct-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#6366f1,#22d3ee)}
+.loc-stats{display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted)}
+.hidden{display:none}
+.kpi[onclick]{cursor:pointer;transition:.15s}
+.kpi[onclick]:hover{filter:brightness(1.13);transform:translateY(-1px);border-color:rgba(99,102,241,.4)}
+.active-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-left:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.ring-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+#projectModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;overflow-y:auto;padding:20px 16px;box-sizing:border-box}
+#modalBox{max-width:760px;margin:30px auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;direction:rtl;animation:slideUp .2s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.modal-pkg{margin-bottom:12px}
+.modal-pkg-bar{height:7px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;margin:4px 0 3px}
+.modal-pkg-fill{height:100%;border-radius:4px;transition:width .6s .05s}
+
+/* Chat Update Tab */
+.chat-container{max-width:900px;margin:0 auto}
+.chat-messages{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:300px;max-height:500px;overflow-y:auto;margin-bottom:14px;display:flex;flex-direction:column;gap:8px}
+.chat-msg{padding:10px 14px;border-radius:10px;font-size:.82rem;max-width:85%;line-height:1.5;animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chat-user{background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:var(--text);align-self:flex-end;border-bottom-left-radius:4px}
+.chat-bot{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:var(--text);align-self:flex-start;border-bottom-right-radius:4px}
+.chat-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5;align-self:flex-start}
+.chat-input-row{display:flex;gap:8px;margin-bottom:14px}
+.chat-input{flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-family:'Cairo',sans-serif;font-size:.85rem;outline:none;resize:none;min-height:44px}
+.chat-input:focus{border-color:var(--accent)}
+.chat-input::placeholder{color:var(--muted)}
+.chat-send{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-family:'Cairo',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;white-space:nowrap}
+.chat-send:hover{filter:brightness(1.15)}
+.form-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+.form-section h3{font-size:.9rem;font-weight:700;margin-bottom:12px;color:var(--accent)}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+.form-group{display:flex;flex-direction:column;gap:4px;min-width:140px}
+.form-group label{font-size:.72rem;color:var(--muted);font-weight:600}
+.form-group select,.form-group input{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-family:'Cairo',sans-serif;font-size:.8rem;outline:none}
+.form-group select:focus,.form-group input:focus{border-color:var(--accent)}
+.form-btn{padding:8px 16px;border-radius:8px;border:none;font-family:'Cairo',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;transition:.15s}
+.form-btn:hover{filter:brightness(1.15)}
+.form-btn-primary{background:var(--accent);color:#fff}
+.form-btn-green{background:var(--green);color:#fff}
+.form-btn-orange{background:var(--orange);color:#fff}
+.form-btn-red{background:var(--red);color:#fff}
+.io-section{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.io-section button{padding:8px 16px;border-radius:8px;border:1px solid var(--border);font-family:'Cairo',sans-serif;font-weight:600;font-size:.78rem;cursor:pointer;transition:.15s;background:var(--card);color:var(--text)}
+.io-section button:hover{border-color:var(--accent);color:var(--accent)}
+.chat-help{font-size:.74rem;color:var(--muted);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;line-height:1.8}
+.chat-help b{color:var(--text)}
+.chat-help code{background:rgba(99,102,241,.15);color:var(--accent);padding:1px 5px;border-radius:4px;font-size:.76rem}
+.changelog-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.78rem}
+.changelog-time{color:var(--muted);font-size:.7rem;flex-shrink:0;width:70px}
+/* ===== AUTH ===== */
+#loginOverlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-box{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:360px;max-width:95vw;animation:slideUp .3s ease}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo h2{font-size:1.3rem;font-weight:900;color:#fff;margin-top:8px}
+.login-logo .sub{font-size:.74rem;color:var(--muted);margin-top:3px}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:.75rem;color:var(--muted);font-weight:600;margin-bottom:5px}
+.login-field input{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:10px 13px;font-family:'Cairo',sans-serif;font-size:.9rem;outline:none;box-sizing:border-box;transition:.15s}
+.login-field input:focus{border-color:var(--accent)}
+.login-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:12px;font-family:'Cairo',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer;margin-top:4px;transition:.15s}
+.login-btn:hover{filter:brightness(1.12)}
+.login-err{color:var(--red);font-size:.78rem;text-align:center;margin-top:8px;min-height:18px}
+.logout-btn{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.25);border-radius:7px;padding:5px 11px;font-family:'Cairo',sans-serif;font-size:.73rem;font-weight:700;cursor:pointer;transition:.15s}
+.logout-btn:hover{background:rgba(239,68,68,.22)}
+#headerUser{display:none;align-items:center;gap:8px}
+.user-badge{font-size:.73rem;color:#a5b4fc}
+/* Admin Panel */
+.admin-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+.admin-section h3{font-size:.88rem;font-weight:700;margin-bottom:12px;color:var(--accent)}
+.user-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.user-table th{background:var(--panel);color:var(--muted);padding:8px 10px;text-align:right;font-weight:600;border-bottom:2px solid var(--border)}
+.user-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.del-btn{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:6px;padding:4px 9px;font-family:'Cairo',sans-serif;font-size:.7rem;cursor:pointer;margin-left:4px;transition:.12s}
+.del-btn:hover{border-color:var(--red);color:var(--red)}
+.del-btn.kb:hover{border-color:var(--accent2);color:var(--accent2)}
+</style>
+</head>
+<body>
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="display:none">
+  <div class="login-box">
+    <div class="login-logo">
+      <div style="font-size:2.4rem">🏗️</div>
+      <h2>نايل للتطوير</h2>
+      <div class="sub">لوحة متابعة التخطيط الشامل</div>
+    </div>
+    <div class="login-field">
+      <label>اسم المستخدم</label>
+      <input type="text" id="loginUser" placeholder="اسم المستخدم" autocomplete="username"
+        onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+    </div>
+    <div class="login-field">
+      <label>كلمة المرور</label>
+      <input type="password" id="loginPass" placeholder="كلمة المرور" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">دخول ✓</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+<header>
+  <div><div class="sub">شركة نايل للتطوير — مشاريع الأهرام</div><h1>🏗️ لوحة متابعة التخطيط الشامل</h1><div style="font-size:.7rem;color:var(--accent2);letter-spacing:.08em;margin-top:3px">✦ Design by <span style="color:#38bdf8;font-weight:700">Eng. Moaz Zaki</span> ✦</div></div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span class="badge" id="dateLabel"></span>
+    <div id="headerUser">
+      <span class="user-badge" id="userLabel"></span>
+      <button class="logout-btn" onclick="doLogout()">↩ خروج</button>
+    </div>
+  </div>
+</header>
+<div class="tabs">
+  <div class="tab active" onclick="showTab('portfolio')">📊 المحفظة</div>
+  <div class="tab" onclick="showTab('projects')">📋 جميع المشاريع</div>
+  <div class="tab" onclick="showTab('updates')">📝 تقرير الموقف</div>
+  <div class="tab" onclick="showTab('cashflow')">💰 الكاش فلو</div>
+  <div class="tab" onclick="showTab('financial')">📋 الاحتياجات المالية</div>
+  <div class="tab" onclick="showTab('rates')">📋 التحديثات</div>
+  <div class="tab" onclick="showTab('deviations')">📉 الانحرافات</div>
+  <div class="tab" onclick="showTab('chat')">💬 تحديث البيانات</div>
+  <div class="tab" id="adminTab" onclick="showTab('admin')" style="display:none">⚙️ الإدارة</div>
+</div>
+
+<div id="tab-portfolio" class="content">
+  <div class="kpi-grid" id="kpiGrid"></div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">توزيع حالة التنفيذ</div>
+      <div id="statusChart"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">الموقف حسب الكمبوند / الحي</div>
+      <div id="locChart"></div>
+    </div>
+  </div>
+  <div class="section-title">📍 الأحياء والكمبوندات</div>
+  <div class="loc-map" id="locMap"></div>
+</div>
+
+<div id="tab-projects" class="content hidden">
+  <div class="count-info" id="countInfo"></div>
+  <div style="overflow-x:auto">
+    <table class="project-table">
+      <thead>
+      <tr class="filter-tr">
+        <td colspan="2"></td>
+        <td><input id="searchInput" placeholder="🔍 ابحث بالاسم أو الكود..." oninput="filterProjects()"></td>
+        <td><select id="locFilter" onchange="filterProjects()"><option value="">كل الأحياء</option></select></td>
+        <td><select id="statusFilter" onchange="filterProjects()">
+          <option value="">كل الحالات</option>
+          <option value="تم الانتهاء من الاعمال">✅ تم الانتهاء</option>
+          <option value="جارى تشطيب الوجهات">🏠 تشطيب وجهات</option>
+          <option value="جارى التشطيب الداخلي">🔨 تشطيب داخلي</option>
+          <option value="جارى اعمال الهيكل">🏗 هيكل جارى</option>
+          <option value="جارى الترخيص">📄 جارى الترخيص</option>
+          <option value="تحت الترخيص">📁 تحت الترخيص</option>
+        </select></td>
+        <td></td>
+        <td><select id="doorFilter" onchange="filterProjects()"><option value="">الكل</option><option value="تم">✓ تم</option><option value="جارى">⟳ جارى</option><option value="لسه">– لسه</option></select></td>
+        <td><select id="internalFilter" onchange="filterProjects()"><option value="">الكل</option><option value="تم">✓ تم</option><option value="جارى">⟳ جارى</option><option value="لسه">– لسه</option></select></td>
+        <td><select id="garageFilter" onchange="filterProjects()"><option value="">الكل</option><option value="تم">✓ تم</option><option value="جارى">⟳ جارى</option><option value="لسه">– لسه</option></select></td>
+        <td><select id="landscapeFilter" onchange="filterProjects()"><option value="">الكل</option><option value="تم">✓ تم</option><option value="جارى">⟳ جارى</option><option value="لسه">– لسه</option></select></td>
+        <td><select id="metersFilter" onchange="filterProjects()"><option value="">الكل</option><option value="تم">✓ تم</option><option value="جارى">⟳ جارى</option><option value="لسه">– لسه</option></select></td>
+      </tr>
+      <tr>
+        <th>#</th><th>الكود</th><th>الاسم</th><th>الموقع</th><th>الحالة</th>
+        <th>الإنجاز</th><th>باب</th><th>داخلي</th><th>جراج</th><th>لاندسكيب</th><th>عدادات</th>
+      </tr></thead>
+      <tbody id="projectBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="tab-updates" class="content hidden">
+  <div class="section-title">📝 تقرير الموقف التفصيلي — 12 مشروع جارى التنفيذ <span class="active-dot"></span></div>
+  <div class="kpi-grid" style="margin-bottom:12px">
+    <div class="kpi" style="background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.3)"><div class="kpi-val" style="color:var(--accent)">1</div><div class="kpi-lbl">هيكل جارى</div><div class="kpi-sub">P-125 — 104K — 35%</div></div>
+    <div class="kpi yellow"><div class="kpi-val" style="color:var(--yellow)">4</div><div class="kpi-lbl">تشطيب وجهات</div><div class="kpi-sub">98A · 52L · 226J · 160J</div></div>
+    <div class="kpi orange"><div class="kpi-val" style="color:var(--orange)">7</div><div class="kpi-lbl">تشطيب داخلي</div><div class="kpi-sub">117A · 59A · 33I · 58C · 122K · 145A · 53A</div></div>
+  </div>
+  <div class="update-grid" id="updateGrid"></div>
+</div>
+
+<div id="tab-cashflow" class="content hidden">
+  <div class="section-title">💰 الكاش فلو — 12 قطعة نشطة (أسعار أكتوبر 2026)</div>
+  <div class="kpi-grid" id="cfKpis"></div>
+  <div class="chart-card" style="margin-bottom:14px">
+    <div class="chart-title">توزيع الصرف الشهري + منحنى S-Curve التراكمي
+      <span style="font-weight:400;font-size:.75rem;color:var(--orange);margin-right:8px">— الخط البرتقالي: إجمالي تراكمي | الخط الأحمر المتقطع: اليوم</span>
+    </div>
+    <div id="cfChart"></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:.72rem;color:var(--muted)">
+      <span style="color:#f97316">■ تشطيب داخلي (7 قطع)</span>
+      <span style="color:#eab308">■ تشطيب وجهات (4 قطع)</span>
+      <span style="color:#6366f1">■ هيكل 104K</span>
+      <span style="color:#f97316">— S-Curve</span>
+      <span style="color:#ef4444">-- اليوم</span>
+    </div>
+  </div>
+  <div class="chart-card" style="margin-bottom:14px">
+    <div class="chart-title">توزيع الميزانية حسب نوع العمل</div>
+    <div id="cfBreakdown"></div>
+  </div>
+  <div style="font-size:.72rem;color:var(--muted);padding:10px 14px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
+    💡 <b style="color:var(--text)">المصدر:</b> جدول الكميات وطلبات الشراء — عمارة سكنية أرضي+3 — نايل للتطوير.
+    سعر الوحدة المرجعي: <b style="color:var(--accent3)">19,297 ج.م/م²</b> (600م² = 11,578,094 ج.م).
+    إجمالي 12 قطعة نشطة: <b style="color:var(--accent2)">151.26م ج.م</b>.
+    البرنامج الزمني: <b style="color:var(--text)">AHR 365 يوم عمل + 104K 70 يوم مضغوط</b>.
+  </div>
+</div>
+
+<div id="tab-financial" class="content hidden">
+  <div class="section-title">📋 الاحتياجات المالية — 12 قطعة نشطة (أكتوبر 2026 → يناير 2027)</div>
+  <div class="kpi-grid" id="finKpis"></div>
+  <div class="chart-card" style="margin-bottom:14px">
+    <div class="chart-title">الاحتياجات المالية الشهرية المتبقية (ج.م)
+      <span style="font-weight:400;font-size:.75rem;color:var(--muted);margin-right:8px">— إجمالي 12 قطعة نشطة</span>
+    </div>
+    <div id="finChart"></div>
+  </div>
+  <div class="chart-card" style="margin-bottom:14px">
+    <div class="chart-title">جدول الاحتياجات المالية التفصيلي — قطعة × شهر</div>
+    <div style="overflow-x:auto">
+      <table class="project-table" id="finTable"></table>
+    </div>
+  </div>
+  <div style="font-size:.72rem;color:var(--muted);padding:10px 14px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
+    💡 <b style="color:var(--text)">المنهجية:</b> تكلفة القطعة = 11,578,094 ج.م (مرجع 600م²) × (مساحة القطعة ÷ 600).
+    التوزيع بحسب الحالة —
+    <b style="color:var(--orange)">تشطيب داخلي</b> (55% مصروف): أكتوبر 4%، نوفمبر 18%، ديسمبر 17%، يناير 6% |
+    <b style="color:var(--yellow)">تشطيب وجهات</b> (75% مصروف): أكتوبر 1%، نوفمبر 8%، ديسمبر 12%، يناير 4% |
+    <b style="color:var(--accent)">هيكل 104K</b> (35% مصروف، برنامج مضغوط 70 يوم): أكتوبر 9%، نوفمبر 35%، ديسمبر 21%، يناير 0%.
+  </div>
+</div>
+
+<div id="tab-rates" class="content hidden">
+  <div class="section-title">📋 تتبع الإنجاز والتأخير <span class="active-dot"></span></div>
+  <div class="kpi-grid" id="trackingKpis" style="margin-bottom:16px"></div>
+  <div class="chart-card" style="margin-bottom:14px">
+    <div class="chart-title">🏗️ 104K — متابعة الهيكل المضغوط <span style="font-size:.7rem;color:var(--muted);font-weight:400">برنامج 70 يوم — بدأ 12 أكتوبر 2026</span></div>
+    <div id="k104Table"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">📋 تحديثات العمارات النشطة <span style="font-size:.7rem;color:var(--muted);font-weight:400">— المنجز vs المخطط</span></div>
+    <div style="overflow-x:auto" id="activeTracking"></div>
+  </div>
+</div>
+
+<div id="tab-deviations" class="content hidden"></div>
+
+<script>
+// ========== AUTH SYSTEM ==========
+const _AU={u:'moaz',p:'Weza#zaki4251',role:'admin',name:'Eng. Moaz Zaki'};
+const _UK='nile_auth_users',_SK='nile_auth_session';
+function _getUsers(){try{return JSON.parse(localStorage.getItem(_UK)||'[]');}catch(e){return[];}}
+function _saveUsers(a){try{localStorage.setItem(_UK,JSON.stringify(a));}catch(e){}}
+function _checkCreds(u,p){
+  if(u===_AU.u&&p===_AU.p)return{username:u,role:'admin',fullname:_AU.name};
+  const x=_getUsers().find(r=>r.username===u&&r.password===p);
+  if(x)return{username:x.username,role:'viewer',fullname:x.fullname||x.username};
+  return null;
+}
+function _setSession(s){try{localStorage.setItem(_SK,JSON.stringify({...s,exp:Date.now()+86400000*7}));}catch(e){}}
+function _getSession(){try{const s=JSON.parse(localStorage.getItem(_SK)||'null');if(s&&s.exp>Date.now())return s;}catch(e){}return null;}
+function _clearSession(){try{localStorage.removeItem(_SK);}catch(e){}}
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  if(!u||!p){err.textContent='يرجى إدخال اسم المستخدم وكلمة المرور';return;}
+  const sess=_checkCreds(u,p);
+  if(!sess){err.textContent='اسم المستخدم أو كلمة المرور غير صحيحة ❌';document.getElementById('loginPass').value='';return;}
+  err.textContent='';_setSession(sess);applySession(sess);
+}
+function doLogout(){
+  _clearSession();
+  document.getElementById('loginOverlay').style.display='flex';
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginErr').textContent='';
+  document.getElementById('headerUser').style.display='none';
+  document.getElementById('adminTab').style.display='none';
+}
+function applySession(sess){
+  document.getElementById('loginOverlay').style.display='none';
+  document.getElementById('userLabel').textContent='👤 '+sess.fullname;
+  document.getElementById('headerUser').style.display='flex';
+  if(sess.role==='admin')document.getElementById('adminTab').style.display='';
+  startApp();
+}
+// Admin panel functions
+function addUser(){
+  const u=(document.getElementById('newUsername').value||'').trim();
+  const p=(document.getElementById('newPassword').value||'');
+  const fn=(document.getElementById('newFullname').value||'').trim();
+  const msg=document.getElementById('addUserMsg');
+  if(!u||!p){msg.style.color='var(--red)';msg.textContent='يرجى إدخال اسم المستخدم وكلمة المرور';return;}
+  if(u===_AU.u){msg.style.color='var(--red)';msg.textContent='هذا الاسم محجوز للمسؤول';return;}
+  const users=_getUsers();
+  if(users.find(x=>x.username===u)){msg.style.color='var(--red)';msg.textContent='اسم المستخدم موجود بالفعل';return;}
+  users.push({username:u,password:p,fullname:fn||u,createdAt:new Date().toLocaleDateString('ar-EG')});
+  _saveUsers(users);
+  document.getElementById('newUsername').value='';
+  document.getElementById('newPassword').value='';
+  document.getElementById('newFullname').value='';
+  msg.style.color='var(--green)';msg.textContent='✓ تم إضافة المستخدم بنجاح';
+  setTimeout(()=>{try{document.getElementById('addUserMsg').textContent='';}catch(e){}},3000);
+  renderAdminPanel();
+}
+function removeUser(uname){
+  if(!confirm('حذف المستخدم "'+uname+'" ؟'))return;
+  _saveUsers(_getUsers().filter(x=>x.username!==uname));
+  renderAdminPanel();
+}
+function changeUserPwd(uname){
+  const np=prompt('كلمة المرور الجديدة للمستخدم "'+uname+'":');
+  if(!np||!np.trim())return;
+  const users=_getUsers();const u=users.find(x=>x.username===uname);
+  if(u){u.password=np.trim();_saveUsers(users);alert('✓ تم تغيير كلمة المرور');}
+}
+function renderAdminPanel(){
+  const wrap=document.getElementById('usersTableWrap');
+  if(!wrap)return;
+  const users=_getUsers();
+  let html='';
+  if(users.length===0){
+    html='<p style="color:var(--muted);font-size:.82rem;padding:10px 0">لا يوجد مستخدمون إضافيون بعد.<br>المسؤول <b style="color:var(--text)">'+_AU.u+'</b> يستطيع دائماً الدخول.</p>';
+  }else{
+    html='<table class="user-table"><thead><tr><th>اسم المستخدم</th><th>الاسم الكامل</th><th>تاريخ الإضافة</th><th>إجراءات</th></tr></thead><tbody>';
+    users.forEach(u=>{
+      html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td><td>'+(u.createdAt||'—')+'</td>'
+        +'<td><button class="del-btn kb" onclick="changeUserPwd(\''+u.username+'\')">🔑 تغيير الباسورد</button>'
+        +' <button class="del-btn" onclick="removeUser(\''+u.username+'\')">🗑 حذف</button></td></tr>';
+    });
+    html+='</tbody></table>';
+  }
+  wrap.innerHTML=html;
+}
+// ========== /AUTH SYSTEM ==========
+
+const PROJECTS = [{"code": "P-001", "name": "137A", "loc": "NORTH REHAB", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-002", "name": "138A", "loc": "NORTH REHAB", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-003", "name": "117A", "loc": "NORTH REHAB", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-004", "name": "59A", "loc": "NORTH REHAB", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-005", "name": "33I", "loc": "NORTH REHAB", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-006", "name": "98A", "loc": "NORTH REHAB", "status": "جارى تشطيب الوجهات", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 80}, {"code": "P-007", "name": "162B", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-008", "name": "79C", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-009", "name": "56B", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-010", "name": "36D", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-011", "name": "139E", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-012", "name": "50E", "loc": "1ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-013", "name": "51E", "loc": "1ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-014", "name": "52L", "loc": "2ST", "status": "جارى تشطيب الوجهات", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 80}, {"code": "P-015", "name": "58C", "loc": "3ST", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-016", "name": "226J", "loc": "2ST", "status": "جارى تشطيب الوجهات", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 80}, {"code": "P-017", "name": "160J", "loc": "2ST", "status": "جارى تشطيب الوجهات", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 80}, {"code": "P-018", "name": "231K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-019", "name": "232K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "جارى", "garage": "جارى", "landscape": "", "meters": "تم", "notes": "", "pct": 93}, {"code": "P-020", "name": "91K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "جارى", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 93}, {"code": "P-021", "name": "122K", "loc": "4ST", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-022", "name": "90K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-023", "name": "159K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "جارى", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 93}, {"code": "P-024", "name": "160K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-025", "name": "154K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-026", "name": "156K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-027", "name": "91C", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-028", "name": "106G", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-029", "name": "47H", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-030", "name": "61K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-031", "name": "60K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-032", "name": "59K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-033", "name": "58K", "loc": "4ST", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-034", "name": "145A", "loc": "7ST", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-035", "name": "53A", "loc": "2ST", "status": "جارى التشطيب الداخلي", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 55}, {"code": "P-036", "name": "31K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-037", "name": "81C", "loc": "1st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-038", "name": "66A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-039", "name": "65A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-040", "name": "73J", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-041", "name": "158F", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-042", "name": "306J", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-043", "name": "222A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-044", "name": "234A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-045", "name": "194A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-046", "name": "61I", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-047", "name": "289J", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-048", "name": "49D", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-049", "name": "74A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-050", "name": "79A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-051", "name": "184A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-052", "name": "185A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-053", "name": "214A", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-054", "name": "35G", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-055", "name": "61M", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-056", "name": "137E", "loc": "2st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-057", "name": "102K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "تم صب ارضية الجراج", "pct": 96}, {"code": "P-058", "name": "112K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "تم صب ارضية الجراج", "pct": 96}, {"code": "P-059", "name": "50K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-060", "name": "63K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-061", "name": "201K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-062", "name": "87K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-063", "name": "86K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-064", "name": "85K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-065", "name": "83K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-066", "name": "81K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-067", "name": "80K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-068", "name": "79K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-069", "name": "84K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-070", "name": "39K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-071", "name": "146K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-072", "name": "203K", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-073", "name": "37L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-074", "name": "53Q", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-075", "name": "46Q", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "جارى", "notes": "", "pct": 94}, {"code": "P-076", "name": "97H", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-077", "name": "83L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-078", "name": "84L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-079", "name": "54L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-080", "name": "158H", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-081", "name": "55N", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-082", "name": "90L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-083", "name": "101I", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-084", "name": "3I", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-085", "name": "1N", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "جارى", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-086", "name": "6L", "loc": "4st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-087", "name": "25G", "loc": "5st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-088", "name": "85E", "loc": "5st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}, {"code": "P-089", "name": "117I", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-090", "name": "125A", "loc": "7st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-091", "name": "143A", "loc": "7st", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-092", "name": "92F", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-093", "name": "17J", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}, {"code": "P-094", "name": "18J", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}, {"code": "P-095", "name": "13E", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-096", "name": "28A", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-097", "name": "34A", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-098", "name": "181A", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-099", "name": "2C", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-100", "name": "3C", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "جارى", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-101", "name": "16E", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-102", "name": "125G", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-103", "name": "100G", "loc": "NORTH HOUSE", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "", "notes": "", "pct": 94}, {"code": "P-104", "name": "77", "loc": "louts", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-105", "name": "98", "loc": "louts", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-106", "name": "47", "loc": "louts", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-107", "name": "101D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-108", "name": "32K", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-109", "name": "274D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-110", "name": "69G", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-111", "name": "75D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-112", "name": "76D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-113", "name": "78A", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 98.5}, {"code": "P-114", "name": "72D", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-115", "name": "43A", "loc": "narges", "status": "تم الانتهاء من الاعمال", "door": "", "internal": "تم", "garage": "تم", "landscape": "", "meters": "تم", "notes": "", "pct": 94}, {"code": "P-116", "name": "516", "loc": "andalus", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-117", "name": "517", "loc": "andalus", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "تم", "meters": "تم", "notes": "", "pct": 99.5}, {"code": "P-118", "name": "158J", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-119", "name": "159J", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-120", "name": "152J", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-121", "name": "167J", "loc": "6st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 95}, {"code": "P-122", "name": "138I", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "تم", "meters": "", "notes": "", "pct": 95}, {"code": "P-123", "name": "137I", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "تم", "meters": "", "notes": "", "pct": 95}, {"code": "P-124", "name": "151I", "loc": "8st", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "", "meters": "تم", "notes": "", "pct": 95}, {"code": "P-125", "name": "104K", "loc": "4 st", "status": "جارى اعمال الهيكل", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 35}, {"code": "P-126", "name": "13A", "loc": "7st", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-127", "name": "170A", "loc": "7st", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-128", "name": "60A", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-129", "name": "126A", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-130", "name": "89B", "loc": "NORTH HOUSE", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-131", "name": "90B", "loc": "NORTH HOUSE", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-132", "name": "55G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-133", "name": "56G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-134", "name": "57G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-135", "name": "58G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-136", "name": "59G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-137", "name": "119A", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-138", "name": "120A", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-139", "name": "5B", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-140", "name": "6B", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-141", "name": "8B", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-142", "name": "22", "loc": "narges", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-143", "name": "23", "loc": "narges", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-144", "name": "24", "loc": "narges", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-145", "name": "60D", "loc": "NORTH REHAB", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-146", "name": "35B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-147", "name": "36B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-148", "name": "57B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-149", "name": "58B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-150", "name": "59B", "loc": "andalus", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-151", "name": "89G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-152", "name": "90G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-153", "name": "91G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-154", "name": "92G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-155", "name": "93G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-156", "name": "94G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-157", "name": "95G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-158", "name": "96G", "loc": "NORTH HOUSE", "status": "جارى الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 5}, {"code": "P-159", "name": "66A", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-160", "name": "156", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-161", "name": "157", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-162", "name": "158", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-163", "name": "145", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-164", "name": "146", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-165", "name": "41", "loc": "alorked", "status": "تحت الترخيص", "door": "", "internal": "", "garage": "", "landscape": "", "meters": "", "notes": "", "pct": 2}, {"code": "P-166", "name": "34", "loc": "جنوب السويس", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}, {"code": "P-167", "name": "88", "loc": "جنوب السويس", "status": "تم الانتهاء من الاعمال", "door": "تم", "internal": "تم", "garage": "تم", "landscape": "جارى", "meters": "", "notes": "", "pct": 95}];
+const UPDATES = [{"code": "P-125", "name": "104K", "loc": "4th Settlement", "status": "جارى اعمال الهيكل", "pct": 20, "bl_days": 70, "start": "2026-10-12", "day": 13, "current_activity": "جارى نجارة سقف الأول (يوم ١٤/٧٠)", "packages": [{"n": "هيكل الأرضي (Ground)", "p": 100, "note": "تم ١٢-٢٢ أكتوبر — أعمدة + سقف"}, {"n": "هيكل الأول (1st Floor)", "p": 75, "note": "أعمدة تمت ٢٠/١٠ — جارى نجارة السقف ٢٥/١٠"}, {"n": "هيكل الثاني والثالث", "p": 5, "note": "بدأت أعمدة الثاني ٢٥ أكتوبر — ينتهي ٧ نوفمبر"}, {"n": "مباني (بناء)", "p": 5, "note": "بدأ ٢٣ أكتوبر — ينتهي ٢٦ نوفمبر"}, {"n": "تشطيب + بياض", "p": 0, "note": "يبدأ ٢٥ نوفمبر — ينتهي ١٠ ديسمبر"}, {"n": "كهرباء (سلب)", "p": 10, "note": "تأسيس سلب الأرضي جاري"}, {"n": "صحي (سلب)", "p": 5, "note": "تأسيس الأرضي جاري"}, {"n": "سور + واجهة", "p": 0, "note": "يبدأ ١٦ نوفمبر — ينتهي ٢٠ ديسمبر"}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-032", "name": "61K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 96, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي مرمات بعد انتهاء السباكه بالبدروم"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": ""}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور بعد صب البدروم"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات"}]}, {"code": "P-031", "name": "60K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 96, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي مرمات بعد انتهاء السباكه بالبدروم"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": ""}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور بعد صب البدروم"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات"}]}, {"code": "P-030", "name": "59K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 96, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي مرمات بعد انتهاء السباكه بالبدروم"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": ""}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور بعد صب البدروم"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات"}]}, {"code": "P-029", "name": "58K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 93, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 90, "note": "متبقي تشطيب البدروم بعد الصب"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 80, "note": "تركيب باب الرامب بعد صب البدروم"}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات وجريلات"}]}, {"code": "P-036", "name": "31K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 96, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي دهان البدروم بعد الصب"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": "لم يتم عمل باب للرامب"}, {"n": "حجر", "p": 95, "note": "صنفره وتشطيب المدخل والسور"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات وجريلات"}]}, {"code": "P-028", "name": "106G", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 95, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 95, "note": "متبقي دهان البدروم بعد الصب ومرمات السباكه"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 100, "note": ""}, {"n": "حجر", "p": 95, "note": "صنفره"}, {"n": "الوميتال", "p": 100, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات وجريلات"}]}, {"code": "P-029", "name": "47H", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 88, "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض", "p": 90, "note": "متبقي دهان البدروم بعد الصب والسور الامامي"}, {"n": "رخام", "p": 95, "note": "متبقي نظافة الرخام ولم الملاحظات"}, {"n": "كريتال", "p": 50, "note": "تم التصنيع ومتبقي التركيب بعد تشطيب السور"}, {"n": "حجر", "p": 95, "note": "متبقي تركيب بازلت السور"}, {"n": "الوميتال", "p": 90, "note": ""}, {"n": "صحي", "p": 80, "note": "متبقي البدروم معلقات وجريلات"}]}, {"code": "P-034", "name": "145A", "loc": "7th Settlement", "status": "جارى التشطيب الداخلي", "pct": 45, "start": "2026-04-14", "packages": [{"n": "خرسانات", "p": 80, "note": "متبقي الروف"}, {"n": "مباني", "p": 60, "note": "تم الارضي والاول وجاري التاني"}, {"n": "بياض", "p": 0, "note": "لم يبدأ"}, {"n": "رخام", "p": 0, "note": ""}, {"n": "كريتال", "p": 0, "note": ""}, {"n": "حجر", "p": 0, "note": ""}, {"n": "الوميتال", "p": 0, "note": ""}, {"n": "صحي", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-016", "name": "226J", "loc": "2nd Settlement", "status": "جارى تشطيب الوجهات", "pct": 78, "start": "2025-11-05", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض داخلي", "p": 100, "note": "تم الانتهاء"}, {"n": "بياض خارجي", "p": 85, "note": "جاري الواجهة الامامية والجانبية"}, {"n": "حجر", "p": 70, "note": "جاري تشطيب حجر الواجهه الامامية"}, {"n": "الوميتال", "p": 50, "note": "جاري تصنيع شبابيك الواجهه الامامية"}, {"n": "بياض السلم", "p": 80, "note": "جاري"}, {"n": "سباكة خارجية", "p": 85, "note": "جاري الجانبية اليسري"}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-017", "name": "160J", "loc": "2nd Settlement", "status": "جارى تشطيب الوجهات", "pct": 80, "start": "2025-08-05", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض داخلي", "p": 100, "note": "تم الانتهاء"}, {"n": "بياض خارجي", "p": 80, "note": "جاري الجانبية اليسري والروف والبدروم"}, {"n": "حجر", "p": 0, "note": "لم يبدأ"}, {"n": "الوميتال", "p": 0, "note": ""}, {"n": "بياض السلم", "p": 100, "note": "تم"}, {"n": "سباكة خارجية", "p": 90, "note": "تم الخلفية"}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-014", "name": "52L", "loc": "2nd Settlement", "status": "جارى تشطيب الوجهات", "pct": 77, "start": "2025-07-09", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض داخلي", "p": 100, "note": "تم الانتهاء"}, {"n": "بياض البدروم", "p": 100, "note": "تم"}, {"n": "بياض الخارجي", "p": 75, "note": "جاري الجانبية اليسري والنواحي"}, {"n": "مصيص سقف البدروم", "p": 60, "note": "جاري"}, {"n": "سباكة خارجية", "p": 90, "note": "تم الخلفية"}, {"n": "بياض المنور", "p": 100, "note": "تم"}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-015", "name": "58C", "loc": "3rd Settlement", "status": "جارى التشطيب الداخلي", "pct": 55, "start": "2025-10-21", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 90, "note": "B+G+1+2 تم، الثالث جاري، الروف جاري"}, {"n": "بياض الارضي", "p": 100, "note": "تم"}, {"n": "بياض البدروم", "p": 80, "note": "جاري الانتهاء"}, {"n": "بياض الادوار", "p": 30, "note": "جاري تجهيزات الأول والثاني"}, {"n": "كهرباء", "p": 50, "note": "جاري الأول والثاني"}, {"n": "صحي", "p": 0, "note": ""}, {"n": "الوميتال", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-021", "name": "122K", "loc": "4th Settlement", "status": "جارى التشطيب الداخلي", "pct": 65, "start": "2026-03-04", "packages": [{"n": "خرسانات", "p": 100, "note": "تم"}, {"n": "مباني", "p": 100, "note": "تم جميع الادوار"}, {"n": "بياض الارضي", "p": 50, "note": "تم 50٪"}, {"n": "بياض الأول", "p": 40, "note": "جاري"}, {"n": "تأسيس بياض وكهرباء الثاني", "p": 50, "note": ""}, {"n": "تأسيس بياض وكهرباء الثالث", "p": 50, "note": ""}, {"n": "صحي", "p": 20, "note": "تأسيس"}, {"n": "الوميتال", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-025", "name": "154K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 97, "packages": [{"n": "خرسانات + مباني + بياض", "p": 100, "note": ""}, {"n": "حجر الواجهة", "p": 100, "note": "تم"}, {"n": "حجر المدخل", "p": 95, "note": "جاري تركيب المتبقي"}, {"n": "الوميتال الواجهة", "p": 100, "note": "تم"}, {"n": "رخام المدخل", "p": 80, "note": "جاري 80٪"}, {"n": "صواعد السباكة", "p": 100, "note": "تم"}, {"n": "كريتال", "p": 100, "note": "تم"}, {"n": "اللوجو", "p": 50, "note": "جاري التصنيع"}]}, {"code": "P-026", "name": "156K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 99, "packages": [{"n": "خرسانات + مباني + بياض", "p": 100, "note": ""}, {"n": "حجر الواجهة", "p": 100, "note": "تم"}, {"n": "حجر المدخل + السور", "p": 100, "note": "تم"}, {"n": "الوميتال الواجهة", "p": 100, "note": "تم"}, {"n": "رخام المدخل", "p": 100, "note": "تم الملاحظات"}, {"n": "صواعد السباكة", "p": 100, "note": "تم"}, {"n": "كريتال", "p": 100, "note": "تم السطح + المدخل + السور"}, {"n": "ابواب مصفحة", "p": 100, "note": "تم"}]}, {"code": "P-023", "name": "159K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 97, "packages": [{"n": "خرسانات + مباني + بياض", "p": 100, "note": ""}, {"n": "حجر الواجهة", "p": 100, "note": "تم"}, {"n": "حجر المدخل", "p": 100, "note": "تم"}, {"n": "الوميتال الواجهة", "p": 100, "note": "تم النواقص والملاحظات"}, {"n": "رخام المدخل والسلم", "p": 100, "note": "تم"}, {"n": "كريتال السطح + المدخل + السور", "p": 95, "note": "متبقي الرامب"}, {"n": "بياض البدروم", "p": 100, "note": "تم"}, {"n": "صب ارضية البدروم", "p": 90, "note": "جاري توريد المون"}]}, {"code": "P-024", "name": "160K", "loc": "4th Settlement", "status": "تم الانتهاء من الاعمال", "pct": 98, "packages": [{"n": "خرسانات + مباني + بياض", "p": 100, "note": ""}, {"n": "حجر الواجهة", "p": 100, "note": "تم"}, {"n": "حجر المدخل + السور", "p": 100, "note": "تم"}, {"n": "الوميتال الواجهة", "p": 100, "note": "تم"}, {"n": "رخام المدخل والسلم", "p": 100, "note": "تم"}, {"n": "كريتال السطح + المدخل + السور + الرامب", "p": 100, "note": "تم"}, {"n": "صب ارضية البدروم", "p": 100, "note": "تم"}, {"n": "باب المدخل", "p": 90, "note": "تم التركيب - جاري التعديل"}]}, {"code": "P-035", "name": "53A", "loc": "2nd Settlement", "status": "جارى التشطيب الداخلي", "pct": 55, "start": "2026-06-09", "current_activity": "مباني الأرضي جاري — مباني السور حطة ثانية جاري", "packages": [{"n": "خرسانات", "p": 100, "note": "تم حتى سقف الثالث"}, {"n": "عزل وردم القواعد", "p": 100, "note": "تم"}, {"n": "بياض وعزل الواجهة الخارجي", "p": 100, "note": "تم"}, {"n": "مباني السور", "p": 50, "note": "حطة أولى تمت — حطة ثانية جاري"}, {"n": "مباني الأدوار", "p": 25, "note": "الأرضي جاري — باقي الأدوار لم تبدأ"}, {"n": "بياض داخلي", "p": 0, "note": ""}, {"n": "كهرباء (تأسيس)", "p": 0, "note": ""}, {"n": "صحي (تأسيس)", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-004", "name": "59A", "loc": "North Rehab", "status": "جارى التشطيب الداخلي", "pct": 55, "start": "2025-12-01", "current_activity": "مباني الثالث والروف جاري — الترتيب على البياض الداخلي", "packages": [{"n": "خرسانات", "p": 100, "note": "تم هيكل كامل"}, {"n": "مباني", "p": 90, "note": "البدروم والأرضي والأول والثاني تمت — الثالث والروف جاري"}, {"n": "شد سقالات الواجهات", "p": 20, "note": "جاري الترتيب"}, {"n": "تشوين خامات البياض", "p": 30, "note": "جاري الترتيب"}, {"n": "بياض داخلي", "p": 0, "note": "لم يبدأ — يبدأ بعد اكتمال المباني"}, {"n": "كهرباء (تأسيس)", "p": 0, "note": ""}, {"n": "صحي (تأسيس)", "p": 0, "note": ""}, {"n": "الوميتال", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-006", "name": "98A", "loc": "North Rehab", "status": "جارى تشطيب الوجهات", "pct": 80, "start": "2025-11-19", "current_activity": "بياض الواجهات الجانبية جاري — الترتيب على الأمامية", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض داخلي", "p": 100, "note": "تم بالكامل"}, {"n": "بياض خارجي جانبي", "p": 50, "note": "جاري — توريد المواد جاري"}, {"n": "بياض الواجهة الأمامية", "p": 0, "note": "الترتيب على شد السقالة"}, {"n": "الوميتال", "p": 0, "note": ""}, {"n": "سباكة خارجية", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-005", "name": "33I", "loc": "North Rehab", "status": "جارى التشطيب الداخلي", "pct": 50, "start": "2026-03-11", "current_activity": "مباني الثاني والثالث جاري — تشوين مواد الأرضي", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني البدروم", "p": 100, "note": "تم"}, {"n": "مباني الأول", "p": 100, "note": "تم بالواجهة"}, {"n": "مباني الأرضي", "p": 20, "note": "جاري تشوين المواد"}, {"n": "مباني الثاني والثالث", "p": 40, "note": "جاري الاستكمال"}, {"n": "بياض داخلي", "p": 0, "note": ""}, {"n": "كهرباء", "p": 0, "note": ""}, {"n": "صحي", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}, {"code": "P-003", "name": "117A", "loc": "North Rehab", "status": "جارى التشطيب الداخلي", "pct": 55, "start": "2025-09-25", "current_activity": "بياض الأول جاري — تشوين مواد الثاني والثالث", "packages": [{"n": "خرسانات", "p": 100, "note": ""}, {"n": "مباني", "p": 100, "note": ""}, {"n": "بياض الأرضي", "p": 100, "note": "تم"}, {"n": "بياض الأول", "p": 50, "note": "جاري"}, {"n": "بياض الثاني والثالث", "p": 0, "note": "جاري تشوين المواد"}, {"n": "تأسيس كهرباء الثاني والثالث", "p": 100, "note": "تم"}, {"n": "كهرباء (باقي)", "p": 0, "note": ""}, {"n": "صحي (تأسيس)", "p": 0, "note": ""}], "last_updated": "28 أكتوبر 2026"}];
+
+PROJECTS.forEach(p=>{
+  p.locN=p.loc.trim().toUpperCase().replace(/\s+/g,'');
+  const lmap={'4ST':'4th Settlement','4 ST':'4th Settlement','NORTHREHAB':'North Rehab',
+    'NORTHHOUSE':'North House','1ST':'1st Settlement','2ST':'2nd Settlement','3ST':'3rd Settlement',
+    '5ST':'5th Settlement','6ST':'6th Settlement','7ST':'7th Settlement','8ST':'8th Settlement',
+    'LOUTS':'اللوتس','NARGES':'النرجس','ANDALUS':'الأندلس','ALORKED':'الأوركيد','جنوبالسويس':'جنوب السويس'};
+  p.locLabel=lmap[p.locN]||p.loc;
+});
+
+function showTab(t){
+  if(t==='chat'){populateFormDropdowns();renderChangelog();}
+  if(t==='admin'){renderAdminPanel();}
+  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','admin'].forEach(id=>{
+    const el=document.getElementById('tab-'+id);if(el)el.classList.toggle('hidden',id!==t);
+  });
+  document.querySelectorAll('.tab').forEach(el=>{
+    const onclick=el.getAttribute('onclick')||'';
+    el.classList.toggle('active',onclick.includes("'"+t+"'"));
+  });
+}
+function statusClass(s){
+  if(s==='تم الانتهاء من الاعمال') return 's-done';
+  if(s==='جارى تشطيب الوجهات') return 's-facade';
+  if(s==='جارى التشطيب الداخلي') return 's-internal';
+  if(s==='جارى اعمال الهيكل') return 's-struct';
+  return 's-permit';
+}
+function pctColor(p){
+  if(p>=90) return 'var(--green)';if(p>=70) return 'var(--accent2)';
+  if(p>=40) return 'var(--yellow)';return 'var(--orange)';
+}
+function tagHtml(v,l){
+  if(v==='تم') return `<span class="tag tag-done">✓${l}</span>`;
+  if(v==='جارى') return `<span class="tag tag-progress">⟳${l}</span>`;
+  return `<span class="tag tag-empty">–${l}</span>`;
+}
+function ring(pct,sz=56){
+  const r=sz/2-5,c=2*Math.PI*r;
+  const col=pctColor(pct);
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">
+    <circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="5"/>
+    <circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="${col}" stroke-width="5"
+      stroke-dasharray="${c}" stroke-dashoffset="${c*(1-pct/100)}" stroke-linecap="round" transform="rotate(-90 ${sz/2} ${sz/2})"/>
+    <text x="${sz/2}" y="${sz/2+5}" text-anchor="middle" font-family="Cairo" font-size="10" font-weight="900" fill="white">${pct}%</text>
+  </svg>`;
+}
+
+function renderKPIs(){
+  const total=PROJECTS.length,done=PROJECTS.filter(p=>p.status==='تم الانتهاء من الاعمال').length;
+  const inProg=PROJECTS.filter(p=>['جارى اعمال الهيكل','جارى التشطيب الداخلي','جارى تشطيب الوجهات'].includes(p.status)).length;
+  const permit=PROJECTS.filter(p=>p.status.includes('الترخيص')).length;
+  const avg=Math.round(PROJECTS.reduce((s,p)=>s+p.pct,0)/total);
+  const full=PROJECTS.filter(p=>p.status==='تم الانتهاء من الاعمال'&&p.internal==='تم'&&p.door==='تم'&&p.meters==='تم'&&p.landscape==='تم').length;
+  const cntMeters=PROJECTS.filter(p=>p.meters==='تم').length;
+  const cntDoor=PROJECTS.filter(p=>p.door==='تم').length;
+  const cntGarage=PROJECTS.filter(p=>p.garage==='تم').length;
+  const startedProj=PROJECTS.filter(p=>!p.status.includes('الترخيص'));
+  const avgStarted=startedProj.length?Math.round(startedProj.reduce((s,p)=>s+p.pct,0)/startedProj.length):0;
+  const activeProj=PROJECTS.filter(p=>p.status.startsWith('جارى'));
+  const avgActive=activeProj.length?Math.round(activeProj.reduce((s,p)=>s+p.pct,0)/activeProj.length):0;
+  document.getElementById('kpiGrid').innerHTML=`
+    <div class="kpi green" onclick="filterByKpi('all','كل المشاريع')"><div class="kpi-val">${total}</div><div class="kpi-lbl">إجمالي المشاريع</div></div>
+    <div class="kpi green" onclick="filterByKpi('تمام','تم الانتهاء')"><div class="kpi-val">${done}</div><div class="kpi-lbl">✅ تم الانتهاء</div><div class="kpi-sub">${Math.round(done/total*100)}%</div></div>
+    <div class="kpi blue" onclick="filterByKpi('تسليم','تسليم كامل')"><div class="kpi-val">${full}</div><div class="kpi-lbl">🏆 تسليم كامل</div><div class="kpi-sub">باب+داخلي+عدادات+لاندسكيب</div></div>
+    <div class="kpi yellow" onclick="filterByKpi('تنفيذ','جارى التنفيذ')"><div class="kpi-val">${inProg}</div><div class="kpi-lbl">🔨 جارى التنفيذ</div></div>
+    <div class="kpi orange" onclick="filterByKpi('ترخيص','مرحلة الترخيص')"><div class="kpi-val">${permit}</div><div class="kpi-lbl">📄 مرحلة الترخيص</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:var(--accent2)">${avg}%</div><div class="kpi-lbl">متوسط الإنجاز الكلي</div></div>
+    <div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val" style="color:var(--green)">${avgStarted}%</div><div class="kpi-lbl">📈 متوسط ما بدأ</div><div class="kpi-sub">بعد انتهاء التراخيص — ${startedProj.length} مشروع</div></div>
+    <div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="color:var(--accent2)">${avgActive}%</div><div class="kpi-lbl">🔄 متوسط الجارية</div><div class="kpi-sub">المشاريع قيد التنفيذ — ${activeProj.length} مشروع</div></div>
+    <div class="kpi green" onclick="filterByKpi('عداد','تم تركيب عداد')"><div class="kpi-val">${cntMeters}</div><div class="kpi-lbl">⚡ تم تركيب عداد</div><div class="kpi-sub">${done>0?Math.round(cntMeters/done*100):0}% من المنتهية</div></div>
+    <div class="kpi" style="border-right-color:#22d3ee" onclick="filterByKpi('باب','تم تركيب الباب')"><div class="kpi-val" style="color:#22d3ee">${cntDoor}</div><div class="kpi-lbl">🚪 تم تركيب الباب</div><div class="kpi-sub">${done>0?Math.round(cntDoor/done*100):0}% من المنتهية</div></div>
+    <div class="kpi" style="border-right-color:var(--accent)" onclick="filterByKpi('جراج','تم صب الجراج')"><div class="kpi-val" style="color:var(--accent)">${cntGarage}</div><div class="kpi-lbl">🏗 تم صب الجراج</div><div class="kpi-sub">${done>0?Math.round(cntGarage/done*100):0}% من المنتهية</div></div>
+  `;
+}
+function renderStatusChart(){
+  const ss=[
+    {l:'تم الانتهاء',k:'تم الانتهاء من الاعمال',c:'var(--green)'},
+    {l:'تشطيب وجهات',k:'جارى تشطيب الوجهات',c:'var(--yellow)'},
+    {l:'تشطيب داخلي',k:'جارى التشطيب الداخلي',c:'var(--orange)'},
+    {l:'هيكل جارى',k:'جارى اعمال الهيكل',c:'var(--accent)'},
+    {l:'جارى الترخيص',k:'جارى الترخيص',c:'var(--muted)'},
+    {l:'تحت الترخيص',k:'تحت الترخيص',c:'rgba(148,163,184,.35)'},
+  ];
+  const t=PROJECTS.length;
+  document.getElementById('statusChart').innerHTML=ss.map(s=>{
+    const n=PROJECTS.filter(p=>p.status===s.k).length;
+    return `<div class="bar-row"><span class="lbl">${s.l}</span><div class="bar-wrap"><div class="bar-fill" style="width:${n/t*100}%;background:${s.c}"></div></div><span class="bar-val">${n}</span></div>`;
+  }).join('');
+}
+function renderLocChart(){
+  const locs={};
+  PROJECTS.forEach(p=>{locs[p.locLabel]=(locs[p.locLabel]||0)+1;});
+  const sorted=Object.entries(locs).sort((a,b)=>b[1]-a[1]);
+  const max=sorted[0][1];
+  document.getElementById('locChart').innerHTML=sorted.map(([l,c])=>
+    `<div class="bar-row"><span class="lbl">${l}</span><div class="bar-wrap"><div class="bar-fill" style="width:${c/max*100}%;background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div><span class="bar-val">${c}</span></div>`
+  ).join('');
+}
+function renderLocMap(){
+  const locs={};
+  PROJECTS.forEach(p=>{
+    if(!locs[p.locLabel]) locs[p.locLabel]={total:0,done:0,pct:0};
+    locs[p.locLabel].total++;
+    if(p.status==='تم الانتهاء من الاعمال') locs[p.locLabel].done++;
+    locs[p.locLabel].pct+=p.pct;
+  });
+  document.getElementById('locMap').innerHTML=Object.entries(locs).sort((a,b)=>b[1].total-a[1].total).map(([l,d])=>{
+    const avg=Math.round(d.pct/d.total),donePct=Math.round(d.done/d.total*100);
+    return `<div class="loc-card" onclick="filterByLoc('${l}')">
+      <div class="loc-name">${l}</div>
+      <div class="loc-pct-bar"><div class="loc-pct-fill" style="width:${avg}%"></div></div>
+      <div class="loc-stats"><span>${d.total} مشروع</span><span>${avg}% إنجاز</span></div>
+      <div class="loc-stats" style="margin-top:2px"><span style="color:var(--green)">${d.done} مكتمل</span><span>${donePct}% اكتمال</span></div>
+    </div>`;
+  }).join('');
+}
+let _kpiFilter=null;
+function filterByLoc(loc){_kpiFilter=null;document.getElementById('locFilter').value=loc;showTab('projects');filterProjects();}
+function filterByKpi(type,label){
+  _kpiFilter=type==='all'?null:{type,label};
+  document.getElementById('statusFilter').value='';
+  document.getElementById('locFilter').value='';
+  document.getElementById('searchInput').value='';
+  showTab('projects');filterProjects();
+}
+function buildLocOptions(){
+  const sel=document.getElementById('locFilter');
+  [...new Set(PROJECTS.map(p=>p.locLabel))].sort().forEach(l=>{
+    const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);
+  });
+}
+function filterProjects(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const sf=document.getElementById('statusFilter').value;
+  const lf=document.getElementById('locFilter').value;
+  const df=document.getElementById('doorFilter').value;
+  const inf=document.getElementById('internalFilter').value;
+  const gf=document.getElementById('garageFilter').value;
+  const lnf=document.getElementById('landscapeFilter').value;
+  const mf=document.getElementById('metersFilter').value;
+  const matchF=(v,f)=>!f||((f==='لسه')?(v!=='تم'&&v!=='جارى'):(v===f));
+  const _IP=['جارى اعمال الهيكل','جارى التشطيب الداخلي','جارى تشطيب الوجهات'];
+  const f=PROJECTS.filter(p=>{
+    if(q&&!p.name.toLowerCase().includes(q)&&!p.code.toLowerCase().includes(q)) return false;
+    if(sf&&p.status!==sf) return false;
+    if(lf&&p.locLabel!==lf) return false;
+    if(!matchF(p.door,df)) return false;
+    if(!matchF(p.internal,inf)) return false;
+    if(!matchF(p.garage,gf)) return false;
+    if(!matchF(p.landscape,lnf)) return false;
+    if(!matchF(p.meters,mf)) return false;
+    if(_kpiFilter){
+      const t=_kpiFilter.type;
+      if(t==='تمام'&&p.status!=='تم الانتهاء من الاعمال') return false;
+      if(t==='تسليم'&&!(p.status==='تم الانتهاء من الاعمال'&&p.internal==='تم'&&p.door==='تم'&&p.meters==='تم'&&p.landscape==='تم')) return false;
+      if(t==='تنفيذ'&&!_IP.includes(p.status)) return false;
+      if(t==='ترخيص'&&!p.status.includes('الترخيص')) return false;
+      if(t==='عداد'&&p.meters!=='تم') return false;
+      if(t==='باب'&&p.door!=='تم') return false;
+      if(t==='جراج'&&p.garage!=='تم') return false;
+    }
+    return true;
+  });
+  const _fl=_kpiFilter?`<button onclick="_kpiFilter=null;filterProjects()" style="background:rgba(239,68,68,.18);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:1px 9px;font-family:Cairo,sans-serif;font-size:.72rem;cursor:pointer;margin-right:8px">× مسح: ${_kpiFilter.label}</button>`:'';
+  document.getElementById('countInfo').innerHTML=`<span style="color:var(--muted)">عرض ${f.length} من ${PROJECTS.length} مشروع</span>${_fl}`;
+  document.getElementById('projectBody').innerHTML=f.map((p,i)=>`<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td style="color:var(--accent2);font-weight:700">${p.code}</td>
+    <td style="font-weight:600">${p.name}</td>
+    <td style="color:var(--muted)">${p.locLabel}</td>
+    <td><span class="status-badge ${statusClass(p.status)}">${p.status}</span></td>
+    <td><div class="pct-bar"><div class="pct-fill" style="width:${p.pct}%;background:${pctColor(p.pct)}"></div></div><span style="font-size:.73rem">${p.pct}%</span></td>
+    <td>${tagHtml(p.door,'باب')}</td><td>${tagHtml(p.internal,'داخلي')}</td>
+    <td>${tagHtml(p.garage,'جراج')}</td><td>${tagHtml(p.landscape,'لاندسكيب')}</td><td>${tagHtml(p.meters,'عدادات')}</td>
+  </tr>`).join('');
+}
+function baselineGantt(startStr){
+  if(!startStr)return '';
+  const TOTAL=365;
+  const start=new Date(startStr);start.setHours(0,0,0,0);
+  const today=new Date();today.setHours(0,0,0,0);
+  const elapsed=calcWorkingDays(startStr);
+  const phases=[
+    {l:'أساسات وفرشة',   s:0,   d:72,  c:'#38bdf8'},
+    {l:'هيكل فوق الأرض', s:72,  d:70,  c:'#6366f1'},
+    {l:'سور',            s:72,  d:115, c:'#64748b'},
+    {l:'مباني وبياض',    s:90,  d:97,  c:'#eab308'},
+    {l:'تشطيب خارجي',   s:135, d:52,  c:'#22c55e'},
+  ];
+  const endDate=new Date(start);endDate.setDate(endDate.getDate()+TOTAL);
+  const M=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const fmt=d=>`${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
+  const todayPct=Math.min(100,Math.max(0,(elapsed/TOTAL)*100));
+  const statusTxt=elapsed<0?`⏳ يبدأ بعد ${-elapsed} يوم`:elapsed>TOTAL?`⚠ تجاوز المدة بـ ${elapsed-TOTAL} يوم`:`📍 يوم ${elapsed} / ${TOTAL}`;
+  const statusC=elapsed>TOTAL?'var(--red)':elapsed<0?'var(--muted)':'var(--accent2)';
+  const rows=phases.map(p=>{
+    const lPct=(p.s/TOTAL*100).toFixed(1);
+    const wPct=(p.d/TOTAL*100).toFixed(1);
+    return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+      <span style="min-width:88px;font-size:.61rem;color:var(--muted);direction:rtl;text-align:right">${p.l}</span>
+      <div style="flex:1;position:relative;height:9px;background:rgba(255,255,255,.05);border-radius:2px">
+        <div style="position:absolute;left:${lPct}%;width:${wPct}%;height:100%;background:${p.c};border-radius:2px;opacity:.82"></div>
+        <div style="position:absolute;left:${todayPct.toFixed(1)}%;top:-3px;bottom:-3px;width:1.5px;background:rgba(255,255,255,.75);border-radius:1px"></div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:4px">
+      <span style="font-size:.68rem;font-weight:700;color:var(--muted)">📅 الجدول المعياري (365 يوم عمل)</span>
+      <span style="font-size:.65rem;color:${statusC};font-weight:700">${statusTxt}</span>
+    </div>
+    <div dir="ltr">${rows}
+      <div style="display:flex;justify-content:space-between;font-size:.58rem;color:var(--muted);margin-top:3px;opacity:.65">
+        <span>${fmt(start)}</span><span>${fmt(endDate)}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+      ${phases.map(p=>`<span style="font-size:.58rem;color:var(--muted)"><span style="display:inline-block;width:8px;height:8px;background:${p.c};border-radius:1px;margin-left:3px;vertical-align:middle;opacity:.85"></span>${p.l}</span>`).join('')}
+    </div>
+  </div>`;
+}
+
+function baseline104Gantt(startStr){
+  if(!startStr)return '';
+  const TOTAL=70;
+  const start=new Date(startStr);start.setHours(0,0,0,0);
+  const today=new Date();today.setHours(0,0,0,0);
+  const elapsed=Math.round((today-start)/86400000);
+  const phases=[
+    {l:'هيكل فوق الأرض', s:0,  d:41, c:'#38bdf8'},
+    {l:'مباني (بناء)',    s:11, d:35, c:'#eab308'},
+    {l:'سور',             s:35, d:35, c:'#64748b'},
+    {l:'تشطيب + بياض',  s:44, d:26, c:'#22c55e'},
+    {l:'توريد وتركيب',  s:60, d:10, c:'#f97316'},
+  ];
+  const endDate=new Date(start);endDate.setDate(endDate.getDate()+TOTAL);
+  const M=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const fmt=d=>`${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
+  const todayPct=Math.min(100,Math.max(0,(elapsed/TOTAL)*100));
+  const statusTxt=elapsed<0?`⏳ يبدأ بعد ${-elapsed} يوم`:elapsed>TOTAL?`⚠ تجاوز بـ ${elapsed-TOTAL} يوم`:`📍 يوم ${elapsed} / ${TOTAL}`;
+  const statusC=elapsed>TOTAL?'var(--red)':elapsed<0?'var(--muted)':'var(--accent)';
+  const rows=phases.map(p=>{
+    const lPct=(p.s/TOTAL*100).toFixed(1);
+    const wPct=(p.d/TOTAL*100).toFixed(1);
+    return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+      <span style="min-width:88px;font-size:.61rem;color:var(--muted);direction:rtl;text-align:right">${p.l}</span>
+      <div style="flex:1;position:relative;height:9px;background:rgba(255,255,255,.05);border-radius:2px">
+        <div style="position:absolute;left:${lPct}%;width:${wPct}%;height:100%;background:${p.c};border-radius:2px;opacity:.82"></div>
+        <div style="position:absolute;left:${todayPct.toFixed(1)}%;top:-3px;bottom:-3px;width:1.5px;background:rgba(255,255,255,.75);border-radius:1px"></div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:4px">
+      <span style="font-size:.68rem;font-weight:700;color:var(--accent)">📅 الجدول المضغوط — 104K (70 يوم)</span>
+      <span style="font-size:.65rem;color:${statusC};font-weight:700">${statusTxt}</span>
+    </div>
+    <div dir="ltr">${rows}
+      <div style="display:flex;justify-content:space-between;font-size:.58rem;color:var(--muted);margin-top:3px;opacity:.65">
+        <span>${fmt(start)}</span><span>${fmt(endDate)}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+      ${phases.map(p=>`<span style="font-size:.58rem;color:var(--muted)"><span style="display:inline-block;width:8px;height:8px;background:${p.c};border-radius:1px;margin-left:3px;vertical-align:middle;opacity:.85"></span>${p.l}</span>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderUpdates(){
+  // 12 active projects only — ordered: هيكل → وجهات → داخلي
+  const ACTIVE_ORDER=['P-125','P-006','P-014','P-016','P-017','P-003','P-004','P-005','P-015','P-021','P-034','P-035'];
+  const TI={
+    'P-125':{label:'هيكل 104K',    color:'var(--accent)', bg:'rgba(99,102,241,.12)',  border:'rgba(99,102,241,.3)',  area:'673م²'},
+    'P-006':{label:'تشطيب وجهات', color:'var(--yellow)', bg:'rgba(234,179,8,.1)',     border:'rgba(234,179,8,.25)', area:'486م²'},
+    'P-014':{label:'تشطيب وجهات', color:'var(--yellow)', bg:'rgba(234,179,8,.1)',     border:'rgba(234,179,8,.25)', area:'737م²'},
+    'P-016':{label:'تشطيب وجهات', color:'var(--yellow)', bg:'rgba(234,179,8,.1)',     border:'rgba(234,179,8,.25)', area:'736م²'},
+    'P-017':{label:'تشطيب وجهات', color:'var(--yellow)', bg:'rgba(234,179,8,.1)',     border:'rgba(234,179,8,.25)', area:'737م²'},
+    'P-003':{label:'تشطيب داخلي', color:'var(--orange)', bg:'rgba(249,115,22,.1)',    border:'rgba(249,115,22,.25)',area:'535م²'},
+    'P-004':{label:'تشطيب داخلي', color:'var(--orange)', bg:'rgba(249,115,22,.1)',    border:'rgba(249,115,22,.25)',area:'541م²'},
+    'P-005':{label:'تشطيب داخلي', color:'var(--orange)', bg:'rgba(249,115,22,.1)',    border:'rgba(249,115,22,.25)',area:'438م²'},
+    'P-015':{label:'تشطيب داخلي', color:'var(--orange)', bg:'rgba(249,115,22,.1)',    border:'rgba(249,115,22,.25)',area:'955م²'},
+    'P-021':{label:'تشطيب داخلي', color:'var(--orange)', bg:'rgba(249,115,22,.1)',    border:'rgba(249,115,22,.25)',area:'604م²'},
+    'P-034':{label:'تشطيب داخلي', color:'var(--orange)', bg:'rgba(249,115,22,.1)',    border:'rgba(249,115,22,.25)',area:'600م²'},
+    'P-035':{label:'تشطيب داخلي', color:'var(--orange)', bg:'rgba(249,115,22,.1)',    border:'rgba(249,115,22,.25)',area:'797م²'},
+  };
+  // build lookup from UPDATES by code (only active codes will be used)
+  const updMap={};
+  UPDATES.forEach(u=>{if(TI[u.code]) updMap[u.code]=u;});
+
+  document.getElementById('updateGrid').innerHTML=ACTIVE_ORDER.map(code=>{
+    const proj=PROJECTS.find(p=>p.code===code);
+    if(!proj) return '';
+    const u=updMap[code];
+    const ti=TI[code];
+    const pct=u?u.pct:proj.pct;
+
+    const pkgsHtml=u&&u.packages&&u.packages.length
+      ? u.packages.map(pk=>{
+          const fill=pctColor(pk.p);
+          const noteHtml=pk.note?`<div class="pkg-note">💬 ${pk.note}</div>`:'';
+          return `<div class="pkg-row">
+            <span class="pkg-lbl">${pk.n}</span>
+            <div class="pkg-track"><div class="pkg-fill" style="width:${pk.p}%;background:${fill}"></div></div>
+            <span class="pkg-pct" style="color:${fill}">${pk.p}%</span>
+          </div>${noteHtml}`;
+        }).join('')
+      : `<div style="color:var(--muted);font-size:.75rem;padding:10px 0;text-align:center;opacity:.65">📋 في انتظار تحديث الموقع</div>`;
+
+    const wdElapsed=u&&u.start?calcWorkingDays(u.start):null;
+    const dayInfo=u&&u.start&&wdElapsed!==null
+      ?`<div style="font-size:.69rem;color:var(--muted);margin-top:3px">📅 يوم عمل <span style="color:var(--accent2);font-weight:700">${wdElapsed}</span> / 365 • بدأ ${u.start}</div>`
+      :u&&u.bl_days?`<div style="font-size:.69rem;color:var(--muted);margin-top:3px">📅 يوم ${u.day||'—'} / ${u.bl_days} • بدأ ${u.start||''}</div>`
+      :'';
+    const actInfo=u&&u.current_activity
+      ?`<div style="font-size:.72rem;color:${ti.color};margin-top:4px">🔧 ${u.current_activity}</div>`:'';
+    const updateInfo=u&&u.last_updated
+      ?`<div style="font-size:.68rem;color:var(--muted);margin-top:3px">🗓 آخر تحديث: <span style="color:var(--accent2)">${u.last_updated}</span></div>`:'';
+
+    return `<div class="update-card" style="border-top:3px solid ${ti.color}">
+      <div class="update-header">
+        <div style="flex:1">
+          <div class="update-name">${proj.name} <span class="active-dot"></span></div>
+          <div class="update-loc">${proj.locLabel} • ${proj.code} • ${ti.area}</div>
+          <div style="margin-top:5px"><span style="background:${ti.bg};color:${ti.color};border:1px solid ${ti.border};border-radius:6px;padding:2px 9px;font-size:.69rem;font-weight:700">${ti.label}</span></div>
+          ${actInfo}${dayInfo}${updateInfo}
+        </div>
+        <div style="text-align:center;margin-right:4px">${ring(pct)}<div style="font-size:.65rem;color:var(--muted);margin-top:2px">إنجاز</div></div>
+      </div>
+      <div style="font-size:.74rem;font-weight:700;color:var(--muted);margin-bottom:8px;border-top:1px solid var(--border);padding-top:8px">بنود الأعمال</div>
+      ${pkgsHtml}
+      ${code==='P-125'?baseline104Gantt(u&&u.start||''):baselineGantt(u&&u.start||'')}
+    </div>`;
+  }).join('');
+}
+
+function renderCashFlow(){
+  // Base: 11,578,094 ج.م per 600m² → 19,296.82 ج.م/م²
+  // da5li (7 plots, 55% paid): Jun7.62% Jul13.48% Aug12.80% Sep14.84% Oct_paid6.26% Oct_rem4% Nov18% Dec17% Jan6%
+  // wajhat (4 plots, 75% paid): Jun7.62% Jul13.48% Aug12.80% Sep14.84% Oct_paid26.26% Oct_rem1% Nov8% Dec12% Jan4%
+  // k104 (1 plot, 35% paid Oct12-24): Oct_paid35% Oct_rem9% Nov35% Dec21% Jan0%
+  const CF={
+    total:151256345,
+    paid_cum:90996260,
+    months:['يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر','يناير'],
+    monthly:[10535500,18637604,17697429,20517956,28747136,24233170,23632310,7255239],
+    cumulative:[10535500,29173104,46870533,67388489,96135625,120368795,144001105,151256344],
+    data:[
+      [6571459,3964041,0],
+      [11625101,7012503,0],
+      [11038672,6658757,0],
+      [12797960,7719996,0],
+      [8848185,14181070,5717881],
+      [15523133,4161723,4548314],
+      [14660737,6242584,2728989],
+      [5174378,2080861,0]
+    ],
+    cats:['تشطيب داخلي (7 قطع)','تشطيب وجهات (4 قطع)','هيكل 104K'],
+    colors:['#f97316','#eab308','#6366f1']
+  };
+  const totRem=CF.total-CF.paid_cum;
+  document.getElementById('cfKpis').innerHTML=`
+    <div class="kpi orange"><div class="kpi-val">${(CF.total/1000000).toFixed(2)}م</div><div class="kpi-lbl">إجمالي الميزانية</div><div class="kpi-sub">12 قطعة نشطة — ج.م</div></div>
+    <div class="kpi green"><div class="kpi-val">${(CF.paid_cum/1000000).toFixed(2)}م</div><div class="kpi-lbl">✅ إجمالي المصروف</div><div class="kpi-sub">${Math.round(CF.paid_cum/CF.total*100)}% — حتى 24 أكتوبر</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:var(--accent)">${(totRem/1000000).toFixed(2)}م</div><div class="kpi-lbl">⚠️ إجمالي المتبقي</div><div class="kpi-sub">${Math.round(totRem/CF.total*100)}% من الإجمالي</div></div>
+    <div class="kpi yellow"><div class="kpi-val">${(CF.monthly[4]/1000000).toFixed(2)}م</div><div class="kpi-lbl">🗓️ صرف أكتوبر</div><div class="kpi-sub">${Math.round(CF.monthly[4]/CF.total*100)}% من الإجمالي</div></div>
+    <div class="kpi blue"><div class="kpi-val">${(CF.monthly[5]/1000000).toFixed(2)}م</div><div class="kpi-lbl">📅 صرف نوفمبر</div><div class="kpi-sub">${Math.round(CF.monthly[5]/CF.total*100)}% من الإجمالي</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:var(--accent2)">${(CF.monthly[6]/1000000).toFixed(2)}م</div><div class="kpi-lbl">📅 صرف ديسمبر</div><div class="kpi-sub">${Math.round(CF.monthly[6]/CF.total*100)}% من الإجمالي</div></div>`;
+  const W=720,H=300,PL=80,PR=18,PT=24,PB=56;
+  const cW=W-PL-PR,cH=H-PT-PB;
+  const bW=cW/8,bPad=bW*0.15;
+  const yMax=32000000;
+  let s=`<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  [0,8000000,16000000,24000000,32000000].forEach(yv=>{
+    const y=(PT+cH-(yv/yMax)*cH).toFixed(1);
+    s+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+    s+=`<text x="${PL-6}" y="${(+y+4).toFixed(1)}" text-anchor="end" font-size="9" fill="#8892a4" font-family="Cairo,sans-serif">${yv===0?'0':(yv/1000000).toFixed(0)+'م'}</text>`;
+  });
+  CF.data.forEach((row,mi)=>{
+    const bx=PL+mi*bW+bPad,bw=bW-2*bPad;
+    let yOff=PT+cH;
+    row.forEach((val,ci)=>{
+      const bh=(val/yMax)*cH;
+      if(bh>0.5){yOff-=bh;s+=`<rect x="${bx.toFixed(1)}" y="${yOff.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${CF.colors[ci]}" rx="2" opacity="0.88"/>`;}
+    });
+    const mx=(bx+bw/2).toFixed(1);
+    s+=`<text x="${mx}" y="${H-PB+15}" text-anchor="middle" font-size="9.5" fill="#e2e8f0" font-family="Cairo,sans-serif">${CF.months[mi]}</text>`;
+    s+=`<text x="${mx}" y="${H-PB+27}" text-anchor="middle" font-size="7.5" fill="#8892a4" font-family="Cairo,sans-serif">${(CF.monthly[mi]/1000000).toFixed(1)}م</text>`;
+  });
+  const pts=CF.cumulative.map((cv,mi)=>`${(PL+mi*bW+bW/2).toFixed(1)},${(PT+cH-(cv/CF.total)*cH).toFixed(1)}`).join(' ');
+  s+=`<polyline points="${pts}" fill="none" stroke="#f97316" stroke-width="2.5"/>`;
+  CF.cumulative.forEach((cv,mi)=>{
+    const x=(PL+mi*bW+bW/2).toFixed(1),y=(PT+cH-(cv/CF.total)*cH).toFixed(1);
+    s+=`<circle cx="${x}" cy="${y}" r="4" fill="#f97316"/><text x="${x}" y="${(+y-8).toFixed(1)}" text-anchor="middle" font-size="8" fill="#f97316" font-weight="700" font-family="Cairo,sans-serif">${Math.round(cv/CF.total*100)}%</text>`;
+  });
+  const tx=(PL+4*bW+bW/2).toFixed(1);
+  s+=`<line x1="${tx}" y1="${PT}" x2="${tx}" y2="${PT+cH}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8"/>`;
+  s+=`<text x="${(+tx+3).toFixed(1)}" y="${PT+11}" font-size="8" fill="#ef4444" font-family="Cairo,sans-serif">اليوم</text>`;
+  s+=`<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+cH}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
+  s+=`<line x1="${PL}" y1="${PT+cH}" x2="${W-PR}" y2="${PT+cH}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
+  s+=`</svg>`;
+  document.getElementById('cfChart').innerHTML=s;
+  const types=[
+    {n:'تشطيب داخلي — 7 قطع: P-003, P-004, P-005, P-015, P-021, P-034, P-035',v:86239627,c:'#f97316'},
+    {n:'تشطيب وجهات — 4 قطع: P-006, P-014, P-016, P-017',v:52021534,c:'#eab308'},
+    {n:'هيكل جارى — 1 قطعة: P-125 (104K — برنامج مضغوط 70 يوم)',v:12995184,c:'#6366f1'}
+  ];
+  document.getElementById('cfBreakdown').innerHTML=types.map(p=>`
+    <div class="bar-row">
+      <span class="lbl" style="width:290px;font-size:.74rem">${p.n}</span>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${(p.v/types[0].v*100).toFixed(1)}%;background:${p.c}"></div></div>
+      <span style="width:120px;text-align:right;color:${p.c};font-size:.74rem;flex-shrink:0">${(p.v/1000000).toFixed(2)}م (${Math.round(p.v/CF.total*100)}%)</span>
+    </div>`).join('');
+}
+
+function renderFinancial(){
+  const BASE=11578094/600;
+  const DIST={
+    da5li:{paid:.55,oct:.04,nov:.18,dec:.17,jan:.06},
+    wajhat:{paid:.75,oct:.01,nov:.08,dec:.12,jan:.04},
+    k104:{paid:.35,oct:.09,nov:.35,dec:.21,jan:0}
+  };
+  const ACTIVE=[
+    {code:'P-003',name:'117A',area:535,loc:'North Rehab',type:'da5li'},
+    {code:'P-004',name:'59A',area:541,loc:'North Rehab',type:'da5li'},
+    {code:'P-005',name:'33I',area:438.05,loc:'North Rehab',type:'da5li'},
+    {code:'P-006',name:'98A',area:486,loc:'North Rehab',type:'wajhat'},
+    {code:'P-014',name:'52L',area:737,loc:'2nd Settlement',type:'wajhat'},
+    {code:'P-015',name:'58C',area:954.51,loc:'3rd Settlement',type:'da5li'},
+    {code:'P-016',name:'226J',area:735.86,loc:'2nd Settlement',type:'wajhat'},
+    {code:'P-017',name:'160J',area:737,loc:'2nd Settlement',type:'wajhat'},
+    {code:'P-021',name:'122K',area:604,loc:'4th Settlement',type:'da5li'},
+    {code:'P-034',name:'145A',area:600,loc:'7th Settlement',type:'da5li'},
+    {code:'P-035',name:'53A',area:796.55,loc:'2nd Settlement',type:'da5li'},
+    {code:'P-125',name:'104K',area:673.35,loc:'4th Settlement',type:'k104'},
+  ];
+  const statusLabel={da5li:'تشطيب داخلي',wajhat:'تشطيب وجهات',k104:'هيكل (104K)'};
+  const statusCol={da5li:'var(--orange)',wajhat:'var(--yellow)',k104:'var(--accent)'};
+  ACTIVE.forEach(p=>{
+    const d=DIST[p.type];
+    p.total=Math.round(BASE*p.area);
+    p.paid=Math.round(p.total*d.paid);
+    p.oct=Math.round(p.total*d.oct);
+    p.nov=Math.round(p.total*d.nov);
+    p.dec=Math.round(p.total*d.dec);
+    p.jan=Math.round(p.total*d.jan);
+    p.rem=p.oct+p.nov+p.dec+p.jan;
+  });
+  const totTotal=ACTIVE.reduce((s,p)=>s+p.total,0);
+  const totPaid=ACTIVE.reduce((s,p)=>s+p.paid,0);
+  const totOct=ACTIVE.reduce((s,p)=>s+p.oct,0);
+  const totNov=ACTIVE.reduce((s,p)=>s+p.nov,0);
+  const totDec=ACTIVE.reduce((s,p)=>s+p.dec,0);
+  const totJan=ACTIVE.reduce((s,p)=>s+p.jan,0);
+  const totRem=totOct+totNov+totDec+totJan;
+  const fmt=v=>v===0?'—':(v>=1000000?(v/1000000).toFixed(3)+'م':(v/1000).toFixed(0)+'ألف');
+  // KPIs
+  document.getElementById('finKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-val" style="color:var(--accent2)">${(totTotal/1000000).toFixed(2)}م</div><div class="kpi-lbl">إجمالي الميزانية</div><div class="kpi-sub">12 قطعة نشطة — ج.م</div></div>
+    <div class="kpi green"><div class="kpi-val">${(totPaid/1000000).toFixed(2)}م</div><div class="kpi-lbl">✅ إجمالي المصروف</div><div class="kpi-sub">${Math.round(totPaid/totTotal*100)}% من الإجمالي</div></div>
+    <div class="kpi orange"><div class="kpi-val">${(totRem/1000000).toFixed(2)}م</div><div class="kpi-lbl">⚠️ إجمالي المتبقي</div><div class="kpi-sub">${Math.round(totRem/totTotal*100)}% من الإجمالي</div></div>
+    <div class="kpi yellow"><div class="kpi-val">${(totOct/1000000).toFixed(2)}م</div><div class="kpi-lbl">🗓️ أكتوبر (متبقي)</div><div class="kpi-sub">${Math.round(totOct/totRem*100)}% من المتبقي</div></div>
+    <div class="kpi blue"><div class="kpi-val">${(totNov/1000000).toFixed(2)}م</div><div class="kpi-lbl">📅 نوفمبر</div><div class="kpi-sub">${Math.round(totNov/totRem*100)}% من المتبقي</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:var(--accent)">${(totDec/1000000).toFixed(2)}م</div><div class="kpi-lbl">📅 ديسمبر</div><div class="kpi-sub">${Math.round(totDec/totRem*100)}% من المتبقي</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:var(--green)">${(totJan/1000000).toFixed(2)}م</div><div class="kpi-lbl">📅 يناير 2027</div><div class="kpi-sub">${Math.round(totJan/totRem*100)}% من المتبقي</div></div>`;
+  // Monthly bar chart
+  const months=['أكتوبر','نوفمبر','ديسمبر','يناير'];
+  const vals=[totOct,totNov,totDec,totJan];
+  const cols=['#f59e0b','#6366f1','#22d3ee','#10b981'];
+  const W=720,H=260,PL=80,PR=20,PT=24,PB=56;
+  const cW=W-PL-PR,cH=H-PT-PB;
+  const yMax=Math.max(...vals)*1.18;
+  let sv=`<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  [0,.25,.5,.75,1].forEach(f=>{
+    const yv=yMax*f;
+    const y=(PT+cH*(1-f)).toFixed(1);
+    sv+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+    sv+=`<text x="${PL-6}" y="${(+y+4).toFixed(1)}" text-anchor="end" font-size="9" fill="#8892a4" font-family="Cairo,sans-serif">${(yv/1000000).toFixed(1)}م</text>`;
+  });
+  const bW=cW/4,bPad=bW*0.2;
+  vals.forEach((v,i)=>{
+    const bh=(v/yMax)*cH;
+    const bx=(PL+i*bW+bPad).toFixed(1),bw=(bW-2*bPad).toFixed(1);
+    const by=(PT+cH-bh).toFixed(1);
+    sv+=`<rect x="${bx}" y="${by}" width="${bw}" height="${bh.toFixed(1)}" fill="${cols[i]}" rx="6" opacity="0.9"/>`;
+    sv+=`<text x="${(PL+i*bW+bW/2).toFixed(1)}" y="${(PT+cH-bh-10).toFixed(1)}" text-anchor="middle" font-size="12" fill="${cols[i]}" font-weight="900" font-family="Cairo,sans-serif">${(v/1000000).toFixed(2)}م</text>`;
+    sv+=`<text x="${(PL+i*bW+bW/2).toFixed(1)}" y="${H-PB+17}" text-anchor="middle" font-size="12" fill="#e2e8f0" font-family="Cairo,sans-serif">${months[i]}</text>`;
+    sv+=`<text x="${(PL+i*bW+bW/2).toFixed(1)}" y="${H-PB+30}" text-anchor="middle" font-size="9" fill="#8892a4" font-family="Cairo,sans-serif">${Math.round(v/totRem*100)}%</text>`;
+  });
+  sv+=`<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+cH}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
+  sv+=`<line x1="${PL}" y1="${PT+cH}" x2="${W-PR}" y2="${PT+cH}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
+  sv+=`</svg>`;
+  document.getElementById('finChart').innerHTML=sv;
+  // Detail table
+  const thead=`<thead><tr>
+    <th>#</th><th>الكود</th><th>الاسم</th><th>م²</th><th>الحالة</th>
+    <th>الإجمالي</th><th>المصروف</th><th>المتبقي</th>
+    <th style="background:rgba(245,158,11,.15);color:#f59e0b">أكتوبر</th>
+    <th style="background:rgba(99,102,241,.15);color:#818cf8">نوفمبر</th>
+    <th style="background:rgba(34,211,238,.15);color:#22d3ee">ديسمبر</th>
+    <th style="background:rgba(16,185,129,.15);color:#10b981">يناير</th>
+  </tr></thead>`;
+  const tbody=ACTIVE.map((p,i)=>{
+    const sc=statusCol[p.type];
+    return `<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="color:var(--accent2);font-weight:700">${p.code}</td>
+      <td style="font-weight:600">${p.name}</td>
+      <td style="color:var(--muted);font-size:.75rem">${p.area}</td>
+      <td><span class="status-badge" style="background:${sc.replace('var(--','rgba(').replace(')',',0.15)')};color:${sc};border:1px solid ${sc.replace('var(--','rgba(').replace(')',',0.3)')}">${statusLabel[p.type]}</span></td>
+      <td style="color:var(--text);font-size:.75rem">${fmt(p.total)}</td>
+      <td style="color:var(--green);font-size:.75rem">${fmt(p.paid)}</td>
+      <td style="color:var(--orange);font-weight:700;font-size:.75rem">${fmt(p.rem)}</td>
+      <td style="background:rgba(245,158,11,.06);color:#f59e0b;font-size:.75rem">${fmt(p.oct)}</td>
+      <td style="background:rgba(99,102,241,.06);color:#818cf8;font-size:.75rem">${fmt(p.nov)}</td>
+      <td style="background:rgba(34,211,238,.06);color:#22d3ee;font-size:.75rem">${fmt(p.dec)}</td>
+      <td style="background:rgba(16,185,129,.06);color:#10b981;font-size:.75rem">${fmt(p.jan)}</td>
+    </tr>`;
+  }).join('');
+  const tfoot=`<tfoot><tr style="background:rgba(255,255,255,.05);font-weight:700">
+    <td colspan="5" style="text-align:center;color:var(--muted);font-size:.8rem">الإجمالي</td>
+    <td style="color:var(--accent2)">${(totTotal/1000000).toFixed(2)}م</td>
+    <td style="color:var(--green)">${(totPaid/1000000).toFixed(2)}م</td>
+    <td style="color:var(--orange)">${(totRem/1000000).toFixed(2)}م</td>
+    <td style="background:rgba(245,158,11,.1);color:#f59e0b">${(totOct/1000000).toFixed(2)}م</td>
+    <td style="background:rgba(99,102,241,.1);color:#818cf8">${(totNov/1000000).toFixed(2)}م</td>
+    <td style="background:rgba(34,211,238,.1);color:#22d3ee">${(totDec/1000000).toFixed(2)}م</td>
+    <td style="background:rgba(16,185,129,.1);color:#10b981">${(totJan/1000000).toFixed(2)}م</td>
+  </tr></tfoot>`;
+  document.getElementById('finTable').innerHTML=thead+`<tbody>${tbody}</tbody>`+tfoot;
+}
+
+function calcWorkingDays(startStr){
+  if(!startStr)return 0;
+  // أيام العطل الرسمية في مصر
+  const HOLIDAYS=new Set([
+    // 2025 — إجازات دينية
+    '2025-03-30','2025-03-31','2025-04-01', // عيد الفطر 2025
+    '2025-06-06','2025-06-07','2025-06-08', // عيد الأضحى 2025
+    // 2025 — إجازات قومية ثابتة
+    '2025-04-25', // تحرير سيناء
+    '2025-05-01', // عيد العمال
+    '2025-06-30', // ثورة 30 يونيو
+    '2025-07-23', // ثورة 23 يوليو
+    '2025-10-06', // يوم القوات المسلحة
+    // 2026 — إجازات دينية
+    '2026-03-19','2026-03-20','2026-03-21', // عيد الفطر 2026
+    '2026-05-26','2026-05-27','2026-05-28', // عيد الأضحى 2026
+    // 2026 — إجازات قومية ثابتة
+    '2026-04-25', // تحرير سيناء
+    '2026-05-01', // عيد العمال
+    '2026-06-30', // ثورة 30 يونيو
+    '2026-07-23', // ثورة 23 يوليو
+    '2026-10-06', // يوم القوات المسلحة
+    // 2027 — إجازات دينية
+    '2027-03-08','2027-03-09','2027-03-10', // عيد الفطر 2027
+    '2027-05-16','2027-05-17','2027-05-18', // عيد الأضحى 2027
+    // 2027 — إجازات قومية ثابتة
+    '2027-04-25','2027-05-01','2027-07-23','2027-10-06'
+  ]);
+  const start=new Date(startStr);
+  const today=new Date();
+  today.setHours(0,0,0,0);start.setHours(0,0,0,0);
+  if(start>=today)return 0;
+  let days=0;
+  const cur=new Date(start);
+  while(cur<today){
+    const dow=cur.getDay(); // 5 = الجمعة
+    const ds=cur.toISOString().slice(0,10);
+    if(dow!==5&&!HOLIDAYS.has(ds))days++;
+    cur.setDate(cur.getDate()+1);
+  }
+  return days;
+}
+
+function renderTracking(){
+  const ACTIVE_CODES=['P-003','P-004','P-005','P-006','P-014','P-015','P-016','P-017','P-021','P-034','P-035','P-125'];
+  const uMap={};
+  UPDATES.forEach(u=>{if(ACTIVE_CODES.includes(u.code))uMap[u.code]=u;});
+  const typeOf={'P-003':'da5li','P-004':'da5li','P-005':'da5li','P-015':'da5li','P-021':'da5li','P-034':'da5li','P-035':'da5li','P-006':'wajhat','P-014':'wajhat','P-016':'wajhat','P-017':'wajhat','P-125':'k104'};
+  const tc={da5li:'var(--orange)',wajhat:'var(--yellow)',k104:'var(--accent)'};
+  const tcBg={da5li:'rgba(249,115,22,.15)',wajhat:'rgba(234,179,8,.15)',k104:'rgba(99,102,241,.15)'};
+  const tcBd={da5li:'rgba(249,115,22,.3)',wajhat:'rgba(234,179,8,.3)',k104:'rgba(99,102,241,.3)'};
+  const tl={da5li:'داخلي',wajhat:'وجهات',k104:'هيكل'};
+  const defaultPlanned={'P-003':55,'P-004':60,'P-005':55,'P-006':80,'P-014':80,'P-015':55,'P-016':80,'P-017':80,'P-021':60,'P-034':55,'P-035':55,'P-125':17};
+  const k104u=uMap['P-125'];
+  const active11=['P-006','P-014','P-016','P-017','P-003','P-004','P-005','P-015','P-021','P-034','P-035'];
+  const ahead=active11.filter(c=>{const u=uMap[c];if(!u)return false;const ed=u.start?calcWorkingDays(u.start):null;if(ed!=null&&ed<365)return true;const pl=ed!=null?Math.min(100,Math.round((ed/365)*100)):(u.planned_pct!=null?u.planned_pct:defaultPlanned[c]||55);return(u.pct||0)>=pl;}).length;
+  const behind=active11.length-ahead;
+  const k104day=k104u&&k104u.start?calcWorkingDays(k104u.start):(k104u?k104u.day||0:0);
+  const daysPct=k104u?Math.round(k104day/(k104u.bl_days||70)*100):0;
+  document.getElementById('trackingKpis').innerHTML=`
+    <div class="kpi" style="background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.3)">
+      <div class="kpi-val" style="color:var(--accent)">12</div>
+      <div class="kpi-lbl">🏗 عمارات نشطة</div>
+      <div class="kpi-sub">جارى التنفيذ</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-val">${ahead}</div>
+      <div class="kpi-lbl">✅ في الموعد أو متقدم</div>
+      <div class="kpi-sub">من ${active11.length} عمارة</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-val">${behind}</div>
+      <div class="kpi-lbl">⚠️ متأخرة عن الخطة</div>
+      <div class="kpi-sub">تحتاج متابعة</div>
+    </div>
+    <div class="kpi" style="background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.25)">
+      <div class="kpi-val" style="color:var(--accent2)">${k104day}</div>
+      <div class="kpi-lbl">📅 104K يوم ${k104day}/${k104u?k104u.bl_days||70:70}</div>
+      <div class="kpi-sub">${daysPct}% من البرنامج الزمني</div>
+    </div>`;
+  if(k104u){
+    const dayPct=Math.round(k104day/(k104u.bl_days||70)*100);
+    const mB=(k104u.packages||[]).map(pkg=>{
+      const p=pkg.p||0;
+      const col=p>=dayPct?'var(--green)':'var(--red)';
+      const colBg=p>=dayPct?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)';
+      const colBd=p>=dayPct?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)';
+      return `<tr>
+        <td style="font-weight:700">${pkg.n}</td>
+        <td style="color:var(--muted)">${dayPct}%</td>
+        <td style="color:var(--accent2);font-weight:700">${p}%</td>
+        <td style="min-width:130px"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:7px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden"><div style="width:${p}%;height:100%;background:${p>=dayPct?'var(--green)':'var(--orange)'};border-radius:4px"></div></div><span style="font-size:.68rem;color:var(--muted);width:24px">${p}%</span></div></td>
+        <td><span class="status-badge" style="background:${colBg};color:${col};border:1px solid ${colBd}">${p>=dayPct?'في الموعد':'متأخر'}</span></td>
+        <td style="font-size:.7rem;color:var(--muted);max-width:160px">${pkg.note||''}</td>
+      </tr>`;
+    }).join('');
+    const mH=`<thead><tr><th>البند</th><th style="color:var(--muted)">المخطط %</th><th style="color:var(--accent2)">المنجز %</th><th>التقدم</th><th>الحالة</th><th>ملاحظة</th></tr></thead>`;
+    document.getElementById('k104Table').innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:.78rem">يوم <b style="color:var(--accent);font-size:1rem">${k104day}</b> من <b>${k104u.bl_days||70}</b> — <b style="color:var(--accent2)">${daysPct}%</b> من البرنامج — بدأ ${k104u.start||''}</div>
+        <div style="font-size:.78rem;color:var(--orange)">${k104u.current_activity||''}</div>
+      </div>
+      <div style="overflow-x:auto"><table class="project-table">${mH}<tbody>${mB}</tbody></table></div>`;
+  }
+  const tH=`<thead><tr>
+    <th>#</th><th>العمارة</th><th>الكود</th><th>الموقع</th><th>النوع</th>
+    <th style="color:var(--accent2)">تاريخ البدء</th>
+    <th>النشاط الجاري</th>
+    <th style="color:var(--accent2)">المنجز %</th>
+    <th style="color:var(--muted)">المخطط %</th>
+    <th>الفارق</th>
+    <th style="color:var(--red)">انحراف زمني</th>
+    <th>آخر تحديث</th>
+  </tr></thead>`;
+  const tB=active11.map((code,i)=>{
+    const u=uMap[code];const type=typeOf[code]||'da5li';
+    if(!u)return `<tr><td colspan="11" style="text-align:center;color:var(--muted)">${code} — لا يوجد تحديث</td></tr>`;
+    const actual=u.pct||0;
+    const elapsedDays=u.start?calcWorkingDays(u.start):null;
+    const BASELINE=365;
+    const planned=elapsedDays!=null?Math.min(100,Math.round((elapsedDays/BASELINE)*100)):(u.planned_pct!=null?u.planned_pct:defaultPlanned[code]||55);
+    const diff=actual-planned;
+    const withinProgram=elapsedDays!=null&&elapsedDays<BASELINE;
+    const diffStr=diff>0?`<span style="color:var(--green);font-weight:700">+${diff}%</span>`:diff<0?withinProgram?`<span style="color:var(--yellow);font-weight:700">${diff}%</span>`:`<span style="color:var(--red);font-weight:700">${diff}%</span>`:`<span style="color:var(--muted)">±0</span>`;
+    const pkgsInProg=(u.packages||[]).filter(p=>p.p>0&&p.p<100).map(p=>p.n).slice(0,2).join('، ');
+    const activity=u.current_activity||pkgsInProg||'—';
+    const timeDevDays=elapsedDays!=null?Math.round(elapsedDays-(actual/100*BASELINE)):null;
+    const remainDays=elapsedDays!=null?BASELINE-elapsedDays:null;
+    const timeDevHtml=elapsedDays==null?`<span style="color:var(--muted)">—</span>`
+      :withinProgram?`<span style="color:var(--green);font-size:.68rem;font-weight:700">✓ متبقي <b>${remainDays}</b> يوم</span>`
+      :timeDevDays>0?`<span style="color:var(--red);font-weight:700">+${timeDevDays}<span style="font-size:.6rem;font-weight:400;margin-right:2px">يوم تأخير</span></span>`
+      :timeDevDays<0?`<span style="color:var(--green);font-weight:700">${Math.abs(timeDevDays)}<span style="font-size:.6rem;font-weight:400;margin-right:2px">يوم مبكر</span></span>`
+      :`<span style="color:var(--muted)">±0</span>`;
+    const startDate=u.start?`<div style="color:var(--accent2);font-weight:700;font-size:.72rem">${u.start}</div><div style="color:var(--green);font-size:.68rem;margin-top:2px">${elapsedDays} يوم عمل ⏱</div>`:`<span style="color:var(--muted)">—</span>`;
+    return `<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="font-weight:700;cursor:pointer;color:var(--accent2)" onclick="showProjectDetail('${code}')" title="اضغط لعرض التفاصيل">${u.name} <span style="font-size:.6rem;opacity:.6">↗</span></td>
+      <td style="color:var(--accent2);font-weight:700">${u.code}</td>
+      <td style="font-size:.7rem;color:var(--muted)">${u.loc}</td>
+      <td><span class="status-badge" style="background:${tcBg[type]};color:${tc[type]};border:1px solid ${tcBd[type]}">${tl[type]}</span></td>
+      <td style="font-size:.72rem;text-align:center">${startDate}</td>
+      <td style="font-size:.72rem;max-width:160px;line-height:1.4">${activity}</td>
+      <td><div style="display:flex;align-items:center;gap:5px"><div style="width:50px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden"><div style="width:${actual}%;height:100%;background:${tc[type]};border-radius:3px"></div></div><b style="color:var(--text)">${actual}%</b></div></td>
+      <td style="color:var(--muted)">${planned}%</td>
+      <td>${diffStr}</td>
+      <td style="text-align:center">${timeDevHtml}</td>
+      <td style="font-size:.7rem;color:var(--muted)">${u.last_updated||'—'}</td>
+    </tr>`;
+  }).join('');
+  const avgActual=Math.round(active11.map(c=>uMap[c]?uMap[c].pct||0:0).reduce((s,v)=>s+v,0)/active11.length);
+  const avgPlanned=Math.round(active11.map(c=>{const u=uMap[c];if(!u)return defaultPlanned[c]||55;const ed=u.start?calcWorkingDays(u.start):null;return ed!=null?Math.min(100,Math.round((ed/365)*100)):(u.planned_pct!=null?u.planned_pct:defaultPlanned[c]||55);}).reduce((s,v)=>s+v,0)/active11.length);
+  const avgDiff=avgActual-avgPlanned;
+  const tF=`<tfoot><tr style="background:rgba(255,255,255,.05);font-weight:700">
+    <td colspan="7" style="text-align:center;color:var(--muted)">متوسط الإنجاز</td>
+    <td><b style="color:var(--accent2)">${avgActual}%</b></td>
+    <td style="color:var(--muted)">${avgPlanned}%</td>
+    <td>${avgDiff>0?`<span style="color:var(--green)">+${avgDiff}%</span>`:avgDiff<0?`<span style="color:var(--red)">${avgDiff}%</span>`:`<span style="color:var(--muted)">±0</span>`}</td>
+    <td></td><td></td>
+  </tr></tfoot>`;
+  document.getElementById('activeTracking').innerHTML=`<table class="project-table">${tH}<tbody>${tB}</tbody>${tF}</table>`;
+}
+
+function showProjectDetail(code){
+  const u=UPDATES.find(x=>x.code===code);if(!u)return;
+  const typeOf={'P-003':'da5li','P-004':'da5li','P-005':'da5li','P-015':'da5li','P-021':'da5li','P-034':'da5li','P-035':'da5li','P-006':'wajhat','P-014':'wajhat','P-016':'wajhat','P-017':'wajhat','P-125':'k104'};
+  const tc={da5li:'var(--orange)',wajhat:'var(--yellow)',k104:'var(--accent)'};
+  const tcBg={da5li:'rgba(249,115,22,.15)',wajhat:'rgba(234,179,8,.15)',k104:'rgba(99,102,241,.15)'};
+  const tcBd={da5li:'rgba(249,115,22,.3)',wajhat:'rgba(234,179,8,.3)',k104:'rgba(99,102,241,.3)'};
+  const tl={da5li:'داخلي',wajhat:'وجهات',k104:'هيكل'};
+  const defaultPlanned={'P-003':55,'P-004':60,'P-005':55,'P-006':80,'P-014':80,'P-015':55,'P-016':80,'P-017':80,'P-021':60,'P-034':55,'P-035':55,'P-125':17};
+  const type=typeOf[code]||'da5li';
+  const color=tc[type];
+  const actual=u.pct||0;
+  const planned=u.planned_pct!=null?u.planned_pct:defaultPlanned[code]||55;
+  const diff=actual-planned;
+  const diffColor=diff>0?'var(--green)':diff<0?'var(--red)':'var(--muted)';
+  const diffStr=diff>0?`+${diff}%`:diff<0?`${diff}%`:'±0';
+  // SVG donut ring
+  const R=40,CX=55,CY=55,CIRC=2*Math.PI*R;
+  const dashA=(CIRC*actual/100).toFixed(1);
+  const dashP=(CIRC*planned/100).toFixed(1);
+  const donut=`<svg width="110" height="110" viewBox="0 0 110 110" style="display:block;flex-shrink:0">
+    <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="10"/>
+    <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="10"
+      stroke-dasharray="${dashP} ${(CIRC+1).toFixed(1)}" transform="rotate(-90 ${CX} ${CY})" stroke-linecap="round"/>
+    <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${color}" stroke-width="10"
+      stroke-dasharray="${dashA} ${(CIRC+1).toFixed(1)}" transform="rotate(-90 ${CX} ${CY})" stroke-linecap="round" filter="drop-shadow(0 0 4px ${color})"/>
+    <text x="${CX}" y="${CY-5}" text-anchor="middle" fill="${color}" font-size="15" font-weight="800" font-family="Cairo,sans-serif">${actual}%</text>
+    <text x="${CX}" y="${CY+11}" text-anchor="middle" fill="var(--muted)" font-size="9.5" font-family="Cairo,sans-serif">منجز</text>
+  </svg>`;
+  // 70-day timeline for 104K
+  let timeHtml='';
+  if(code==='P-125'&&u.bl_days){
+    const computedDay=u.start?calcWorkingDays(u.start):(u.day||0);
+    const dp=Math.round(computedDay/u.bl_days*100);
+    timeHtml=`<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:.76rem">
+        <span style="font-weight:800;color:var(--accent)">⏱ البرنامج المضغوط — 70 يوم</span>
+        <span style="color:var(--muted)">بداية ${u.start||''}</span>
+      </div>
+      <div style="position:relative;height:14px;background:rgba(255,255,255,.06);border-radius:7px;overflow:hidden">
+        <div style="position:absolute;right:0;top:0;height:100%;width:${dp}%;background:linear-gradient(to left,var(--accent),var(--accent2));border-radius:7px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:.72rem">
+        <span>يوم <b style="color:var(--accent);font-size:1rem">${computedDay}</b> <span style="color:var(--muted)">من ${u.bl_days}</span> <span style="font-size:.6rem;color:var(--muted)">(أيام عمل فعلية)</span></span>
+        <span style="color:var(--accent2);font-weight:700">${dp}% من الوقت مضى</span>
+      </div>
+    </div>`;
+  }
+  // Package breakdown bars
+  const dayPct=(code==='P-125'&&u.bl_days)?Math.round((u.start?calcWorkingDays(u.start):(u.day||0))/u.bl_days*100):null;
+  const pkgsHtml=(u.packages||[]).length?`
+    <div>
+      <div style="font-size:.7rem;color:var(--muted);font-weight:800;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border);letter-spacing:.03em">📦 بنود الأعمال</div>
+      ${(u.packages||[]).map(pkg=>{
+        const p=pkg.p||0;
+        const barCol=p===100?'var(--green)':p>0?color:'rgba(255,255,255,.1)';
+        const icon=p===100?'✅':p>0?'🔄':'⏸';
+        let badge='';
+        if(dayPct!==null){
+          const ok=p>=dayPct;
+          badge=`<span style="font-size:.6rem;padding:1px 7px;border-radius:10px;background:${ok?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)'};color:${ok?'var(--green)':'var(--red)'};border:1px solid ${ok?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)'};margin-right:5px">${ok?'✓ في الموعد':'⚠ متأخر'}</span>`;
+        }
+        return `<div class="modal-pkg">
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:.76rem">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>${icon}</span><span style="font-weight:700">${pkg.n}</span>${badge}</div>
+            <b style="color:${p===100?'var(--green)':p>0?color:'var(--muted)'};font-size:.82rem">${p}%</b>
+          </div>
+          <div class="modal-pkg-bar"><div class="modal-pkg-fill" style="width:${p}%;background:${barCol}"></div></div>
+          ${pkg.note?`<div style="font-size:.65rem;color:var(--muted);padding-right:20px;margin-top:1px">${pkg.note}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>`:'';
+  const pkgsInProg=(u.packages||[]).filter(p=>p.p>0&&p.p<100).map(p=>p.n).slice(0,3).join('، ');
+  const activity=u.current_activity||pkgsInProg||'—';
+  document.getElementById('modalContent').innerHTML=`
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:1.2rem;font-weight:900;color:var(--text)">${u.name}</div>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${u.loc}</div>
+        </div>
+        <span class="status-badge" style="background:${tcBg[type]};color:${color};border:1px solid ${tcBd[type]}">${tl[type]}</span>
+        <span class="status-badge" style="background:rgba(34,211,238,.1);color:var(--accent2);border:1px solid rgba(34,211,238,.25)">${code}</span>
+        <span class="status-badge" style="background:rgba(255,255,255,.06);color:var(--muted)">${u.status||'جاري التنفيذ'}</span>
+      </div>
+      <button onclick="closeModal()" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);font-size:1rem;cursor:pointer;padding:5px 14px;border-radius:8px;font-family:Cairo,sans-serif;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='rgba(255,255,255,.06)'">✕ إغلاق</button>
+    </div>
+    <div style="padding:18px 20px">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        ${donut}
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:1;min-width:200px">
+          <div style="background:var(--card);border-radius:10px;padding:12px 10px;text-align:center;border:1px solid ${tcBd[type]}">
+            <div style="font-size:1.25rem;font-weight:900;color:${color}">${actual}%</div>
+            <div style="font-size:.62rem;color:var(--muted);margin-top:2px">المنجز</div>
+          </div>
+          <div style="background:var(--card);border-radius:10px;padding:12px 10px;text-align:center">
+            <div style="font-size:1.25rem;font-weight:900;color:var(--muted)">${planned}%</div>
+            <div style="font-size:.62rem;color:var(--muted);margin-top:2px">المخطط</div>
+          </div>
+          <div style="background:var(--card);border-radius:10px;padding:12px 10px;text-align:center;border:1px solid ${diff!==0?diffColor:'var(--border)'}">
+            <div style="font-size:1.25rem;font-weight:900;color:${diffColor}">${diffStr}</div>
+            <div style="font-size:.62rem;color:var(--muted);margin-top:2px">الفارق</div>
+          </div>
+        </div>
+      </div>
+      ${activity!=='—'?`<div style="background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.2);border-radius:9px;padding:10px 14px;margin-bottom:14px;font-size:.76rem;line-height:1.55;color:var(--text)"><span style="color:var(--accent2);font-weight:800">🔄 النشاط الجاري:&nbsp;</span>${activity}</div>`:''}
+      ${timeHtml}${pkgsHtml}
+    </div>`;
+  const modal=document.getElementById('projectModal');
+  modal.style.display='block';
+  document.body.style.overflow='hidden';
+}
+function closeModal(){
+  document.getElementById('projectModal').style.display='none';
+  document.body.style.overflow='';
+}
+
+document.getElementById('dateLabel').textContent=new Date().toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'});
+const fd=document.getElementById('footerDate');if(fd)fd.textContent=new Date().toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'});
+function renderDeviations(){
+  const CONC=[
+    {n:'139 E',pl:590,ac:590.5,d:0.5,p:0.085,e:'ماجد'},
+    {n:'162 B',pl:615,ac:615,d:0,p:0,e:'ماجد'},
+    {n:'56 B',pl:559.01,ac:558,d:-1.01,p:-0.181,e:'ماجد'},
+    {n:'79 C',pl:1198.7,ac:1197,d:-1.7,p:-0.142,e:'ماجد'},
+    {n:'231 K',pl:837,ac:846.75,d:9.75,p:1.165,e:'ابراهيم'},
+    {n:'232 K',pl:839,ac:850.5,d:11.5,p:1.371,e:'ابراهيم'},
+    {n:'36 D',pl:598,ac:577,d:-21,p:-3.512,e:'خالد'},
+    {n:'47 H',pl:738.77,ac:740,d:1.23,p:0.167,e:'هادي'},
+    {n:'117 A',pl:756.3,ac:755.5,d:-0.8,p:-0.106,e:'ماجد'},
+    {n:'58 K',pl:898.97,ac:927,d:28.03,p:3.118,e:'هادي'},
+    {n:'59 K',pl:731.2,ac:756.5,d:25.3,p:3.46,e:'هادي'},
+    {n:'52 L',pl:922,ac:920,d:-2,p:-0.217,e:'خالد'},
+    {n:'154 K',pl:776.5,ac:777.5,d:1,p:0.129,e:'عبد الرحمن'},
+    {n:'91 K',pl:758.81,ac:771,d:12.19,p:1.607,e:'ابراهيم'},
+    {n:'31 K',pl:902,ac:943,d:41,p:4.545,e:'هادي'},
+    {n:'226 J',pl:906,ac:914.5,d:8.5,p:0.938,e:'خالد'},
+    {n:'160 J',pl:932,ac:953,d:21,p:2.253,e:'خالد'},
+    {n:'122 K',pl:758,ac:773.5,d:15.5,p:2.045,e:'ابراهيم'},
+    {n:'98 A',pl:683,ac:681,d:-2,p:-0.293,e:'ماجد'},
+    {n:'59 A',pl:674.5,ac:672.5,d:-2,p:-0.297,e:'ماجد'},
+    {n:'33 I',pl:579,ac:583.5,d:4.5,p:0.777,e:'ماجد'},
+    {n:'58 C',pl:1007,ac:1037,d:30,p:2.979,e:'خالد'},
+    {n:'145 A',pl:852,ac:853,d:1,p:0.117,e:'هادي'},
+  ];
+  const STEEL=[
+    {n:'139 E',pl:47.18,ac:46.59,p:1.26,e:'خالد'},
+    {n:'162 B',pl:49.78,ac:48.01,p:3.55,e:'خالد'},
+    {n:'56 B',pl:61.65,ac:60.76,p:1.44,e:'خالد'},
+    {n:'79 C',pl:58.73,ac:57.17,p:0.95,e:'خالد'},
+    {n:'231 K',pl:57.42,ac:54.28,p:3.72,e:'ابراهيم'},
+    {n:'232 K',pl:61.83,ac:55.08,p:2.67,e:'ابراهيم'},
+    {n:'36 D',pl:51.55,ac:51.66,p:-0.214,e:'خالد'},
+    {n:'47 H',pl:58.34,ac:59.18,p:-1.43,e:'هادي'},
+    {n:'117 A',pl:59.73,ac:56.30,p:5.74,e:'ماجد'},
+    {n:'58 K',pl:66.04,ac:64.95,p:1.65,e:'هادي'},
+    {n:'59 K',pl:60.20,ac:59.02,p:1.96,e:'ابراهيم'},
+    {n:'52 L',pl:72.05,ac:71.83,p:0.30,e:'خالد'},
+    {n:'154 K',pl:61.59,ac:61.59,p:-0.003,e:'عبد الرحمن'},
+    {n:'91 K',pl:59.28,ac:60.95,p:-2.82,e:'ابراهيم'},
+    {n:'31 K',pl:63.38,ac:63.35,p:0.049,e:'هادي'},
+    {n:'226 J',pl:71.17,ac:71.34,p:0.236,e:'خالد'},
+    {n:'160 J',pl:75.18,ac:75.64,p:0.612,e:'خالد'},
+    {n:'122 K',pl:60.85,ac:60.36,p:-0.803,e:'ابراهيم'},
+    {n:'98 A',pl:55.91,ac:56.36,p:0.810,e:'ماجد'},
+    {n:'59 A',pl:57.80,ac:56.11,p:-2.921,e:'ماجد'},
+    {n:'33 I',pl:54.92,ac:56.70,p:3.252,e:'ماجد'},
+    {n:'58 C',pl:96.09,ac:95.86,p:-0.241,e:'خالد'},
+    {n:'145 A',pl:70.06,ac:68.91,p:-1.640,e:'هادي'},
+  ];
+  const ENGS=[
+    {n:'عبد الرحمن',cp:0.129,sp:-0.003,avg:0.063,rank:'🥇 الأفضل',c:'var(--green)'},
+    {n:'خالد',cp:0.488,sp:0.877,avg:0.683,rank:'🥈 الثاني',c:'var(--accent2)'},
+    {n:'ماجد',cp:-0.020,sp:1.720,avg:0.850,rank:'✓ ممتاز',c:'var(--text)'},
+    {n:'هادي',cp:2.281,sp:-0.343,avg:0.969,rank:'✓ ممتاز',c:'var(--text)'},
+    {n:'ابراهيم',cp:1.547,sp:0.945,avg:1.246,rank:'✓ ممتاز',c:'var(--text)'},
+  ];
+  function wc(p){return p<=0?'#22d3ee':p<2?'var(--green)':p<5?'var(--orange)':'var(--red)';}
+  function wl(p){return p<=0?'💧 توفير':p<2?'✓ ممتاز':p<5?'⚠ مقبول':'✗ هالك';}
+  function bar(p,max=6){const w=Math.min(Math.abs(p)/max*100,100);return`<div style="background:#1e2130;border-radius:3px;height:7px;margin-top:3px"><div style="width:${w}%;height:100%;background:${wc(p)};border-radius:3px"></div></div>`;}
+  const sm={};STEEL.forEach(s=>sm[s.n]=s);
+  // KPIs
+  const kpi=`<div class="kpi-grid" style="margin-bottom:16px">
+    <div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val" style="color:var(--green)">1.00%</div><div class="kpi-lbl">🧱 هالك الخرسانة</div><div class="kpi-sub" style="color:var(--green)">✓ ممتاز — إجمالي 23 قطعة</div></div>
+    <div class="kpi" style="border-right-color:#22d3ee"><div class="kpi-val" style="color:#22d3ee">-0.83%</div><div class="kpi-lbl">⚙ هالك الحديد</div><div class="kpi-sub" style="color:#22d3ee">💧 توفير — إجمالي 23 قطعة</div></div>
+    <div class="kpi green"><div class="kpi-val">18,113</div><div class="kpi-lbl">🧱 خرسانة مخططة م³</div><div class="kpi-sub">منفذ: 18,293 م³ | فرق: +180</div></div>
+    <div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="color:var(--accent2)">1,425.8</div><div class="kpi-lbl">⚙ حديد مخطط (طن)</div><div class="kpi-sub">منفذ: 1,414 طن | توفير 11.8 طن</div></div>
+    <div class="kpi green"><div class="kpi-val" style="color:var(--green)">10</div><div class="kpi-lbl">✓ ممتاز خرسانة</div><div class="kpi-sub">هالك أقل من 2%</div></div>
+    <div class="kpi orange"><div class="kpi-val" style="color:var(--orange)">6</div><div class="kpi-lbl">⚠ مقبول خرسانة</div><div class="kpi-sub">هالك 2% إلى 5%</div></div>
+  </div>`;
+  // Project rows
+  let rows='';
+  CONC.forEach((c,i)=>{
+    const s=sm[c.n];
+    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    rows+=`<tr style="${bg}">
+      <td style="padding:8px 10px;font-weight:700">${c.n}</td>
+      <td style="padding:8px 10px;color:var(--muted);font-size:.75rem">${c.e}</td>
+      <td style="padding:8px 10px;min-width:150px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="color:${wc(c.p)};font-weight:700;font-size:.85rem">${c.p>0?'+':''}${c.p.toFixed(2)}%</span>
+          <span style="font-size:.68rem;color:${wc(c.p)}">${wl(c.p)}</span>
+        </div>${bar(c.p)}
+      </td>
+      <td style="padding:8px 10px;color:var(--muted);font-size:.72rem">${c.pl.toLocaleString()} / ${c.ac.toLocaleString()}</td>
+      ${s?`<td style="padding:8px 10px;min-width:150px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="color:${wc(s.p)};font-weight:700;font-size:.85rem">${s.p>0?'+':''}${s.p.toFixed(2)}%</span>
+          <span style="font-size:.68rem;color:${wc(s.p)}">${wl(s.p)}</span>
+        </div>${bar(s.p)}
+      </td>
+      <td style="padding:8px 10px;color:var(--muted);font-size:.75rem">${s.e}</td>`
+      :'<td colspan="2" style="padding:8px 10px;color:var(--muted);font-size:.75rem;text-align:center">—</td>'}
+    </tr>`;
+  });
+  // Eng rows
+  let erows='';
+  ENGS.forEach((e,i)=>{
+    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    erows+=`<tr style="${bg}">
+      <td style="padding:8px 10px;font-weight:700;color:${e.c}">${e.n}</td>
+      <td style="padding:8px 10px;min-width:140px"><span style="color:${wc(e.cp)};font-weight:700">${e.cp>0?'+':''}${e.cp.toFixed(2)}%</span>${bar(e.cp)}</td>
+      <td style="padding:8px 10px;min-width:140px"><span style="color:${wc(e.sp)};font-weight:700">${e.sp>0?'+':''}${e.sp.toFixed(2)}%</span>${bar(e.sp)}</td>
+      <td style="padding:8px 10px;min-width:140px"><span style="color:${wc(e.avg)};font-weight:700">${e.avg.toFixed(2)}%</span>${bar(e.avg)}</td>
+      <td style="padding:8px 10px;color:${e.c};font-weight:700">${e.rank}</td>
+    </tr>`;
+  });
+  document.getElementById('tab-deviations').innerHTML=`
+    <div class="section-title">📉 الانحرافات — هالك الخرسانة والحديد <span style="font-size:.7rem;color:var(--muted);font-weight:400">آخر تحديث: ٢٢ أكتوبر ٢٠٢٦</span></div>
+    ${kpi}
+    <div class="chart-card" style="margin-bottom:14px">
+      <div class="chart-title">📊 انحرافات الخرسانة والحديد — لكل قطعة</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+          <thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">
+            <th style="padding:8px 10px;text-align:right">القطعة</th>
+            <th style="padding:8px 10px;text-align:right">مهندس الخرسانة</th>
+            <th style="padding:8px 10px;text-align:right">% هالك الخرسانة</th>
+            <th style="padding:8px 10px;text-align:right">مخطط / منفذ م³</th>
+            <th style="padding:8px 10px;text-align:right">% هالك الحديد</th>
+            <th style="padding:8px 10px;text-align:right">مهندس الحديد</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">👷 أداء المهندسين — مقارنة الهالك</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+          <thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">
+            <th style="padding:8px 10px;text-align:right">المهندس</th>
+            <th style="padding:8px 10px;text-align:right">هالك الخرسانة %</th>
+            <th style="padding:8px 10px;text-align:right">هالك الحديد %</th>
+            <th style="padding:8px 10px;text-align:right">المتوسط %</th>
+            <th style="padding:8px 10px;text-align:right">التقييم</th>
+          </tr></thead>
+          <tbody>${erows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+renderKPIs();renderStatusChart();renderLocChart();renderLocMap();buildLocOptions();filterProjects();renderUpdates();renderCashFlow();renderFinancial();renderTracking();renderDeviations();
+
+
+// ============ CHAT UPDATE SYSTEM + LOCALSTORAGE ============
+const ACTIVE_CODES = ['P-125','P-006','P-014','P-016','P-017','P-003','P-004','P-005','P-015','P-021','P-034','P-035'];
+const ACTIVE_NAMES = {'P-003':'117A','P-004':'59A','P-005':'33I','P-006':'98A','P-014':'52L','P-015':'58C','P-016':'226J','P-017':'160J','P-021':'122K','P-034':'145A','P-035':'53A','P-125':'104K'};
+const CODE_FROM_NAME = {};
+Object.entries(ACTIVE_NAMES).forEach(([c,n])=>CODE_FROM_NAME[n]=c);
+
+let changelog = [];
+
+// Load saved data from localStorage
+function loadFromStorage(){
+  try {
+    const saved = localStorage.getItem('nile_dashboard_data');
+    if(saved){
+      const data = JSON.parse(saved);
+      if(data.UPDATES) {
+        // Merge saved updates into live UPDATES array
+        data.UPDATES.forEach(su => {
+          const idx = UPDATES.findIndex(u => u.code === su.code);
+          if(idx >= 0) UPDATES[idx] = su;
+          else UPDATES.push(su);
+        });
+      }
+      if(data.PROJECTS) {
+        data.PROJECTS.forEach(sp => {
+          const idx = PROJECTS.findIndex(p => p.code === sp.code);
+          if(idx >= 0) PROJECTS[idx] = sp;
+        });
+      }
+      if(data.changelog) changelog = data.changelog;
+    }
+  } catch(e){ console.log('No saved data or parse error'); }
+}
+
+function saveToStorage(){
+  try {
+    const data = {
+      UPDATES: UPDATES.filter(u => ACTIVE_CODES.includes(u.code)),
+      PROJECTS: PROJECTS.filter(p => ACTIVE_CODES.includes(p.code)),
+      changelog: changelog.slice(0, 200),
+      savedAt: new Date().toISOString()
+    };
+    localStorage.setItem('nile_dashboard_data', JSON.stringify(data));
+  } catch(e){ console.log('Storage save error:', e); }
+}
+
+function addChatMsg(text, type){
+  const el = document.getElementById('chatMessages');
+  const d = document.createElement('div');
+  d.className = 'chat-msg chat-' + type;
+  d.innerHTML = text;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+function addChangelog(entry){
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  changelog.unshift({time, text: entry, date: now.toLocaleDateString('ar-EG')});
+  renderChangelog();
+}
+
+function renderChangelog(){
+  const el = document.getElementById('changelog');
+  if(!el) return;
+  if(changelog.length === 0){
+    el.innerHTML = '<div style="color:var(--muted);font-size:.78rem;padding:10px">لا توجد تحديثات بعد</div>';
+    return;
+  }
+  el.innerHTML = changelog.slice(0,50).map(c =>
+    '<div class="changelog-item"><span class="changelog-time">' + c.time + '</span><span>' + c.text + '</span></div>'
+  ).join('');
+}
+
+function resolveCode(input){
+  input = input.trim().toUpperCase();
+  // Direct code match (P-003)
+  if(ACTIVE_NAMES[input]) return input;
+  // Name match (117A)
+  if(CODE_FROM_NAME[input]) return CODE_FROM_NAME[input];
+  // Fuzzy: try without P- prefix
+  if(/^\d{1,3}$/.test(input)){
+    const c = 'P-' + input.padStart(3,'0');
+    if(ACTIVE_NAMES[c]) return c;
+  }
+  return null;
+}
+
+function sendChatUpdate(){
+  const inp = document.getElementById('chatInput');
+  const text = inp.value.trim();
+  if(!text) return;
+  inp.value = '';
+  addChatMsg(text, 'user');
+
+  // Parse patterns:
+  // 1. "P-003 55%" or "117A 60%"
+  // 2. "P-003 بلاط 80%"
+  // 3. "حدث P-003 نسبة 75%"
+  // 4. "P-003 ملاحظة: text"
+
+  // Try note pattern first
+  const noteMatch = text.match(/([A-Za-z0-9-]+)\s+ملاحظة[:\s]+(.+)/i);
+  if(noteMatch){
+    const code = resolveCode(noteMatch[1]);
+    if(code){
+      const note = noteMatch[2].trim();
+      const upd = UPDATES.find(u=>u.code===code);
+      if(upd && upd.packages){
+        upd.packages.forEach(p => { if(!p.note) p.note = note; });
+        upd.last_updated = todayAr();
+        refreshAll();
+        saveToStorage();
+        addChatMsg('✅ تم إضافة الملاحظة لمشروع <b>' + ACTIVE_NAMES[code] + '</b> (' + code + '): ' + note, 'bot');
+        addChangelog('ملاحظة ' + code + ' (' + ACTIVE_NAMES[code] + '): ' + note);
+      } else {
+        addChatMsg('⚠️ المشروع ' + code + ' ليس له بيانات تحديثات بعد. أضف تحديث أولاً.', 'error');
+      }
+      return;
+    }
+  }
+
+  // Package update: "P-003 بلاط 80%"
+  const pkgMatch = text.match(/([A-Za-z0-9-]+)\s+([؀-ۿ\s]+?)\s*(\d{1,3})\s*%/);
+  if(pkgMatch){
+    const code = resolveCode(pkgMatch[1]);
+    const pkgName = pkgMatch[2].trim();
+    const pct = Math.min(100, Math.max(0, parseInt(pkgMatch[3])));
+    if(code){
+      updatePackage(code, pkgName, pct);
+      return;
+    }
+  }
+
+  // Total update: "P-003 55%" or "حدث P-003 نسبة 55%"
+  const totalMatch = text.match(/(?:حدث\s+)?([A-Za-z0-9-]+)\s+(?:نسبة\s+)?(\d{1,3})\s*%/);
+  if(totalMatch){
+    const code = resolveCode(totalMatch[1]);
+    const pct = Math.min(100, Math.max(0, parseInt(totalMatch[2])));
+    if(code){
+      updateTotal(code, pct);
+      return;
+    } else {
+      addChatMsg('❌ لم أجد مشروع بالكود أو الاسم: <b>' + totalMatch[1] + '</b>. المشاريع النشطة: ' + Object.values(ACTIVE_NAMES).join(', '), 'error');
+      return;
+    }
+  }
+
+  // If no pattern matched
+  addChatMsg('❓ لم أفهم الأمر. جرّب:<br>• <b>P-003 55%</b> — تحديث النسبة الإجمالية<br>• <b>117A بلاط 80%</b> — تحديث بند معين<br>• <b>P-003 ملاحظة: نص</b> — إضافة ملاحظة', 'error');
+}
+
+function updateTotal(code, pct){
+  // Update PROJECTS
+  const proj = PROJECTS.find(p => p.code === code);
+  if(proj) proj.pct = pct;
+
+  // Update UPDATES
+  let upd = UPDATES.find(u => u.code === code);
+  if(upd){
+    upd.last_updated = todayAr();
+  }
+
+  refreshAll();
+  saveToStorage();
+  addChatMsg('✅ تم تحديث <b>' + ACTIVE_NAMES[code] + '</b> (' + code + ') → <b>' + pct + '%</b>', 'bot');
+  addChangelog('تحديث ' + code + ' (' + ACTIVE_NAMES[code] + ') → ' + pct + '%');
+}
+
+function updatePackage(code, pkgName, pct){
+  let upd = UPDATES.find(u => u.code === code);
+  if(!upd){
+    addChatMsg('⚠️ المشروع ' + code + ' ليس له بيانات بنود بعد.', 'error');
+    return;
+  }
+  if(!upd.packages) upd.packages = [];
+  const pkg = upd.packages.find(p => p.n.includes(pkgName) || pkgName.includes(p.n));
+  if(pkg){
+    pkg.p = pct;
+    upd.last_updated = todayAr();
+    refreshAll();
+    saveToStorage();
+    addChatMsg('✅ تم تحديث بند <b>' + pkg.n + '</b> في <b>' + ACTIVE_NAMES[code] + '</b> (' + code + ') → <b>' + pct + '%</b>', 'bot');
+    addChangelog('بند ' + pkg.n + ' في ' + code + ' → ' + pct + '%');
+  } else {
+    // Add new package
+    upd.packages.push({n: pkgName, p: pct, note:''});
+    upd.last_updated = todayAr();
+    refreshAll();
+    saveToStorage();
+    addChatMsg('✅ تم إضافة بند جديد <b>' + pkgName + '</b> في <b>' + ACTIVE_NAMES[code] + '</b> (' + code + ') بنسبة <b>' + pct + '%</b>', 'bot');
+    addChangelog('بند جديد ' + pkgName + ' في ' + code + ' → ' + pct + '%');
+  }
+}
+
+function todayAr(){
+  const d = new Date();
+  const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+// Form functions
+function populateFormDropdowns(){
+  const s1 = document.getElementById('formProject');
+  const s2 = document.getElementById('formProjectTotal');
+  if(!s1) return;
+  const opts = ACTIVE_CODES.map(c => '<option value="'+c+'">'+c+' — '+ACTIVE_NAMES[c]+'</option>').join('');
+  s1.innerHTML = '<option value="">-- اختر مشروع --</option>' + opts;
+  s2.innerHTML = '<option value="">-- اختر مشروع --</option>' + opts;
+}
+
+function loadProjectPackages(){
+  const code = document.getElementById('formProject').value;
+  const sel = document.getElementById('formPackage');
+  sel.innerHTML = '<option value="">-- اختر بند --</option>';
+  if(!code) return;
+  const upd = UPDATES.find(u=>u.code===code);
+  if(upd && upd.packages){
+    upd.packages.forEach(p => {
+      sel.innerHTML += '<option value="'+p.n+'">'+p.n+' ('+p.p+'%)</option>';
+    });
+  }
+  sel.innerHTML += '<option value="__new__">➕ بند جديد...</option>';
+}
+
+function submitFormUpdate(){
+  const code = document.getElementById('formProject').value;
+  const pkgVal = document.getElementById('formPackage').value;
+  const pct = parseInt(document.getElementById('formPct').value);
+  const note = document.getElementById('formNote').value.trim();
+
+  if(!code){addChatMsg('⚠️ اختر مشروع أولاً', 'error'); return;}
+  if(!pkgVal){addChatMsg('⚠️ اختر بند أولاً', 'error'); return;}
+  if(isNaN(pct)||pct<0||pct>100){addChatMsg('⚠️ أدخل نسبة صحيحة (0-100)', 'error'); return;}
+
+  let upd = UPDATES.find(u=>u.code===code);
+  if(!upd){
+    addChatMsg('⚠️ المشروع ليس له بيانات بنود. جرّب تحديث إجمالي أولاً.', 'error');
+    return;
+  }
+  if(!upd.packages) upd.packages = [];
+
+  if(pkgVal === '__new__'){
+    const newName = prompt('اسم البند الجديد:');
+    if(!newName) return;
+    upd.packages.push({n:newName, p:pct, note:note});
+    addChatMsg('✅ بند جديد <b>'+newName+'</b> في <b>'+ACTIVE_NAMES[code]+'</b> → <b>'+pct+'%</b>', 'bot');
+    addChangelog('بند جديد '+newName+' في '+code+' → '+pct+'%');
+  } else {
+    const pkg = upd.packages.find(p=>p.n===pkgVal);
+    if(pkg){
+      pkg.p = pct;
+      if(note) pkg.note = note;
+      addChatMsg('✅ تم تحديث <b>'+pkgVal+'</b> في <b>'+ACTIVE_NAMES[code]+'</b> → <b>'+pct+'%</b>'+(note?' ('+note+')':''), 'bot');
+      addChangelog(pkgVal+' في '+code+' → '+pct+'%');
+    }
+  }
+  upd.last_updated = todayAr();
+  refreshAll();
+  saveToStorage();
+  // Reset form
+  document.getElementById('formPct').value='';
+  document.getElementById('formNote').value='';
+}
+
+function submitTotalUpdate(){
+  const code = document.getElementById('formProjectTotal').value;
+  const pct = parseInt(document.getElementById('formTotalPct').value);
+  if(!code){addChatMsg('⚠️ اختر مشروع أولاً', 'error'); return;}
+  if(isNaN(pct)||pct<0||pct>100){addChatMsg('⚠️ أدخل نسبة صحيحة (0-100)', 'error'); return;}
+  updateTotal(code, pct);
+  document.getElementById('formTotalPct').value='';
+}
+
+function exportData(){
+  const data = {
+    UPDATES: UPDATES.filter(u => ACTIVE_CODES.includes(u.code)),
+    PROJECTS: PROJECTS.filter(p => ACTIVE_CODES.includes(p.code)),
+    changelog: changelog,
+    exportedAt: new Date().toISOString(),
+    version: 'nile-dashboard-v1'
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nile-dashboard-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  addChatMsg('✅ تم تصدير البيانات بنجاح!', 'bot');
+}
+
+function importData(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const data = JSON.parse(e.target.result);
+      if(!data.UPDATES && !data.PROJECTS){
+        addChatMsg('❌ ملف غير صالح — لم أجد بيانات UPDATES أو PROJECTS', 'error');
+        return;
+      }
+      if(data.UPDATES){
+        data.UPDATES.forEach(su => {
+          const idx = UPDATES.findIndex(u => u.code === su.code);
+          if(idx >= 0) UPDATES[idx] = su;
+          else UPDATES.push(su);
+        });
+      }
+      if(data.PROJECTS){
+        data.PROJECTS.forEach(sp => {
+          const idx = PROJECTS.findIndex(p => p.code === sp.code);
+          if(idx >= 0) PROJECTS[idx] = sp;
+        });
+      }
+      if(data.changelog) changelog = data.changelog.concat(changelog);
+      refreshAll();
+      saveToStorage();
+      addChatMsg('✅ تم استيراد البيانات بنجاح! عدد التحديثات: ' + (data.UPDATES?.length || 0), 'bot');
+      addChangelog('تم استيراد بيانات من ملف');
+    } catch(err){
+      addChatMsg('❌ خطأ في قراءة الملف: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function resetData(){
+  if(!confirm('هل أنت متأكد؟ سيتم حذف جميع التعديلات المحفوظة والعودة للبيانات الأصلية.')) return;
+  try { localStorage.removeItem('nile_dashboard_data'); } catch(e){}
+  changelog = [];
+  addChatMsg('🗑️ تم إعادة التعيين. أعد تحميل الصفحة لاستعادة البيانات الأصلية.', 'bot');
+  addChangelog('إعادة تعيين البيانات');
+  location.reload();
+}
+
+function refreshAll(){
+  renderKPIs();renderStatusChart();renderLocChart();renderLocMap();filterProjects();
+  renderUpdates();renderCashFlow();renderFinancial();renderTracking();renderDeviations();
+  renderChangelog();
+}
+
+// Init: wrapped in startApp(), called after successful login
+function startApp(){
+  loadFromStorage();
+  populateFormDropdowns();
+  renderChangelog();
+}
+// Session check on load
+(function(){
+  const sess=_getSession();
+  if(sess){applySession(sess);}
+  else{document.getElementById('loginOverlay').style.display='flex';}
+})();
+
+</script>
+
+<!-- ADMIN PANEL TAB -->
+<div id="tab-admin" class="content hidden">
+  <div class="section-title">⚙️ إدارة المستخدمين</div>
+  <div class="admin-section">
+    <h3>➕ إضافة مستخدم جديد</h3>
+    <div class="form-row">
+      <div class="form-group" style="min-width:170px">
+        <label>اسم المستخدم</label>
+        <input type="text" id="newUsername" placeholder="اسم المستخدم" autocomplete="off">
+      </div>
+      <div class="form-group" style="min-width:170px">
+        <label>كلمة المرور</label>
+        <input type="password" id="newPassword" placeholder="كلمة المرور" autocomplete="new-password">
+      </div>
+      <div class="form-group" style="min-width:160px">
+        <label>الاسم الكامل (اختياري)</label>
+        <input type="text" id="newFullname" placeholder="مثال: م. أحمد محمد">
+      </div>
+      <button class="form-btn form-btn-primary" onclick="addUser()" style="margin-top:20px">إضافة ✓</button>
+    </div>
+    <div id="addUserMsg" style="font-size:.78rem;margin-top:6px;min-height:18px"></div>
+  </div>
+  <div class="admin-section">
+    <h3>👥 المستخدمون الحاليون</h3>
+    <div id="usersTableWrap"></div>
+  </div>
+  <div class="admin-section" style="border-color:rgba(99,102,241,.3)">
+    <h3 style="color:var(--muted)">ℹ️ ملاحظة</h3>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.8">
+      • حساب المسؤول (<b style="color:var(--text)">moaz</b>) ثابت ولا يمكن حذفه.<br>
+      • كلمات المرور محفوظة في المتصفح — هذا التطبيق على GitHub Pages فقط.<br>
+      • الجلسة تبقى مفتوحة لمدة 7 أيام بدون الحاجة لإعادة الدخول.
+    </p>
+  </div>
+</div>
+
+<div id="tab-chat" class="content hidden">
+  <div class="chat-container">
+    <div class="section-title">💬 تحديث البيانات — نظام الشات والنماذج</div>
+
+    <div class="chat-help">
+      <b>💡 طريقة الاستخدام:</b><br>
+      <b>شات سريع:</b> اكتب مثل: <code>P-003 55%</code> أو <code>117A 60%</code> أو <code>حدث P-014 نسبة 75%</code><br>
+      <b>تحديث بند:</b> <code>P-003 بلاط 80%</code> أو <code>117A كهرباء 90%</code><br>
+      <b>إضافة ملاحظة:</b> <code>P-003 ملاحظة: تم الصب</code><br>
+      <b>أو استخدم النموذج بالأسفل</b> لتحديث دقيق بالقوائم المنسدلة.
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-bot">مرحباً! أنا مساعد التحديثات. اكتب كود المشروع والنسبة لتحديث البيانات. مثال: <b>P-003 55%</b></div>
+    </div>
+
+    <div class="chat-input-row">
+      <input type="text" class="chat-input" id="chatInput" placeholder="اكتب التحديث هنا... مثال: P-003 55% أو 117A بلاط 80%" onkeydown="if(event.key==='Enter')sendChatUpdate()">
+      <button class="chat-send" onclick="sendChatUpdate()">إرسال ⬅</button>
+    </div>
+
+    <div class="form-section">
+      <h3>📝 تحديث عبر النموذج</h3>
+      <div class="form-row">
+        <div class="form-group" style="min-width:180px">
+          <label>اختر المشروع</label>
+          <select id="formProject" onchange="loadProjectPackages()">
+            <option value="">-- اختر مشروع --</option>
+          </select>
+        </div>
+        <div class="form-group" style="min-width:180px">
+          <label>اختر البند</label>
+          <select id="formPackage"><option value="">-- اختر بند --</option></select>
+        </div>
+        <div class="form-group" style="min-width:100px">
+          <label>النسبة %</label>
+          <input type="number" id="formPct" min="0" max="100" placeholder="0-100">
+        </div>
+        <div class="form-group" style="flex:1;min-width:150px">
+          <label>ملاحظة (اختياري)</label>
+          <input type="text" id="formNote" placeholder="ملاحظة...">
+        </div>
+        <button class="form-btn form-btn-primary" onclick="submitFormUpdate()">تحديث ✓</button>
+      </div>
+
+      <div class="form-row" style="margin-top:8px">
+        <div class="form-group" style="min-width:180px">
+          <label>تحديث النسبة الإجمالية</label>
+          <select id="formProjectTotal"><option value="">-- اختر مشروع --</option></select>
+        </div>
+        <div class="form-group" style="min-width:100px">
+          <label>النسبة الإجمالية %</label>
+          <input type="number" id="formTotalPct" min="0" max="100" placeholder="0-100">
+        </div>
+        <button class="form-btn form-btn-green" onclick="submitTotalUpdate()">تحديث الإجمالي ✓</button>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>💾 حفظ واستيراد البيانات</h3>
+      <div class="io-section">
+        <button onclick="exportData()">📤 تصدير JSON</button>
+        <button onclick="document.getElementById('importFile').click()">📥 استيراد JSON</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+        <button onclick="resetData()" style="border-color:var(--red);color:var(--red)">🗑️ إعادة تعيين</button>
+        <span style="font-size:.72rem;color:var(--muted);margin-right:8px">البيانات محفوظة تلقائياً في المتصفح</span>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>📋 سجل التحديثات</h3>
+      <div id="changelog" style="max-height:250px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+<div id="projectModal" onclick="if(event.target===this)closeModal()">
+  <div id="modalBox"><div id="modalContent"></div></div>
+</div>
+<footer style="text-align:center;padding:14px 20px 18px;border-top:1px solid var(--border);margin-top:8px">
+  <span style="font-size:.72rem;color:var(--muted);letter-spacing:.04em">✦ &nbsp;Design by &nbsp;<b style="color:var(--accent2);font-weight:800;letter-spacing:.05em">Eng. Moaz Zaki</b>&nbsp; ✦ &nbsp;<span style="font-size:.65rem;opacity:.6" id="footerDate"></span></span>
+</footer>
+</body>
+</html>
