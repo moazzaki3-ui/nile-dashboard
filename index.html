@@ -338,8 +338,28 @@ function _saveUsers(a){try{localStorage.setItem(_UK,JSON.stringify(a));}catch(e)
 function _checkCreds(u,p){
   if(u===_AU.u&&p===_AU.p)return{username:u,role:'admin',fullname:_AU.name};
   const x=_getUsers().find(r=>r.username===u&&r.password===p);
-  if(x)return{username:x.username,role:'viewer',fullname:x.fullname||x.username};
+  if(x)return{username:x.username,role:x.role||'viewer',fullname:x.fullname||x.username};
   return null;
+}
+const _ROLE_LABEL={admin:'⚙️ مسؤول',editor:'✏️ محرر',supervisor:'👷 مشرف',viewer:'👁 مشاهد'};
+function applyPermissions(role){
+  // chat input + add forms
+  const chatIn=document.getElementById('chatInputSection');
+  const formUpd=document.getElementById('formUpdateSection');
+  const formData=document.getElementById('formDataSection');
+  // admin & editor & supervisor can add updates; viewer cannot
+  const canAdd=(role==='admin'||role==='editor'||role==='supervisor');
+  if(chatIn)chatIn.style.display=canAdd?'':'none';
+  if(formUpd)formUpd.style.display=canAdd?'':'none';
+  // only admin & editor can export/import/reset data
+  const canData=(role==='admin'||role==='editor');
+  if(formData)formData.style.display=canData?'':'none';
+  // show role badge in header
+  const lbl=document.getElementById('userLabel');
+  if(lbl&&window._CURRENT_ROLE){
+    const rl=_ROLE_LABEL[window._CURRENT_ROLE]||'';
+    if(rl&&!lbl.textContent.includes(rl))lbl.textContent+=' — '+rl;
+  }
 }
 function _setSession(s){try{localStorage.setItem(_SK,JSON.stringify({...s,exp:Date.now()+86400000*7}));}catch(e){}}
 function _getSession(){try{const s=JSON.parse(localStorage.getItem(_SK)||'null');if(s&&s.exp>Date.now())return s;}catch(e){}return null;}
@@ -363,11 +383,13 @@ function doLogout(){
   document.getElementById('adminTab').style.display='none';
 }
 function applySession(sess){
+  window._CURRENT_ROLE=sess.role||'viewer';
   document.getElementById('loginOverlay').style.display='none';
   document.getElementById('userLabel').textContent='👤 '+sess.fullname;
   document.getElementById('headerUser').style.display='flex';
   if(sess.role==='admin')document.getElementById('adminTab').style.display='';
   startApp();
+  applyPermissions(sess.role||'viewer');
 }
 // Admin panel functions
 function addUser(){
@@ -379,11 +401,13 @@ function addUser(){
   if(u===_AU.u){msg.style.color='var(--red)';msg.textContent='هذا الاسم محجوز للمسؤول';return;}
   const users=_getUsers();
   if(users.find(x=>x.username===u)){msg.style.color='var(--red)';msg.textContent='اسم المستخدم موجود بالفعل';return;}
-  users.push({username:u,password:p,fullname:fn||u,createdAt:new Date().toLocaleDateString('ar-EG')});
+  const role=(document.getElementById('newRole')||{value:'viewer'}).value||'viewer';
+  users.push({username:u,password:p,fullname:fn||u,role:role,createdAt:new Date().toLocaleDateString('ar-EG')});
   _saveUsers(users);
   document.getElementById('newUsername').value='';
   document.getElementById('newPassword').value='';
   document.getElementById('newFullname').value='';
+  if(document.getElementById('newRole'))document.getElementById('newRole').value='viewer';
   msg.style.color='var(--green)';msg.textContent='✓ تم إضافة المستخدم بنجاح';
   setTimeout(()=>{try{document.getElementById('addUserMsg').textContent='';}catch(e){}},3000);
   renderAdminPanel();
@@ -399,6 +423,20 @@ function changeUserPwd(uname){
   const users=_getUsers();const u=users.find(x=>x.username===uname);
   if(u){u.password=np.trim();_saveUsers(users);alert('✓ تم تغيير كلمة المرور');}
 }
+function changeUserRole(uname){
+  const roles=['viewer','supervisor','editor','admin'];
+  const labels={'viewer':'مشاهد','supervisor':'مشرف','editor':'محرر','admin':'مسؤول'};
+  const users=_getUsers();const u=users.find(x=>x.username===uname);
+  if(!u)return;
+  const cur=u.role||'viewer';
+  const opts=roles.map(r=>(r===cur?'← ':'   ')+labels[r]+' ('+r+')').join('\n');
+  const np=prompt('صلاحية "'+uname+'" الحالية: '+labels[cur]+'\nاختر الجديدة (viewer/supervisor/editor/admin):\n'+opts);
+  if(!np||!np.trim())return;
+  const nr=np.trim().toLowerCase();
+  if(!roles.includes(nr)){alert('صلاحية غير معروفة');return;}
+  u.role=nr;_saveUsers(users);renderAdminPanel();
+  alert('✓ تم تغيير صلاحية "'+uname+'" إلى '+labels[nr]);
+}
 function renderAdminPanel(){
   const wrap=document.getElementById('usersTableWrap');
   if(!wrap)return;
@@ -407,10 +445,14 @@ function renderAdminPanel(){
   if(users.length===0){
     html='<p style="color:var(--muted);font-size:.82rem;padding:10px 0">لا يوجد مستخدمون إضافيون بعد.<br>المسؤول <b style="color:var(--text)">'+_AU.u+'</b> يستطيع دائماً الدخول.</p>';
   }else{
-    html='<table class="user-table"><thead><tr><th>اسم المستخدم</th><th>الاسم الكامل</th><th>تاريخ الإضافة</th><th>إجراءات</th></tr></thead><tbody>';
+    html='<table class="user-table"><thead><tr><th>اسم المستخدم</th><th>الاسم الكامل</th><th>الصلاحية</th><th>تاريخ الإضافة</th><th>إجراءات</th></tr></thead><tbody>';
     users.forEach(u=>{
-      html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td><td>'+(u.createdAt||'—')+'</td>'
-        +'<td><button class="del-btn kb" onclick="changeUserPwd(\''+u.username+'\')">🔑 تغيير الباسورد</button>'
+      const rl=u.role||'viewer';
+      const rlColors={admin:'#6366f1',editor:'#22c55e',supervisor:'#f97316',viewer:'#64748b'};
+      const rlBadge='<span style="background:'+rlColors[rl]+'22;color:'+rlColors[rl]+';border:1px solid '+rlColors[rl]+'44;border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700">'+(_ROLE_LABEL[rl]||rl)+'</span>';
+      html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td><td>'+rlBadge+'</td><td>'+(u.createdAt||'—')+'</td>'
+        +'<td><button class="del-btn kb" onclick="changeUserPwd(\''+u.username+'\')">🔑 باسورد</button>'
+        +' <button class="del-btn kb" onclick="changeUserRole(\''+u.username+'\')">🔄 صلاحية</button>'
         +' <button class="del-btn" onclick="removeUser(\''+u.username+'\')">🗑 حذف</button></td></tr>';
     });
     html+='</tbody></table>';
@@ -1753,6 +1795,15 @@ function startApp(){
         <label>الاسم الكامل (اختياري)</label>
         <input type="text" id="newFullname" placeholder="مثال: م. أحمد محمد">
       </div>
+      <div class="form-group" style="min-width:130px">
+        <label>الصلاحية</label>
+        <select id="newRole" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">
+          <option value="viewer">👁 مشاهد</option>
+          <option value="supervisor">👷 مشرف</option>
+          <option value="editor">✏️ محرر</option>
+          <option value="admin">⚙️ مسؤول</option>
+        </select>
+      </div>
       <button class="form-btn form-btn-primary" onclick="addUser()" style="margin-top:20px">إضافة ✓</button>
     </div>
     <div id="addUserMsg" style="font-size:.78rem;margin-top:6px;min-height:18px"></div>
@@ -1787,12 +1838,12 @@ function startApp(){
       <div class="chat-bot">مرحباً! أنا مساعد التحديثات. اكتب كود المشروع والنسبة لتحديث البيانات. مثال: <b>P-003 55%</b></div>
     </div>
 
-    <div class="chat-input-row">
+    <div class="chat-input-row" id="chatInputSection">
       <input type="text" class="chat-input" id="chatInput" placeholder="اكتب التحديث هنا... مثال: P-003 55% أو 117A بلاط 80%" onkeydown="if(event.key==='Enter')sendChatUpdate()">
       <button class="chat-send" onclick="sendChatUpdate()">إرسال ⬅</button>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" id="formUpdateSection">
       <h3>📝 تحديث عبر النموذج</h3>
       <div class="form-row">
         <div class="form-group" style="min-width:180px">
@@ -1829,7 +1880,7 @@ function startApp(){
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" id="formDataSection">
       <h3>💾 حفظ واستيراد البيانات</h3>
       <div class="io-section">
         <button onclick="exportData()">📤 تصدير JSON</button>
