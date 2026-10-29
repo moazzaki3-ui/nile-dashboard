@@ -158,6 +158,7 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
 </style>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <!-- LOGIN OVERLAY -->
@@ -203,6 +204,9 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
   <div class="tab" onclick="showTab('deviations')">📉 الانحرافات</div>
   <div class="tab" onclick="showTab('chat')">💬 تحديث البيانات</div>
   <div class="tab" onclick="showTab('deliveries')">📦 التوريدات</div>
+  <div class="tab" onclick="showTab('warehouse')">🏭 المخازن</div>
+  <div class="tab" onclick="showTab('invoices')">📄 المستخلصات</div>
+  <div class="tab" onclick="showTab('balances')">📊 الأرصدة والحصر</div>
   <div class="tab" id="adminTab" onclick="showTab('admin')" style="display:none">⚙️ الإدارة</div>
 </div>
 
@@ -579,6 +583,9 @@ const _TABS_CONFIG=[
   {id:'deviations',label:'📉 الانحرافات'},
   {id:'chat',label:'💬 تحديث البيانات'},
   {id:'deliveries',label:'📦 التوريدات'},
+  {id:'warehouse',label:'🏭 المخازن'},
+  {id:'invoices',label:'📄 المستخلصات'},
+  {id:'balances',label:'📊 الأرصدة والحصر'},
 ];
 let _TAB_PERM_CACHE=null;let _fbTabPermInit=false;
 function _getTabPerm(){
@@ -663,7 +670,10 @@ function showTab(t){
   if(t==='chat'){populateFormDropdowns();renderChangelog();}
   if(t==='admin'){renderAdminPanel();}
   if(t==='deliveries'){renderDeliveries();}
-  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','deliveries','admin'].forEach(id=>{
+  if(t==='warehouse'){renderWarehouse();}
+  if(t==='invoices'){renderInvoices();}
+  if(t==='balances'){renderBalances();}
+  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','deliveries','warehouse','invoices','balances','admin'].forEach(id=>{
     const el=document.getElementById('tab-'+id);if(el)el.classList.toggle('hidden',id!==t);
   });
   document.querySelectorAll('.tab').forEach(el=>{
@@ -1462,149 +1472,7 @@ function closeModal(){
 
 document.getElementById('dateLabel').textContent=new Date().toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'});
 const fd=document.getElementById('footerDate');if(fd)fd.textContent=new Date().toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'});
-function renderDeviations(){
-  const CONC=[
-    {n:'139 E',pl:590,ac:590.5,d:0.5,p:0.085,e:'ماجد'},
-    {n:'162 B',pl:615,ac:615,d:0,p:0,e:'ماجد'},
-    {n:'56 B',pl:559.01,ac:558,d:-1.01,p:-0.181,e:'ماجد'},
-    {n:'79 C',pl:1198.7,ac:1197,d:-1.7,p:-0.142,e:'ماجد'},
-    {n:'231 K',pl:837,ac:846.75,d:9.75,p:1.165,e:'ابراهيم'},
-    {n:'232 K',pl:839,ac:850.5,d:11.5,p:1.371,e:'ابراهيم'},
-    {n:'36 D',pl:598,ac:577,d:-21,p:-3.512,e:'خالد'},
-    {n:'47 H',pl:738.77,ac:740,d:1.23,p:0.167,e:'هادي'},
-    {n:'117 A',pl:756.3,ac:755.5,d:-0.8,p:-0.106,e:'ماجد'},
-    {n:'58 K',pl:898.97,ac:927,d:28.03,p:3.118,e:'هادي'},
-    {n:'59 K',pl:731.2,ac:756.5,d:25.3,p:3.46,e:'هادي'},
-    {n:'52 L',pl:922,ac:920,d:-2,p:-0.217,e:'خالد'},
-    {n:'154 K',pl:776.5,ac:777.5,d:1,p:0.129,e:'عبد الرحمن'},
-    {n:'91 K',pl:758.81,ac:771,d:12.19,p:1.607,e:'ابراهيم'},
-    {n:'31 K',pl:902,ac:943,d:41,p:4.545,e:'هادي'},
-    {n:'226 J',pl:906,ac:914.5,d:8.5,p:0.938,e:'خالد'},
-    {n:'160 J',pl:932,ac:953,d:21,p:2.253,e:'خالد'},
-    {n:'122 K',pl:758,ac:773.5,d:15.5,p:2.045,e:'ابراهيم'},
-    {n:'98 A',pl:683,ac:681,d:-2,p:-0.293,e:'ماجد'},
-    {n:'59 A',pl:674.5,ac:672.5,d:-2,p:-0.297,e:'ماجد'},
-    {n:'33 I',pl:579,ac:583.5,d:4.5,p:0.777,e:'ماجد'},
-    {n:'58 C',pl:1007,ac:1037,d:30,p:2.979,e:'خالد'},
-    {n:'145 A',pl:852,ac:853,d:1,p:0.117,e:'هادي'},
-  ];
-  const STEEL=[
-    {n:'139 E',pl:47.18,ac:46.59,p:1.26,e:'خالد'},
-    {n:'162 B',pl:49.78,ac:48.01,p:3.55,e:'خالد'},
-    {n:'56 B',pl:61.65,ac:60.76,p:1.44,e:'خالد'},
-    {n:'79 C',pl:58.73,ac:57.17,p:0.95,e:'خالد'},
-    {n:'231 K',pl:57.42,ac:54.28,p:3.72,e:'ابراهيم'},
-    {n:'232 K',pl:61.83,ac:55.08,p:2.67,e:'ابراهيم'},
-    {n:'36 D',pl:51.55,ac:51.66,p:-0.214,e:'خالد'},
-    {n:'47 H',pl:58.34,ac:59.18,p:-1.43,e:'هادي'},
-    {n:'117 A',pl:59.73,ac:56.30,p:5.74,e:'ماجد'},
-    {n:'58 K',pl:66.04,ac:64.95,p:1.65,e:'هادي'},
-    {n:'59 K',pl:60.20,ac:59.02,p:1.96,e:'ابراهيم'},
-    {n:'52 L',pl:72.05,ac:71.83,p:0.30,e:'خالد'},
-    {n:'154 K',pl:61.59,ac:61.59,p:-0.003,e:'عبد الرحمن'},
-    {n:'91 K',pl:59.28,ac:60.95,p:-2.82,e:'ابراهيم'},
-    {n:'31 K',pl:63.38,ac:63.35,p:0.049,e:'هادي'},
-    {n:'226 J',pl:71.17,ac:71.34,p:0.236,e:'خالد'},
-    {n:'160 J',pl:75.18,ac:75.64,p:0.612,e:'خالد'},
-    {n:'122 K',pl:60.85,ac:60.36,p:-0.803,e:'ابراهيم'},
-    {n:'98 A',pl:55.91,ac:56.36,p:0.810,e:'ماجد'},
-    {n:'59 A',pl:57.80,ac:56.11,p:-2.921,e:'ماجد'},
-    {n:'33 I',pl:54.92,ac:56.70,p:3.252,e:'ماجد'},
-    {n:'58 C',pl:96.09,ac:95.86,p:-0.241,e:'خالد'},
-    {n:'145 A',pl:70.06,ac:68.91,p:-1.640,e:'هادي'},
-  ];
-  const ENGS=[
-    {n:'عبد الرحمن',cp:0.129,sp:-0.003,avg:0.063,rank:'🥇 الأفضل',c:'var(--green)'},
-    {n:'خالد',cp:0.488,sp:0.877,avg:0.683,rank:'🥈 الثاني',c:'var(--accent2)'},
-    {n:'ماجد',cp:-0.020,sp:1.720,avg:0.850,rank:'✓ ممتاز',c:'var(--text)'},
-    {n:'هادي',cp:2.281,sp:-0.343,avg:0.969,rank:'✓ ممتاز',c:'var(--text)'},
-    {n:'ابراهيم',cp:1.547,sp:0.945,avg:1.246,rank:'✓ ممتاز',c:'var(--text)'},
-  ];
-  function wc(p){return p<=0?'#22d3ee':p<2?'var(--green)':p<5?'var(--orange)':'var(--red)';}
-  function wl(p){return p<=0?'💧 توفير':p<2?'✓ ممتاز':p<5?'⚠ مقبول':'✗ هالك';}
-  function bar(p,max=6){const w=Math.min(Math.abs(p)/max*100,100);return`<div style="background:#1e2130;border-radius:3px;height:7px;margin-top:3px"><div style="width:${w}%;height:100%;background:${wc(p)};border-radius:3px"></div></div>`;}
-  const sm={};STEEL.forEach(s=>sm[s.n]=s);
-  // KPIs
-  const kpi=`<div class="kpi-grid" style="margin-bottom:16px">
-    <div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val" style="color:var(--green)">1.00%</div><div class="kpi-lbl">🧱 هالك الخرسانة</div><div class="kpi-sub" style="color:var(--green)">✓ ممتاز — إجمالي 23 قطعة</div></div>
-    <div class="kpi" style="border-right-color:#22d3ee"><div class="kpi-val" style="color:#22d3ee">-0.83%</div><div class="kpi-lbl">⚙ هالك الحديد</div><div class="kpi-sub" style="color:#22d3ee">💧 توفير — إجمالي 23 قطعة</div></div>
-    <div class="kpi green"><div class="kpi-val">18,113</div><div class="kpi-lbl">🧱 خرسانة مخططة م³</div><div class="kpi-sub">منفذ: 18,293 م³ | فرق: +180</div></div>
-    <div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="color:var(--accent2)">1,425.8</div><div class="kpi-lbl">⚙ حديد مخطط (طن)</div><div class="kpi-sub">منفذ: 1,414 طن | توفير 11.8 طن</div></div>
-    <div class="kpi green"><div class="kpi-val" style="color:var(--green)">10</div><div class="kpi-lbl">✓ ممتاز خرسانة</div><div class="kpi-sub">هالك أقل من 2%</div></div>
-    <div class="kpi orange"><div class="kpi-val" style="color:var(--orange)">6</div><div class="kpi-lbl">⚠ مقبول خرسانة</div><div class="kpi-sub">هالك 2% إلى 5%</div></div>
-  </div>`;
-  // Project rows
-  let rows='';
-  CONC.forEach((c,i)=>{
-    const s=sm[c.n];
-    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
-    rows+=`<tr style="${bg}">
-      <td style="padding:8px 10px;font-weight:700">${c.n}</td>
-      <td style="padding:8px 10px;color:var(--muted);font-size:.75rem">${c.e}</td>
-      <td style="padding:8px 10px;min-width:150px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="color:${wc(c.p)};font-weight:700;font-size:.85rem">${c.p>0?'+':''}${c.p.toFixed(2)}%</span>
-          <span style="font-size:.68rem;color:${wc(c.p)}">${wl(c.p)}</span>
-        </div>${bar(c.p)}
-      </td>
-      <td style="padding:8px 10px;color:var(--muted);font-size:.72rem">${c.pl.toLocaleString()} / ${c.ac.toLocaleString()}</td>
-      ${s?`<td style="padding:8px 10px;min-width:150px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="color:${wc(s.p)};font-weight:700;font-size:.85rem">${s.p>0?'+':''}${s.p.toFixed(2)}%</span>
-          <span style="font-size:.68rem;color:${wc(s.p)}">${wl(s.p)}</span>
-        </div>${bar(s.p)}
-      </td>
-      <td style="padding:8px 10px;color:var(--muted);font-size:.75rem">${s.e}</td>`
-      :'<td colspan="2" style="padding:8px 10px;color:var(--muted);font-size:.75rem;text-align:center">—</td>'}
-    </tr>`;
-  });
-  // Eng rows
-  let erows='';
-  ENGS.forEach((e,i)=>{
-    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
-    erows+=`<tr style="${bg}">
-      <td style="padding:8px 10px;font-weight:700;color:${e.c}">${e.n}</td>
-      <td style="padding:8px 10px;min-width:140px"><span style="color:${wc(e.cp)};font-weight:700">${e.cp>0?'+':''}${e.cp.toFixed(2)}%</span>${bar(e.cp)}</td>
-      <td style="padding:8px 10px;min-width:140px"><span style="color:${wc(e.sp)};font-weight:700">${e.sp>0?'+':''}${e.sp.toFixed(2)}%</span>${bar(e.sp)}</td>
-      <td style="padding:8px 10px;min-width:140px"><span style="color:${wc(e.avg)};font-weight:700">${e.avg.toFixed(2)}%</span>${bar(e.avg)}</td>
-      <td style="padding:8px 10px;color:${e.c};font-weight:700">${e.rank}</td>
-    </tr>`;
-  });
-  document.getElementById('tab-deviations').innerHTML=`
-    <div class="section-title">📉 الانحرافات — هالك الخرسانة والحديد <span style="font-size:.7rem;color:var(--muted);font-weight:400">آخر تحديث: ٢٢ أكتوبر ٢٠٢٦</span></div>
-    ${kpi}
-    <div class="chart-card" style="margin-bottom:14px">
-      <div class="chart-title">📊 انحرافات الخرسانة والحديد — لكل قطعة</div>
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:.82rem">
-          <thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">
-            <th style="padding:8px 10px;text-align:right">القطعة</th>
-            <th style="padding:8px 10px;text-align:right">مهندس الخرسانة</th>
-            <th style="padding:8px 10px;text-align:right">% هالك الخرسانة</th>
-            <th style="padding:8px 10px;text-align:right">مخطط / منفذ م³</th>
-            <th style="padding:8px 10px;text-align:right">% هالك الحديد</th>
-            <th style="padding:8px 10px;text-align:right">مهندس الحديد</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">👷 أداء المهندسين — مقارنة الهالك</div>
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:.82rem">
-          <thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">
-            <th style="padding:8px 10px;text-align:right">المهندس</th>
-            <th style="padding:8px 10px;text-align:right">هالك الخرسانة %</th>
-            <th style="padding:8px 10px;text-align:right">هالك الحديد %</th>
-            <th style="padding:8px 10px;text-align:right">المتوسط %</th>
-            <th style="padding:8px 10px;text-align:right">التقييم</th>
-          </tr></thead>
-          <tbody>${erows}</tbody>
-        </table>
-      </div>
-    </div>`;
-}
+// Old static renderDeviations removed — replaced by enhanced version below
 renderKPIs();renderStatusChart();renderLocChart();renderLocMap();buildLocOptions();filterProjects();renderUpdates();renderCashFlow();renderFinancial();renderTracking();renderDeviations();
 
 
@@ -1930,8 +1798,8 @@ function importData(event){
 }
 
 function resetData(){
-  _DB.ref('dashboard_data').remove().catch(e=>_fbErr('dashboard_data',e));_DB.ref('deliveries').remove().catch(e=>_fbErr('deliveries',e));
-  try{localStorage.removeItem('nile_dashboard_data');localStorage.removeItem(_DELIV_KEY);}catch(e){}
+  _DB.ref('dashboard_data').remove().catch(e=>_fbErr('dashboard_data',e));_DB.ref('deliveries').remove().catch(e=>_fbErr('deliveries',e));_DB.ref('deviations_data').remove().catch(e=>_fbErr('deviations_data',e));_DB.ref('warehouse').remove().catch(e=>_fbErr('warehouse',e));_DB.ref('invoices').remove().catch(e=>_fbErr('invoices',e));_DB.ref('boq_data').remove().catch(e=>_fbErr('boq_data',e));
+  try{localStorage.removeItem('nile_dashboard_data');localStorage.removeItem(_DELIV_KEY);localStorage.removeItem(_DEV_KEY);localStorage.removeItem(_WH_KEY);localStorage.removeItem(_INV_KEY);localStorage.removeItem(_BOQ_KEY);}catch(e){}
   changelog = [];
   addChatMsg('🗑️ تم إعادة التعيين. أعد تحميل الصفحة لاستعادة البيانات الأصلية.', 'bot');
   addChangelog('إعادة تعيين البيانات');
@@ -1941,7 +1809,7 @@ function resetData(){
 function refreshAll(){
   renderKPIs();renderStatusChart();renderLocChart();renderLocMap();filterProjects();
   renderUpdates();renderCashFlow();renderFinancial();renderTracking();renderDeviations();
-  renderChangelog();
+  renderWarehouse();renderInvoices();renderBalances();renderChangelog();
 }
 
 // ============ DELIVERIES / استلامات التوريدات ============
@@ -2074,11 +1942,923 @@ function renderDeliveries(){
 }
 // ============ / DELIVERIES ============
 
+// ============ ENHANCED DEVIATIONS SYSTEM (Firebase-backed) ============
+let _DEVIATIONS_DATA=[];
+let _fbDevDataInit=false;
+const _DEV_KEY='nile_deviations_data';
+
+function _saveDeviationsData(){
+  const obj={};_DEVIATIONS_DATA.forEach((d,i)=>{obj['dv'+i]=d;});
+  _DB.ref('deviations_data').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('deviations_data',e));
+  try{localStorage.setItem(_DEV_KEY,JSON.stringify(_DEVIATIONS_DATA));}catch(e){}
+}
+function _initDeviationsListener(){
+  if(_fbDevDataInit)return;_fbDevDataInit=true;
+  _DB.ref('deviations_data').on('value',function(snap){
+    _fbOk();
+    const v=snap.val();
+    _DEVIATIONS_DATA=v?Object.values(v):[];
+    try{localStorage.setItem(_DEV_KEY,JSON.stringify(_DEVIATIONS_DATA));}catch(e){}
+    const tab=document.getElementById('tab-deviations');
+    if(tab&&!tab.classList.contains('hidden'))renderDeviations();
+  },function(err){
+    _fbErr('deviations_data',err);
+    try{_DEVIATIONS_DATA=JSON.parse(localStorage.getItem(_DEV_KEY)||'[]');}catch(e){}
+  });
+}
+
+function addDeviation(){
+  const proj=document.getElementById('devProject').value;
+  const type=document.getElementById('devType').value;
+  const item=document.getElementById('devItem').value.trim();
+  const planned=parseFloat(document.getElementById('devPlanned').value);
+  const actual=parseFloat(document.getElementById('devActual').value);
+  const unit=document.getElementById('devUnit').value;
+  const note=document.getElementById('devNote').value.trim();
+  if(!proj||!type||!item||isNaN(planned)||isNaN(actual)){
+    const n=document.getElementById('devNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ يرجى ملء جميع الحقول المطلوبة';setTimeout(()=>n.style.display='none',3000);}
+    return;
+  }
+  const diff=actual-planned;
+  const pct=planned!==0?((diff/planned)*100):0;
+  const sess=window._CURRENT_SESSION||{};
+  _DEVIATIONS_DATA.push({id:Date.now(),project:proj,type:type,item:item,planned:planned,actual:actual,unit:unit,diff:diff,pct:pct,note:note,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+  _saveDeviationsData();
+  // clear form
+  document.getElementById('devItem').value='';
+  document.getElementById('devPlanned').value='';
+  document.getElementById('devActual').value='';
+  document.getElementById('devNote').value='';
+  const n=document.getElementById('devNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم تسجيل الانحراف بنجاح';setTimeout(()=>n.style.display='none',3000);}
+  renderDeviations();
+}
+
+function deleteDeviation(id){
+  // inline confirm
+  const row=document.getElementById('devRow_'+id);
+  if(!row)return;
+  if(row.dataset.confirm!=='1'){
+    row.dataset.confirm='1';row.style.background='rgba(239,68,68,.15)';
+    const cell=row.querySelector('.dev-del-cell');
+    if(cell)cell.innerHTML='<button onclick="deleteDeviation('+id+')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:3px 12px;cursor:pointer;font-family:Cairo;font-size:.72rem">تأكيد الحذف</button> <button onclick="cancelDelDev('+id+')" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:Cairo;font-size:.72rem">إلغاء</button>';
+    return;
+  }
+  _DEVIATIONS_DATA=_DEVIATIONS_DATA.filter(d=>d.id!==id);
+  _saveDeviationsData();renderDeviations();
+}
+function cancelDelDev(id){
+  const row=document.getElementById('devRow_'+id);
+  if(row){row.dataset.confirm='';row.style.background='';}
+  renderDeviations();
+}
+
+function uploadDeviationsExcel(){
+  const input=document.getElementById('devExcelFile');
+  if(!input||!input.files.length)return;
+  const file=input.files[0];
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      let added=0;
+      const sess=window._CURRENT_SESSION||{};
+      rows.forEach(r=>{
+        const proj=r['المشروع']||r['project']||r['Project']||'';
+        const type=r['النوع']||r['type']||r['Type']||'cost';
+        const item=r['البند']||r['item']||r['Item']||'';
+        const planned=parseFloat(r['المخطط']||r['planned']||r['Planned']||0);
+        const actual=parseFloat(r['الفعلي']||r['actual']||r['Actual']||0);
+        const unit=r['الوحدة']||r['unit']||r['Unit']||'';
+        const note=r['ملاحظة']||r['note']||r['Note']||'';
+        if(!proj||!item||isNaN(planned)||isNaN(actual))return;
+        const diff=actual-planned;
+        const pct=planned!==0?((diff/planned)*100):0;
+        const typeNorm=(type.includes('زمن')||type.includes('time')||type.toLowerCase()==='time')?'time':'cost';
+        _DEVIATIONS_DATA.push({id:Date.now()+added,project:proj,type:typeNorm,item:item,planned:planned,actual:actual,unit:unit,diff:diff,pct:pct,note:note,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'Excel',ts:new Date().toISOString()});
+        added++;
+      });
+      if(added>0){_saveDeviationsData();renderDeviations();}
+      const n=document.getElementById('devNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم استيراد '+added+' سجل من Excel';setTimeout(()=>n.style.display='none',4000);}
+    }catch(ex){
+      const n=document.getElementById('devNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ في قراءة الملف: '+ex.message;setTimeout(()=>n.style.display='none',5000);}
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderDeviations(){
+  _initDeviationsListener();
+  const role=window._CURRENT_ROLE||'viewer';
+  const canEdit=(role==='admin'||role==='editor'||role==='engineer');
+  const canDel=(role==='admin'||role==='editor');
+  const filterType=(document.getElementById('devFilterType')||{}).value||'';
+  const filterProj=(document.getElementById('devFilterProj')||{}).value||'';
+
+  // Separate dynamic data from static
+  const dynData=_DEVIATIONS_DATA.filter(d=>(!filterType||d.type===filterType)&&(!filterProj||d.project===filterProj));
+  const costData=_DEVIATIONS_DATA.filter(d=>d.type==='cost');
+  const timeData=_DEVIATIONS_DATA.filter(d=>d.type==='time');
+
+  // KPIs for dynamic data
+  const totalEntries=_DEVIATIONS_DATA.length;
+  const avgCostPct=costData.length?costData.reduce((s,d)=>s+d.pct,0)/costData.length:0;
+  const avgTimePct=timeData.length?timeData.reduce((s,d)=>s+d.pct,0)/timeData.length:0;
+  const overBudget=costData.filter(d=>d.pct>2).length;
+  const delayed=timeData.filter(d=>d.pct>0).length;
+
+  function devColor(p){return p<=0?'#22d3ee':p<2?'var(--green)':p<5?'var(--orange)':'var(--red)';}
+  function devLabel(p,type){
+    if(type==='time')return p<=0?'✓ في الموعد / متقدم':p<5?'⚠ تأخير طفيف':'✗ تأخير كبير';
+    return p<=0?'💧 توفير':p<2?'✓ ممتاز':p<5?'⚠ مقبول':'✗ تجاوز';
+  }
+
+  // Build dynamic entries table
+  let dynRows='';
+  dynData.forEach((d,i)=>{
+    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    const typeLabel=d.type==='cost'?'💰 تكلفة':'⏱ زمن';
+    const typeBg=d.type==='cost'?'rgba(234,179,8,.15)':'rgba(99,102,241,.15)';
+    const typeClr=d.type==='cost'?'var(--yellow)':'var(--accent)';
+    dynRows+='<tr id="devRow_'+d.id+'" style="'+bg+'">'+
+      '<td style="padding:8px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
+      '<td style="padding:8px 10px;white-space:nowrap">'+d.date+'</td>'+
+      '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b></td>'+
+      '<td style="padding:8px 10px"><span style="background:'+typeBg+';color:'+typeClr+';padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700">'+typeLabel+'</span></td>'+
+      '<td style="padding:8px 10px;font-weight:700">'+d.item+'</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+d.planned.toLocaleString()+' '+(d.unit||'')+'</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+d.actual.toLocaleString()+' '+(d.unit||'')+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;color:'+devColor(d.pct)+';font-weight:700">'+(d.pct>0?'+':'')+d.pct.toFixed(2)+'%</td>'+
+      '<td style="padding:8px 10px"><span style="font-size:.72rem;color:'+devColor(d.pct)+'">'+devLabel(d.pct,d.type)+'</span></td>'+
+      '<td style="padding:8px 10px;font-size:.72rem;color:var(--muted);max-width:120px">'+(d.note||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-size:.68rem;color:var(--muted)">'+(d.user||'—')+'</td>'+
+      (canDel?'<td class="dev-del-cell" style="text-align:center"><button onclick="deleteDeviation('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button></td>':'')+
+      '</tr>';
+  });
+  const delTh=canDel?'<th>حذف</th>':'';
+
+  // --- STATIC SECTION (existing hardcoded data) ---
+  const CONC=[
+    {n:'139 E',pl:590,ac:590.5,d:0.5,p:0.085,e:'ماجد'},{n:'162 B',pl:615,ac:615,d:0,p:0,e:'ماجد'},
+    {n:'56 B',pl:559.01,ac:558,d:-1.01,p:-0.181,e:'ماجد'},{n:'79 C',pl:1198.7,ac:1197,d:-1.7,p:-0.142,e:'ماجد'},
+    {n:'231 K',pl:837,ac:846.75,d:9.75,p:1.165,e:'ابراهيم'},{n:'232 K',pl:839,ac:850.5,d:11.5,p:1.371,e:'ابراهيم'},
+    {n:'36 D',pl:598,ac:577,d:-21,p:-3.512,e:'خالد'},{n:'47 H',pl:738.77,ac:740,d:1.23,p:0.167,e:'هادي'},
+    {n:'117 A',pl:756.3,ac:755.5,d:-0.8,p:-0.106,e:'ماجد'},{n:'58 K',pl:898.97,ac:927,d:28.03,p:3.118,e:'هادي'},
+    {n:'59 K',pl:731.2,ac:756.5,d:25.3,p:3.46,e:'هادي'},{n:'52 L',pl:922,ac:920,d:-2,p:-0.217,e:'خالد'},
+    {n:'154 K',pl:776.5,ac:777.5,d:1,p:0.129,e:'عبد الرحمن'},{n:'91 K',pl:758.81,ac:771,d:12.19,p:1.607,e:'ابراهيم'},
+    {n:'31 K',pl:902,ac:943,d:41,p:4.545,e:'هادي'},{n:'226 J',pl:906,ac:914.5,d:8.5,p:0.938,e:'خالد'},
+    {n:'160 J',pl:932,ac:953,d:21,p:2.253,e:'خالد'},{n:'122 K',pl:758,ac:773.5,d:15.5,p:2.045,e:'ابراهيم'},
+    {n:'98 A',pl:683,ac:681,d:-2,p:-0.293,e:'ماجد'},{n:'59 A',pl:674.5,ac:672.5,d:-2,p:-0.297,e:'ماجد'},
+    {n:'33 I',pl:579,ac:583.5,d:4.5,p:0.777,e:'ماجد'},{n:'58 C',pl:1007,ac:1037,d:30,p:2.979,e:'خالد'},
+    {n:'145 A',pl:852,ac:853,d:1,p:0.117,e:'هادي'},
+  ];
+  const STEEL=[
+    {n:'139 E',pl:47.18,ac:46.59,p:1.26,e:'خالد'},{n:'162 B',pl:49.78,ac:48.01,p:3.55,e:'خالد'},
+    {n:'56 B',pl:61.65,ac:60.76,p:1.44,e:'خالد'},{n:'79 C',pl:58.73,ac:57.17,p:0.95,e:'خالد'},
+    {n:'231 K',pl:57.42,ac:54.28,p:3.72,e:'ابراهيم'},{n:'232 K',pl:61.83,ac:55.08,p:2.67,e:'ابراهيم'},
+    {n:'36 D',pl:51.55,ac:51.66,p:-0.214,e:'خالد'},{n:'47 H',pl:58.34,ac:59.18,p:-1.43,e:'هادي'},
+    {n:'117 A',pl:59.73,ac:56.30,p:5.74,e:'ماجد'},{n:'58 K',pl:66.04,ac:64.95,p:1.65,e:'هادي'},
+    {n:'59 K',pl:60.20,ac:59.02,p:1.96,e:'ابراهيم'},{n:'52 L',pl:72.05,ac:71.83,p:0.30,e:'خالد'},
+    {n:'154 K',pl:61.59,ac:61.59,p:-0.003,e:'عبد الرحمن'},{n:'91 K',pl:59.28,ac:60.95,p:-2.82,e:'ابراهيم'},
+    {n:'31 K',pl:63.38,ac:63.35,p:0.049,e:'هادي'},{n:'226 J',pl:71.17,ac:71.34,p:0.236,e:'خالد'},
+    {n:'160 J',pl:75.18,ac:75.64,p:0.612,e:'خالد'},{n:'122 K',pl:60.85,ac:60.36,p:-0.803,e:'ابراهيم'},
+    {n:'98 A',pl:55.91,ac:56.36,p:0.810,e:'ماجد'},{n:'59 A',pl:57.80,ac:56.11,p:-2.921,e:'ماجد'},
+    {n:'33 I',pl:54.92,ac:56.70,p:3.252,e:'ماجد'},{n:'58 C',pl:96.09,ac:95.86,p:-0.241,e:'خالد'},
+    {n:'145 A',pl:70.06,ac:68.91,p:-1.640,e:'هادي'},
+  ];
+  const ENGS=[
+    {n:'عبد الرحمن',cp:0.129,sp:-0.003,avg:0.063,rank:'🥇 الأفضل',c:'var(--green)'},
+    {n:'خالد',cp:0.488,sp:0.877,avg:0.683,rank:'🥈 الثاني',c:'var(--accent2)'},
+    {n:'ماجد',cp:-0.020,sp:1.720,avg:0.850,rank:'✓ ممتاز',c:'var(--text)'},
+    {n:'هادي',cp:2.281,sp:-0.343,avg:0.969,rank:'✓ ممتاز',c:'var(--text)'},
+    {n:'ابراهيم',cp:1.547,sp:0.945,avg:1.246,rank:'✓ ممتاز',c:'var(--text)'},
+  ];
+  function wc(p){return p<=0?'#22d3ee':p<2?'var(--green)':p<5?'var(--orange)':'var(--red)';}
+  function wl(p){return p<=0?'💧 توفير':p<2?'✓ ممتاز':p<5?'⚠ مقبول':'✗ هالك';}
+  function bar(p,max){max=max||6;const w=Math.min(Math.abs(p)/max*100,100);return'<div style="background:#1e2130;border-radius:3px;height:7px;margin-top:3px"><div style="width:'+w+'%;height:100%;background:'+wc(p)+';border-radius:3px"></div></div>';}
+  const sm={};STEEL.forEach(s=>sm[s.n]=s);
+
+  const staticKpi='<div class="kpi-grid" style="margin-bottom:16px">'+
+    '<div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val" style="color:var(--green)">1.00%</div><div class="kpi-lbl">🧱 هالك الخرسانة</div><div class="kpi-sub" style="color:var(--green)">✓ ممتاز — إجمالي 23 قطعة</div></div>'+
+    '<div class="kpi" style="border-right-color:#22d3ee"><div class="kpi-val" style="color:#22d3ee">-0.83%</div><div class="kpi-lbl">⚙ هالك الحديد</div><div class="kpi-sub" style="color:#22d3ee">💧 توفير — إجمالي 23 قطعة</div></div>'+
+    '<div class="kpi green"><div class="kpi-val">18,113</div><div class="kpi-lbl">🧱 خرسانة مخططة م³</div><div class="kpi-sub">منفذ: 18,293 م³ | فرق: +180</div></div>'+
+    '<div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="color:var(--accent2)">1,425.8</div><div class="kpi-lbl">⚙ حديد مخطط (طن)</div><div class="kpi-sub">منفذ: 1,414 طن | توفير 11.8 طن</div></div>'+
+    '<div class="kpi green"><div class="kpi-val" style="color:var(--green)">10</div><div class="kpi-lbl">✓ ممتاز خرسانة</div><div class="kpi-sub">هالك أقل من 2%</div></div>'+
+    '<div class="kpi orange"><div class="kpi-val" style="color:var(--orange)">6</div><div class="kpi-lbl">⚠ مقبول خرسانة</div><div class="kpi-sub">هالك 2% إلى 5%</div></div>'+
+  '</div>';
+
+  let srows='';
+  CONC.forEach((c,i)=>{
+    const s=sm[c.n];
+    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    srows+='<tr style="'+bg+'">'+
+      '<td style="padding:8px 10px;font-weight:700">'+c.n+'</td>'+
+      '<td style="padding:8px 10px;color:var(--muted);font-size:.75rem">'+c.e+'</td>'+
+      '<td style="padding:8px 10px;min-width:150px"><div style="display:flex;align-items:center;gap:6px"><span style="color:'+wc(c.p)+';font-weight:700;font-size:.85rem">'+(c.p>0?'+':'')+c.p.toFixed(2)+'%</span><span style="font-size:.68rem;color:'+wc(c.p)+'">'+wl(c.p)+'</span></div>'+bar(c.p)+'</td>'+
+      '<td style="padding:8px 10px;color:var(--muted);font-size:.72rem">'+c.pl.toLocaleString()+' / '+c.ac.toLocaleString()+'</td>'+
+      (s?'<td style="padding:8px 10px;min-width:150px"><div style="display:flex;align-items:center;gap:6px"><span style="color:'+wc(s.p)+';font-weight:700;font-size:.85rem">'+(s.p>0?'+':'')+s.p.toFixed(2)+'%</span><span style="font-size:.68rem;color:'+wc(s.p)+'">'+wl(s.p)+'</span></div>'+bar(s.p)+'</td><td style="padding:8px 10px;color:var(--muted);font-size:.75rem">'+s.e+'</td>'
+      :'<td colspan="2" style="padding:8px 10px;color:var(--muted);font-size:.75rem;text-align:center">—</td>')+
+    '</tr>';
+  });
+  let erows='';
+  ENGS.forEach((eng,i)=>{
+    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    erows+='<tr style="'+bg+'">'+
+      '<td style="padding:8px 10px;font-weight:700;color:'+eng.c+'">'+eng.n+'</td>'+
+      '<td style="padding:8px 10px;min-width:140px"><span style="color:'+wc(eng.cp)+';font-weight:700">'+(eng.cp>0?'+':'')+eng.cp.toFixed(2)+'%</span>'+bar(eng.cp)+'</td>'+
+      '<td style="padding:8px 10px;min-width:140px"><span style="color:'+wc(eng.sp)+';font-weight:700">'+(eng.sp>0?'+':'')+eng.sp.toFixed(2)+'%</span>'+bar(eng.sp)+'</td>'+
+      '<td style="padding:8px 10px;min-width:140px"><span style="color:'+wc(eng.avg)+';font-weight:700">'+eng.avg.toFixed(2)+'%</span>'+bar(eng.avg)+'</td>'+
+      '<td style="padding:8px 10px;color:'+eng.c+';font-weight:700">'+eng.rank+'</td>'+
+    '</tr>';
+  });
+
+  // Compose full tab
+  const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
+
+  document.getElementById('tab-deviations').innerHTML=
+    // Dynamic KPIs
+    '<div class="section-title">📉 الانحرافات — إدارة انحرافات التكلفة والزمن</div>'+
+    '<div class="kpi-grid" style="margin-bottom:16px">'+
+      '<div class="kpi blue"><div class="kpi-val">'+totalEntries+'</div><div class="kpi-lbl">إجمالي السجلات</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--yellow)"><div class="kpi-val" style="color:var(--yellow)">'+costData.length+'</div><div class="kpi-lbl">💰 انحرافات تكلفة</div><div class="kpi-sub">متوسط: '+(avgCostPct>=0?'+':'')+avgCostPct.toFixed(2)+'%</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--accent)"><div class="kpi-val" style="color:var(--accent)">'+timeData.length+'</div><div class="kpi-lbl">⏱ انحرافات زمنية</div><div class="kpi-sub">متوسط: '+(avgTimePct>=0?'+':'')+avgTimePct.toFixed(2)+'%</div></div>'+
+      '<div class="kpi" style="border-right-color:'+(overBudget>0?'var(--red)':'var(--green)')+'"><div class="kpi-val" style="color:'+(overBudget>0?'var(--red)':'var(--green)')+'">'+overBudget+'</div><div class="kpi-lbl">⚠ تجاوز تكلفة {>2%}</div></div>'+
+      '<div class="kpi" style="border-right-color:'+(delayed>0?'var(--orange)':'var(--green)')+'"><div class="kpi-val" style="color:'+(delayed>0?'var(--orange)':'var(--green)')+'">'+delayed+'</div><div class="kpi-lbl">⏳ بنود متأخرة</div></div>'+
+    '</div>'+
+
+    // Entry form (if allowed)
+    (canEdit?
+    '<div class="form-section" style="margin-bottom:16px">'+
+      '<h3>➕ تسجيل انحراف جديد</h3>'+
+      '<div id="devNotice" style="display:none;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:.82rem"></div>'+
+      '<div class="form-row">'+
+        '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="devProject"><option value="">-- اختر --</option>'+projOpts+'</select></div>'+
+        '<div class="form-group" style="min-width:130px"><label>النوع *</label><select id="devType"><option value="cost">💰 تكلفة</option><option value="time">⏱ زمن</option></select></div>'+
+        '<div class="form-group" style="min-width:180px"><label>البند *</label><input type="text" id="devItem" placeholder="مثال: خرسانة أساسات / حديد تسليح"></div>'+
+        '<div class="form-group" style="min-width:120px"><label>المخطط *</label><input type="number" id="devPlanned" placeholder="0" step="0.01"></div>'+
+        '<div class="form-group" style="min-width:120px"><label>الفعلي *</label><input type="number" id="devActual" placeholder="0" step="0.01"></div>'+
+        '<div class="form-group" style="min-width:100px"><label>الوحدة</label><select id="devUnit"><option value="م³">م³</option><option value="طن">طن</option><option value="يوم">يوم</option><option value="أسبوع">أسبوع</option><option value="م²">م²</option><option value="م.ط">م.ط</option><option value="كجم">كجم</option><option value="%">%</option></select></div>'+
+      '</div>'+
+      '<div class="form-row">'+
+        '<div class="form-group" style="flex:2;min-width:200px"><label>ملاحظة (اختياري)</label><input type="text" id="devNote" placeholder="سبب الانحراف أو أي تفاصيل..."></div>'+
+        '<div class="form-group" style="justify-content:flex-end"><label style="color:transparent">.</label><button class="form-btn form-btn-green" onclick="addDeviation()">✅ تسجيل الانحراف</button></div>'+
+      '</div>'+
+      '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع من Excel <input type="file" id="devExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadDeviationsExcel()"></label>'+
+        '<span style="font-size:.68rem;color:var(--muted)">الأعمدة المطلوبة: المشروع، النوع (cost/time)، البند، المخطط، الفعلي، الوحدة، ملاحظة</span>'+
+      '</div>'+
+    '</div>':'')+
+
+    // Dynamic entries table
+    '<div class="section-title" style="margin-top:12px;flex-wrap:wrap;gap:8px">'+
+      '<span>📋 سجل الانحرافات المُسجّلة</span>'+
+      '<span style="display:inline-flex;gap:8px;margin-right:10px">'+
+        '<select id="devFilterType" onchange="renderDeviations()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل الأنواع</option><option value="cost">💰 تكلفة</option><option value="time">⏱ زمن</option></select>'+
+        '<select id="devFilterProj" onchange="renderDeviations()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل المشاريع</option>'+projOpts+'</select>'+
+      '</span>'+
+    '</div>'+
+    (dynData.length?
+    '<div class="chart-card" style="margin-bottom:14px"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">'+
+      '<th>#</th><th>التاريخ</th><th>المشروع</th><th>النوع</th><th>البند</th><th>المخطط</th><th>الفعلي</th><th>الانحراف %</th><th>الحالة</th><th>ملاحظة</th><th>المسجّل</th>'+delTh+
+    '</tr></thead><tbody>'+dynRows+'</tbody></table></div></div>'
+    :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد انحرافات مسجّلة بعد. '+(canEdit?'استخدم النموذج أعلاه لتسجيل أول انحراف.':'')+'</div>')+
+
+    // STATIC SECTION — original concrete & steel deviations
+    '<div class="section-title" style="margin-top:20px">📉 هالك الخرسانة والحديد <span style="font-size:.7rem;color:var(--muted);font-weight:400">آخر تحديث: ٢٢ أكتوبر ٢٠٢٦</span></div>'+
+    staticKpi+
+    '<div class="chart-card" style="margin-bottom:14px"><div class="chart-title">📊 انحرافات الخرسانة والحديد — لكل قطعة</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th style="padding:8px 10px;text-align:right">القطعة</th><th style="padding:8px 10px;text-align:right">مهندس الخرسانة</th><th style="padding:8px 10px;text-align:right">% هالك الخرسانة</th><th style="padding:8px 10px;text-align:right">مخطط / منفذ م³</th><th style="padding:8px 10px;text-align:right">% هالك الحديد</th><th style="padding:8px 10px;text-align:right">مهندس الحديد</th></tr></thead><tbody>'+srows+'</tbody></table></div></div>'+
+    '<div class="chart-card"><div class="chart-title">👷 أداء المهندسين — مقارنة الهالك</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th style="padding:8px 10px;text-align:right">المهندس</th><th style="padding:8px 10px;text-align:right">هالك الخرسانة %</th><th style="padding:8px 10px;text-align:right">هالك الحديد %</th><th style="padding:8px 10px;text-align:right">المتوسط %</th><th style="padding:8px 10px;text-align:right">التقييم</th></tr></thead><tbody>'+erows+'</tbody></table></div></div>';
+}
+// ============ / ENHANCED DEVIATIONS ============
+
+// ============ WAREHOUSE SYSTEM (Firebase-backed) ============
+let _WAREHOUSE_DATA=[];
+let _fbWhInit=false;
+const _WH_KEY='nile_warehouse_data';
+
+function _saveWarehouseData(){
+  const obj={};_WAREHOUSE_DATA.forEach((d,i)=>{obj['wh'+d.id]=d;});
+  _DB.ref('warehouse').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('warehouse_data',e));
+  try{localStorage.setItem(_WH_KEY,JSON.stringify(_WAREHOUSE_DATA));}catch(e){}
+}
+function _initWarehouseListener(){
+  if(_fbWhInit)return;_fbWhInit=true;
+  _DB.ref('warehouse').on('value',function(snap){
+    _fbOk();
+    const v=snap.val();
+    _WAREHOUSE_DATA=v?Object.values(v).sort((a,b)=>b.id-a.id):[];
+    try{localStorage.setItem(_WH_KEY,JSON.stringify(_WAREHOUSE_DATA));}catch(e){}
+    const tab=document.getElementById('tab-warehouse');
+    if(tab&&!tab.classList.contains('hidden'))renderWarehouse();
+  },function(err){
+    _fbErr('warehouse_data',err);
+    try{_WAREHOUSE_DATA=JSON.parse(localStorage.getItem(_WH_KEY)||'[]');}catch(e){}
+  });
+}
+
+function addWarehouseEntry(){
+  const type=document.getElementById('whType').value;
+  const item=document.getElementById('whItem').value.trim();
+  const qty=parseFloat(document.getElementById('whQty').value);
+  const unit=document.getElementById('whUnit').value;
+  const project=document.getElementById('whProject').value;
+  const supplier=document.getElementById('whSupplier').value.trim();
+  const note=document.getElementById('whNote').value.trim();
+  if(!type||!item||isNaN(qty)||qty<=0){
+    const n=document.getElementById('whNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ يرجى ملء الحقول المطلوبة (النوع، الصنف، الكمية)';setTimeout(()=>n.style.display='none',3000);}
+    return;
+  }
+  if(type==='صرف'&&!project){
+    const n=document.getElementById('whNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ يجب اختيار المشروع عند الصرف';setTimeout(()=>n.style.display='none',3000);}
+    return;
+  }
+  const sess=window._CURRENT_SESSION||{};
+  _WAREHOUSE_DATA.unshift({id:Date.now(),type:type,item:item,qty:qty,unit:unit,project:project||'—',supplier:supplier||'—',note:note,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+  _saveWarehouseData();
+  document.getElementById('whItem').value='';
+  document.getElementById('whQty').value='';
+  document.getElementById('whSupplier').value='';
+  document.getElementById('whNote').value='';
+  const n=document.getElementById('whNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم تسجيل '+(type==='توريد'?'التوريد':'الصرف')+' بنجاح';setTimeout(()=>n.style.display='none',3000);}
+  renderWarehouse();
+}
+
+function deleteWhEntry(id){
+  const row=document.getElementById('whRow_'+id);
+  if(!row)return;
+  if(row.dataset.confirm!=='1'){
+    row.dataset.confirm='1';row.style.background='rgba(239,68,68,.15)';
+    const cell=row.querySelector('.wh-del-cell');
+    if(cell)cell.innerHTML='<button onclick="deleteWhEntry('+id+')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:3px 12px;cursor:pointer;font-family:Cairo;font-size:.72rem">تأكيد</button> <button onclick="cancelDelWh('+id+')" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:Cairo;font-size:.72rem">إلغاء</button>';
+    return;
+  }
+  _WAREHOUSE_DATA=_WAREHOUSE_DATA.filter(d=>d.id!==id);
+  _saveWarehouseData();renderWarehouse();
+}
+function cancelDelWh(id){const row=document.getElementById('whRow_'+id);if(row){row.dataset.confirm='';row.style.background='';}renderWarehouse();}
+
+function uploadWarehouseExcel(){
+  const input=document.getElementById('whExcelFile');
+  if(!input||!input.files.length)return;
+  const file=input.files[0];
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      let added=0;const sess=window._CURRENT_SESSION||{};
+      rows.forEach(r=>{
+        const type=r['النوع']||r['type']||'';
+        const item=r['الصنف']||r['item']||r['Item']||'';
+        const qty=parseFloat(r['الكمية']||r['qty']||r['Qty']||0);
+        const unit=r['الوحدة']||r['unit']||'';
+        const project=r['المشروع']||r['project']||'—';
+        const supplier=r['المورد']||r['supplier']||'—';
+        const note=r['ملاحظة']||r['note']||'';
+        const typeNorm=(type.includes('صرف')||type.toLowerCase()==='out')?'صرف':'توريد';
+        if(!item||isNaN(qty)||qty<=0)return;
+        _WAREHOUSE_DATA.unshift({id:Date.now()+added,type:typeNorm,item:item,qty:qty,unit:unit,project:project,supplier:supplier,note:note,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'Excel',ts:new Date().toISOString()});
+        added++;
+      });
+      if(added>0){_saveWarehouseData();renderWarehouse();}
+      const n=document.getElementById('whNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم استيراد '+added+' سجل من Excel';setTimeout(()=>n.style.display='none',4000);}
+    }catch(ex){
+      const n=document.getElementById('whNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ: '+ex.message;setTimeout(()=>n.style.display='none',5000);}
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderWarehouse(){
+  _initWarehouseListener();
+  const role=window._CURRENT_ROLE||'viewer';
+  const canEdit=(role==='admin'||role==='editor'||role==='engineer'||role==='supervisor');
+  const canDel=(role==='admin'||role==='editor');
+  const filterType=(document.getElementById('whFilterType')||{}).value||'';
+  const filterItem=((document.getElementById('whFilterItem')||{}).value||'').toLowerCase().trim();
+
+  const filtered=_WAREHOUSE_DATA.filter(d=>(!filterType||d.type===filterType)&&(!filterItem||d.item.toLowerCase().includes(filterItem)));
+
+  // Calculate stock balance per item
+  const stock={};
+  // Process in chronological order (oldest first) for balance
+  const sorted=[..._WAREHOUSE_DATA].sort((a,b)=>a.id-b.id);
+  sorted.forEach(d=>{
+    const key=d.item+'|'+(d.unit||'');
+    if(!stock[key])stock[key]={item:d.item,unit:d.unit||'',in:0,out:0};
+    if(d.type==='توريد')stock[key].in+=d.qty;
+    else stock[key].out+=d.qty;
+  });
+
+  const stockArr=Object.values(stock).map(s=>({...s,balance:s.in-s.out}));
+  const totalIn=_WAREHOUSE_DATA.filter(d=>d.type==='توريد').reduce((s,d)=>s+d.qty,0);
+  const totalOut=_WAREHOUSE_DATA.filter(d=>d.type==='صرف').reduce((s,d)=>s+d.qty,0);
+  const uniqueItems=stockArr.length;
+  const lowStock=stockArr.filter(s=>s.balance<=0).length;
+
+  const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
+
+  // Stock balance cards
+  let stockCards='';
+  stockArr.sort((a,b)=>a.balance-b.balance).forEach(s=>{
+    const balColor=s.balance<=0?'var(--red)':s.balance<10?'var(--orange)':'var(--green)';
+    const balIcon=s.balance<=0?'🔴':s.balance<10?'🟡':'🟢';
+    stockCards+='<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:200px;flex:1">'+
+      '<div style="font-weight:700;font-size:.88rem;margin-bottom:6px">'+s.item+'</div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);margin-bottom:4px"><span>وارد: '+s.in.toLocaleString()+' '+s.unit+'</span><span>صرف: '+s.out.toLocaleString()+' '+s.unit+'</span></div>'+
+      '<div style="font-size:1.1rem;font-weight:900;color:'+balColor+'">'+balIcon+' رصيد: '+s.balance.toLocaleString()+' '+s.unit+'</div>'+
+    '</div>';
+  });
+
+  // Transactions rows
+  let txRows='';
+  filtered.forEach((d,i)=>{
+    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    const typeLabel=d.type==='توريد'?'📥 توريد':'📤 صرف';
+    const typeBg=d.type==='توريد'?'rgba(34,197,94,.15)':'rgba(234,179,8,.15)';
+    const typeClr=d.type==='توريد'?'var(--green)':'var(--yellow)';
+    txRows+='<tr id="whRow_'+d.id+'" style="'+bg+'">'+
+      '<td style="padding:8px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
+      '<td style="padding:8px 10px;white-space:nowrap">'+d.date+'</td>'+
+      '<td style="padding:8px 10px"><span style="background:'+typeBg+';color:'+typeClr+';padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700">'+typeLabel+'</span></td>'+
+      '<td style="padding:8px 10px;font-weight:700">'+d.item+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-weight:700">'+d.qty.toLocaleString()+' '+(d.unit||'')+'</td>'+
+      '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b></td>'+
+      '<td style="padding:8px 10px;font-size:.72rem">'+(d.supplier||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-size:.72rem;color:var(--muted);max-width:120px">'+(d.note||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-size:.68rem;color:var(--muted)">'+(d.user||'—')+'</td>'+
+      (canDel?'<td class="wh-del-cell" style="text-align:center"><button onclick="deleteWhEntry('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button></td>':'')+
+    '</tr>';
+  });
+  const delTh=canDel?'<th>حذف</th>':'';
+
+  document.getElementById('tab-warehouse').innerHTML=
+    '<div class="section-title">🏭 المخازن — صرف وتوريد ورصيد</div>'+
+    '<div class="kpi-grid" style="margin-bottom:16px">'+
+      '<div class="kpi blue"><div class="kpi-val">'+_WAREHOUSE_DATA.length+'</div><div class="kpi-lbl">إجمالي الحركات</div></div>'+
+      '<div class="kpi green"><div class="kpi-val" style="color:var(--green)">'+_WAREHOUSE_DATA.filter(d=>d.type==='توريد').length+'</div><div class="kpi-lbl">📥 توريدات واردة</div><div class="kpi-sub">إجمالي: '+totalIn.toLocaleString()+'</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--yellow)"><div class="kpi-val" style="color:var(--yellow)">'+_WAREHOUSE_DATA.filter(d=>d.type==='صرف').length+'</div><div class="kpi-lbl">📤 صرف للمشاريع</div><div class="kpi-sub">إجمالي: '+totalOut.toLocaleString()+'</div></div>'+
+      '<div class="kpi orange"><div class="kpi-val" style="color:var(--accent2)">'+uniqueItems+'</div><div class="kpi-lbl">📦 أصناف مختلفة</div></div>'+
+      (lowStock>0?'<div class="kpi" style="border-right-color:var(--red)"><div class="kpi-val" style="color:var(--red)">'+lowStock+'</div><div class="kpi-lbl">🔴 أصناف نفدت / سالبة</div></div>':'')+
+    '</div>'+
+
+    // Entry form
+    (canEdit?
+    '<div class="form-section" style="margin-bottom:16px">'+
+      '<h3>➕ تسجيل حركة مخزن</h3>'+
+      '<div id="whNotice" style="display:none;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:.82rem"></div>'+
+      '<div class="form-row">'+
+        '<div class="form-group" style="min-width:130px"><label>نوع الحركة *</label><select id="whType"><option value="توريد">📥 توريد (وارد)</option><option value="صرف">📤 صرف (خروج)</option></select></div>'+
+        '<div class="form-group" style="min-width:200px"><label>اسم الصنف *</label><input type="text" id="whItem" list="whItemsList" placeholder="مثال: حديد 12مم، أسمنت، رمل..." autocomplete="off"><datalist id="whItemsList">'+stockArr.map(s=>'<option value="'+s.item+'">').join('')+'</datalist></div>'+
+        '<div class="form-group" style="min-width:110px"><label>الكمية *</label><input type="number" id="whQty" placeholder="0" min="0" step="0.01"></div>'+
+        '<div class="form-group" style="min-width:100px"><label>الوحدة</label><select id="whUnit"><option value="طن">طن</option><option value="م³">م³</option><option value="م²">م²</option><option value="كجم">كجم</option><option value="عدد">عدد</option><option value="لتر">لتر</option><option value="كيس">كيس</option><option value="م.ط">م.ط</option><option value="صفيحة">صفيحة</option></select></div>'+
+        '<div class="form-group" style="min-width:160px"><label>المشروع (للصرف)</label><select id="whProject"><option value="">— عام —</option>'+projOpts+'</select></div>'+
+      '</div>'+
+      '<div class="form-row">'+
+        '<div class="form-group" style="min-width:160px"><label>المورد / الجهة</label><input type="text" id="whSupplier" placeholder="اسم المورد أو الجهة"></div>'+
+        '<div class="form-group" style="flex:2;min-width:200px"><label>ملاحظة (اختياري)</label><input type="text" id="whNote" placeholder="أي تفاصيل إضافية..."></div>'+
+        '<div class="form-group" style="justify-content:flex-end"><label style="color:transparent">.</label><button class="form-btn form-btn-green" onclick="addWarehouseEntry()">✅ تسجيل</button></div>'+
+      '</div>'+
+      '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع من Excel <input type="file" id="whExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadWarehouseExcel()"></label>'+
+        '<span style="font-size:.68rem;color:var(--muted)">الأعمدة: النوع (توريد/صرف)، الصنف، الكمية، الوحدة، المشروع، المورد، ملاحظة</span>'+
+      '</div>'+
+    '</div>':'')+
+
+    // Stock balance section
+    '<div class="section-title" style="margin-top:12px">📦 أرصدة المخزن الحالية</div>'+
+    (stockArr.length?
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">'+stockCards+'</div>'
+    :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد أصناف مسجّلة بعد.</div>')+
+
+    // Transactions log
+    '<div class="section-title" style="margin-top:12px;flex-wrap:wrap;gap:8px">'+
+      '<span>📋 سجل حركات المخزن</span>'+
+      '<span style="display:inline-flex;gap:8px;margin-right:10px">'+
+        '<select id="whFilterType" onchange="renderWarehouse()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل الحركات</option><option value="توريد">📥 توريد</option><option value="صرف">📤 صرف</option></select>'+
+        '<input id="whFilterItem" oninput="renderWarehouse()" placeholder="🔍 فلتر صنف..." style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none;width:180px">'+
+      '</span>'+
+    '</div>'+
+    (filtered.length?
+    '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">'+
+      '<th>#</th><th>التاريخ</th><th>النوع</th><th>الصنف</th><th>الكمية</th><th>المشروع</th><th>المورد/الجهة</th><th>ملاحظة</th><th>المسجّل</th>'+delTh+
+    '</tr></thead><tbody>'+txRows+'</tbody></table></div></div>'
+    :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد حركات بالفلتر الحالي.</div>');
+}
+// ============ / WAREHOUSE SYSTEM ============
+
+// ============ INVOICES / المستخلصات ============
+let _INVOICES_DATA=[];
+let _fbInvInit=false;
+const _INV_KEY='nile_invoices_data';
+
+function _saveInvoicesData(){
+  const obj={};_INVOICES_DATA.forEach((d,i)=>{obj['inv'+d.id]=d;});
+  _DB.ref('invoices').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('invoices',e));
+  try{localStorage.setItem(_INV_KEY,JSON.stringify(_INVOICES_DATA));}catch(e){}
+}
+function _initInvoicesListener(){
+  if(_fbInvInit)return;_fbInvInit=true;
+  _DB.ref('invoices').on('value',function(snap){
+    _fbOk();
+    const v=snap.val();
+    _INVOICES_DATA=v?Object.values(v).sort((a,b)=>b.id-a.id):[];
+    try{localStorage.setItem(_INV_KEY,JSON.stringify(_INVOICES_DATA));}catch(e){}
+    const tab=document.getElementById('tab-invoices');
+    if(tab&&!tab.classList.contains('hidden'))renderInvoices();
+  },function(err){
+    _fbErr('invoices',err);
+    try{_INVOICES_DATA=JSON.parse(localStorage.getItem(_INV_KEY)||'[]');}catch(e){}
+  });
+}
+
+function addInvoice(){
+  const proj=document.getElementById('invProject').value;
+  const num=document.getElementById('invNumber').value.trim();
+  const desc=document.getElementById('invDesc').value.trim();
+  const amount=parseFloat(document.getElementById('invAmount').value);
+  const status=document.getElementById('invStatus').value;
+  const note=document.getElementById('invNote').value.trim();
+  if(!proj||!num||isNaN(amount)){
+    const n=document.getElementById('invNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ يرجى ملء المشروع ورقم المستخلص والمبلغ';setTimeout(()=>n.style.display='none',3000);}
+    return;
+  }
+  const sess=window._CURRENT_SESSION||{};
+  _INVOICES_DATA.unshift({id:Date.now(),project:proj,number:num,description:desc,amount:amount,status:status,note:note,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+  _saveInvoicesData();
+  document.getElementById('invNumber').value='';document.getElementById('invDesc').value='';document.getElementById('invAmount').value='';document.getElementById('invNote').value='';
+  const n=document.getElementById('invNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم تسجيل المستخلص بنجاح';setTimeout(()=>n.style.display='none',3000);}
+  renderInvoices();
+}
+
+function deleteInvoice(id){
+  const row=document.getElementById('invRow_'+id);if(!row)return;
+  if(row.dataset.confirm!=='1'){
+    row.dataset.confirm='1';row.style.background='rgba(239,68,68,.15)';
+    const cell=row.querySelector('.inv-del-cell');
+    if(cell)cell.innerHTML='<button onclick="deleteInvoice('+id+')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:3px 12px;cursor:pointer;font-family:Cairo;font-size:.72rem">تأكيد</button> <button onclick="cancelDelInv('+id+')" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:Cairo;font-size:.72rem">إلغاء</button>';
+    return;
+  }
+  _INVOICES_DATA=_INVOICES_DATA.filter(d=>d.id!==id);_saveInvoicesData();renderInvoices();
+}
+function cancelDelInv(id){const row=document.getElementById('invRow_'+id);if(row){row.dataset.confirm='';row.style.background='';}renderInvoices();}
+
+function updateInvStatus(id,newStatus){
+  const inv=_INVOICES_DATA.find(d=>d.id===id);
+  if(inv){inv.status=newStatus;_saveInvoicesData();}
+}
+
+function uploadInvoicesExcel(){
+  const input=document.getElementById('invExcelFile');if(!input||!input.files.length)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      let added=0;const sess=window._CURRENT_SESSION||{};
+      rows.forEach(r=>{
+        const proj=r['المشروع']||r['project']||'';
+        const num=r['رقم المستخلص']||r['number']||r['Number']||'';
+        const desc=r['الوصف']||r['description']||'';
+        const amount=parseFloat(r['المبلغ']||r['amount']||r['Amount']||0);
+        const status=r['الحالة']||r['status']||'قيد المراجعة';
+        const note=r['ملاحظة']||r['note']||'';
+        if(!proj||!num||isNaN(amount))return;
+        _INVOICES_DATA.unshift({id:Date.now()+added,project:proj,number:num,description:desc,amount:amount,status:status,note:note,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'Excel',ts:new Date().toISOString()});
+        added++;
+      });
+      if(added>0){_saveInvoicesData();renderInvoices();}
+      const n=document.getElementById('invNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم استيراد '+added+' مستخلص';setTimeout(()=>n.style.display='none',4000);}
+    }catch(ex){
+      const n=document.getElementById('invNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ: '+ex.message;setTimeout(()=>n.style.display='none',5000);}
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(input.files[0]);
+}
+
+function renderInvoices(){
+  _initInvoicesListener();
+  const role=window._CURRENT_ROLE||'viewer';
+  const canEdit=(role==='admin'||role==='editor'||role==='engineer'||role==='supervisor');
+  const canDel=(role==='admin'||role==='editor');
+  const canApprove=(role==='admin');
+  const filterProj=(document.getElementById('invFilterProj')||{}).value||'';
+  const filterStatus=(document.getElementById('invFilterStatus')||{}).value||'';
+  const filtered=_INVOICES_DATA.filter(d=>(!filterProj||d.project===filterProj)&&(!filterStatus||d.status===filterStatus));
+
+  const totalAmount=_INVOICES_DATA.reduce((s,d)=>s+d.amount,0);
+  const approved=_INVOICES_DATA.filter(d=>d.status==='معتمد');
+  const approvedAmt=approved.reduce((s,d)=>s+d.amount,0);
+  const pending=_INVOICES_DATA.filter(d=>d.status==='قيد المراجعة').length;
+  const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
+
+  // Summary by project
+  const byProj={};
+  _INVOICES_DATA.forEach(d=>{if(!byProj[d.project])byProj[d.project]={count:0,total:0,approved:0};byProj[d.project].count++;byProj[d.project].total+=d.amount;if(d.status==='معتمد')byProj[d.project].approved+=d.amount;});
+  let projSummary='';
+  Object.entries(byProj).forEach(([pk,v])=>{
+    projSummary+='<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:220px;flex:1">'+
+      '<div style="font-weight:700;font-size:.88rem;margin-bottom:4px;color:var(--accent2)">'+(ACTIVE_NAMES[pk]||pk)+' <span style="font-size:.72rem;color:var(--muted)">('+pk+')</span></div>'+
+      '<div style="font-size:.78rem;color:var(--muted)">مستخلصات: '+v.count+' | إجمالي: '+v.total.toLocaleString()+' جم</div>'+
+      '<div style="font-size:.82rem;color:var(--green);font-weight:700;margin-top:4px">معتمد: '+v.approved.toLocaleString()+' جم</div>'+
+    '</div>';
+  });
+
+  let rows='';
+  filtered.forEach((d,i)=>{
+    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    const stColor=d.status==='معتمد'?'var(--green)':d.status==='مرفوض'?'var(--red)':'var(--yellow)';
+    const stBg=d.status==='معتمد'?'rgba(34,197,94,.15)':d.status==='مرفوض'?'rgba(239,68,68,.15)':'rgba(234,179,8,.15)';
+    rows+='<tr id="invRow_'+d.id+'" style="'+bg+'">'+
+      '<td style="padding:8px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
+      '<td style="padding:8px 10px;white-space:nowrap">'+d.date+'</td>'+
+      '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.68rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
+      '<td style="padding:8px 10px;font-weight:700">'+d.number+'</td>'+
+      '<td style="padding:8px 10px;font-size:.78rem">'+(d.description||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-weight:700;text-align:center;color:var(--accent2)">'+d.amount.toLocaleString()+' جم</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+
+        (canApprove?'<select onchange="updateInvStatus('+d.id+',this.value)" style="background:'+stBg+';color:'+stColor+';border:1px solid var(--border);border-radius:8px;padding:3px 8px;font-family:Cairo;font-size:.72rem;font-weight:700;outline:none"><option value="قيد المراجعة"'+(d.status==='قيد المراجعة'?' selected':'')+'>⏳ قيد المراجعة</option><option value="معتمد"'+(d.status==='معتمد'?' selected':'')+'>✅ معتمد</option><option value="مرفوض"'+(d.status==='مرفوض'?' selected':'')+'>❌ مرفوض</option></select>'
+        :'<span style="background:'+stBg+';color:'+stColor+';padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700">'+d.status+'</span>')+
+      '</td>'+
+      '<td style="padding:8px 10px;font-size:.72rem;color:var(--muted);max-width:120px">'+(d.note||'—')+'</td>'+
+      '<td style="padding:8px 10px;font-size:.68rem;color:var(--muted)">'+(d.user||'—')+'</td>'+
+      (canDel?'<td class="inv-del-cell" style="text-align:center"><button onclick="deleteInvoice('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button></td>':'')+
+    '</tr>';
+  });
+  const delTh=canDel?'<th>حذف</th>':'';
+
+  document.getElementById('tab-invoices').innerHTML=
+    '<div class="section-title">📄 المستخلصات — تسجيل ومتابعة</div>'+
+    '<div class="kpi-grid" style="margin-bottom:16px">'+
+      '<div class="kpi blue"><div class="kpi-val">'+_INVOICES_DATA.length+'</div><div class="kpi-lbl">إجمالي المستخلصات</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="color:var(--accent2);font-size:1rem">'+totalAmount.toLocaleString()+'</div><div class="kpi-lbl">💰 إجمالي المبالغ (جم)</div></div>'+
+      '<div class="kpi green"><div class="kpi-val" style="color:var(--green);font-size:1rem">'+approvedAmt.toLocaleString()+'</div><div class="kpi-lbl">✅ المعتمد (جم)</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--yellow)"><div class="kpi-val" style="color:var(--yellow)">'+pending+'</div><div class="kpi-lbl">⏳ قيد المراجعة</div></div>'+
+    '</div>'+
+
+    (canEdit?
+    '<div class="form-section" style="margin-bottom:16px">'+
+      '<h3>➕ تسجيل مستخلص جديد</h3>'+
+      '<div id="invNotice" style="display:none;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:.82rem"></div>'+
+      '<div class="form-row">'+
+        '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="invProject"><option value="">-- اختر --</option>'+projOpts+'</select></div>'+
+        '<div class="form-group" style="min-width:140px"><label>رقم المستخلص *</label><input type="text" id="invNumber" placeholder="مثال: مستخلص #3"></div>'+
+        '<div class="form-group" style="min-width:140px"><label>المبلغ (جم) *</label><input type="number" id="invAmount" placeholder="0" step="0.01"></div>'+
+        '<div class="form-group" style="min-width:130px"><label>الحالة</label><select id="invStatus"><option value="قيد المراجعة">⏳ قيد المراجعة</option><option value="معتمد">✅ معتمد</option><option value="مرفوض">❌ مرفوض</option></select></div>'+
+      '</div>'+
+      '<div class="form-row">'+
+        '<div class="form-group" style="flex:2;min-width:200px"><label>وصف / بنود المستخلص</label><input type="text" id="invDesc" placeholder="مثال: أعمال هيكل الدور الأول + صب أساسات..."></div>'+
+        '<div class="form-group" style="flex:1;min-width:150px"><label>ملاحظة</label><input type="text" id="invNote" placeholder="أي ملاحظات..."></div>'+
+        '<div class="form-group" style="justify-content:flex-end"><label style="color:transparent">.</label><button class="form-btn form-btn-green" onclick="addInvoice()">✅ تسجيل المستخلص</button></div>'+
+      '</div>'+
+      '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع من Excel <input type="file" id="invExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadInvoicesExcel()"></label>'+
+        '<span style="font-size:.68rem;color:var(--muted)">الأعمدة: المشروع، رقم المستخلص، المبلغ، الوصف، الحالة، ملاحظة</span>'+
+      '</div>'+
+    '</div>':'')+
+
+    // Project summary
+    (Object.keys(byProj).length?
+    '<div class="section-title" style="margin-top:12px">📊 ملخص المستخلصات لكل مشروع</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">'+projSummary+'</div>':'')+
+
+    // Table
+    '<div class="section-title" style="margin-top:12px;flex-wrap:wrap;gap:8px">'+
+      '<span>📋 سجل المستخلصات</span>'+
+      '<span style="display:inline-flex;gap:8px;margin-right:10px">'+
+        '<select id="invFilterProj" onchange="renderInvoices()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل المشاريع</option>'+projOpts+'</select>'+
+        '<select id="invFilterStatus" onchange="renderInvoices()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل الحالات</option><option value="قيد المراجعة">⏳ قيد المراجعة</option><option value="معتمد">✅ معتمد</option><option value="مرفوض">❌ مرفوض</option></select>'+
+      '</span>'+
+    '</div>'+
+    (filtered.length?
+    '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">'+
+      '<th>#</th><th>التاريخ</th><th>المشروع</th><th>رقم المستخلص</th><th>الوصف</th><th>المبلغ</th><th>الحالة</th><th>ملاحظة</th><th>المسجّل</th>'+delTh+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+    :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد مستخلصات مسجّلة بعد.</div>');
+}
+// ============ / INVOICES ============
+
+// ============ BALANCES & BOQ / الأرصدة والحصر المعياري ============
+let _BOQ_DATA=[];
+let _fbBoqInit=false;
+const _BOQ_KEY='nile_boq_data';
+
+function _saveBoqData(){
+  const obj={};_BOQ_DATA.forEach((d,i)=>{obj['bq'+d.id]=d;});
+  _DB.ref('boq_data').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('boq_data',e));
+  try{localStorage.setItem(_BOQ_KEY,JSON.stringify(_BOQ_DATA));}catch(e){}
+}
+function _initBoqListener(){
+  if(_fbBoqInit)return;_fbBoqInit=true;
+  _DB.ref('boq_data').on('value',function(snap){
+    _fbOk();
+    const v=snap.val();
+    _BOQ_DATA=v?Object.values(v):[];
+    try{localStorage.setItem(_BOQ_KEY,JSON.stringify(_BOQ_DATA));}catch(e){}
+    const tab=document.getElementById('tab-balances');
+    if(tab&&!tab.classList.contains('hidden'))renderBalances();
+  },function(err){
+    _fbErr('boq_data',err);
+    try{_BOQ_DATA=JSON.parse(localStorage.getItem(_BOQ_KEY)||'[]');}catch(e){}
+  });
+}
+
+function addBoqItem(){
+  const proj=document.getElementById('boqProject').value;
+  const item=document.getElementById('boqItem').value.trim();
+  const boqQty=parseFloat(document.getElementById('boqPlanned').value);
+  const execQty=parseFloat(document.getElementById('boqExecuted').value)||0;
+  const unit=document.getElementById('boqUnit').value;
+  const note=document.getElementById('boqNote').value.trim();
+  if(!proj||!item||isNaN(boqQty)){
+    const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ يرجى ملء المشروع والبند والكمية المعيارية';setTimeout(()=>n.style.display='none',3000);}
+    return;
+  }
+  const remaining=boqQty-execQty;
+  const pct=boqQty!==0?((execQty/boqQty)*100):0;
+  const devPct=boqQty!==0?(((execQty-boqQty)/boqQty)*100):0;
+  const sess=window._CURRENT_SESSION||{};
+  // Check if item exists for this project — update instead of duplicate
+  const existing=_BOQ_DATA.find(d=>d.project===proj&&d.item===item);
+  if(existing){
+    existing.boqQty=boqQty;existing.execQty=execQty;existing.unit=unit;existing.remaining=remaining;existing.pct=pct;existing.devPct=devPct;existing.note=note;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'—';
+  }else{
+    _BOQ_DATA.push({id:Date.now(),project:proj,item:item,boqQty:boqQty,execQty:execQty,unit:unit,remaining:remaining,pct:pct,devPct:devPct,note:note,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',lastUpdate:new Date().toISOString(),updatedBy:sess.name||sess.username||'—'});
+  }
+  _saveBoqData();
+  document.getElementById('boqItem').value='';document.getElementById('boqPlanned').value='';document.getElementById('boqExecuted').value='';document.getElementById('boqNote').value='';
+  const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent=existing?'✅ تم تحديث البند':'✅ تم إضافة البند والحصر المعياري';setTimeout(()=>n.style.display='none',3000);}
+  renderBalances();
+}
+
+function deleteBoqItem(id){
+  const row=document.getElementById('boqRow_'+id);if(!row)return;
+  if(row.dataset.confirm!=='1'){
+    row.dataset.confirm='1';row.style.background='rgba(239,68,68,.15)';
+    const cell=row.querySelector('.boq-del-cell');
+    if(cell)cell.innerHTML='<button onclick="deleteBoqItem('+id+')" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:3px 12px;cursor:pointer;font-family:Cairo;font-size:.72rem">تأكيد</button> <button onclick="cancelDelBoq('+id+')" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:Cairo;font-size:.72rem">إلغاء</button>';
+    return;
+  }
+  _BOQ_DATA=_BOQ_DATA.filter(d=>d.id!==id);_saveBoqData();renderBalances();
+}
+function cancelDelBoq(id){const row=document.getElementById('boqRow_'+id);if(row){row.dataset.confirm='';row.style.background='';}renderBalances();}
+
+function uploadBoqExcel(){
+  const input=document.getElementById('boqExcelFile');if(!input||!input.files.length)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      let added=0,updated=0;const sess=window._CURRENT_SESSION||{};
+      rows.forEach(r=>{
+        const proj=r['المشروع']||r['project']||'';
+        const item=r['البند']||r['item']||r['Item']||'';
+        const boqQty=parseFloat(r['الحصر المعياري']||r['المخطط']||r['boq']||r['BOQ']||r['planned']||0);
+        const execQty=parseFloat(r['المنفذ']||r['الفعلي']||r['executed']||r['actual']||0);
+        const unit=r['الوحدة']||r['unit']||'';
+        const note=r['ملاحظة']||r['note']||'';
+        if(!proj||!item||isNaN(boqQty))return;
+        const remaining=boqQty-execQty;
+        const pct=boqQty!==0?((execQty/boqQty)*100):0;
+        const devPct=boqQty!==0?(((execQty-boqQty)/boqQty)*100):0;
+        const existing=_BOQ_DATA.find(d=>d.project===proj&&d.item===item);
+        if(existing){existing.boqQty=boqQty;existing.execQty=execQty;existing.unit=unit;existing.remaining=remaining;existing.pct=pct;existing.devPct=devPct;existing.note=note||existing.note;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'Excel';updated++;}
+        else{_BOQ_DATA.push({id:Date.now()+added+updated,project:proj,item:item,boqQty:boqQty,execQty:execQty,unit:unit,remaining:remaining,pct:pct,devPct:devPct,note:note,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'Excel',lastUpdate:new Date().toISOString(),updatedBy:sess.name||sess.username||'Excel'});added++;}
+      });
+      if(added+updated>0){_saveBoqData();renderBalances();}
+      const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم استيراد '+added+' بند جديد + تحديث '+updated+' بند';setTimeout(()=>n.style.display='none',4000);}
+    }catch(ex){
+      const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ: '+ex.message;setTimeout(()=>n.style.display='none',5000);}
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(input.files[0]);
+}
+
+function renderBalances(){
+  _initBoqListener();
+  const role=window._CURRENT_ROLE||'viewer';
+  const canEdit=(role==='admin'||role==='editor'||role==='engineer'||role==='supervisor');
+  const canDel=(role==='admin'||role==='editor');
+  const filterProj=(document.getElementById('boqFilterProj')||{}).value||'';
+  const filtered=_BOQ_DATA.filter(d=>(!filterProj||d.project===filterProj));
+
+  const totalItems=_BOQ_DATA.length;
+  const completed=_BOQ_DATA.filter(d=>d.pct>=100).length;
+  const overBudget=_BOQ_DATA.filter(d=>d.devPct>2).length;
+  const underBudget=_BOQ_DATA.filter(d=>d.devPct<-2).length;
+  const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
+
+  function pctColor(p){return p>=100?'var(--green)':p>=50?'var(--accent2)':p>=25?'var(--yellow)':'var(--muted)';}
+  function devColor(p){return p<=0?'#22d3ee':p<2?'var(--green)':p<5?'var(--orange)':'var(--red)';}
+
+  // Summary by project
+  const byProj={};
+  _BOQ_DATA.forEach(d=>{
+    if(!byProj[d.project])byProj[d.project]={items:0,completed:0,over:0};
+    byProj[d.project].items++;
+    if(d.pct>=100)byProj[d.project].completed++;
+    if(d.devPct>2)byProj[d.project].over++;
+  });
+  let projCards='';
+  Object.entries(byProj).forEach(([pk,v])=>{
+    const compPct=v.items?Math.round(v.completed/v.items*100):0;
+    projCards+='<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:200px;flex:1">'+
+      '<div style="font-weight:700;font-size:.88rem;margin-bottom:4px;color:var(--accent2)">'+(ACTIVE_NAMES[pk]||pk)+'</div>'+
+      '<div style="font-size:.78rem;color:var(--muted);margin-bottom:6px">بنود: '+v.items+' | مكتمل: '+v.completed+' | تجاوز: <span style="color:'+(v.over>0?'var(--red)':'var(--green)')+'">'+v.over+'</span></div>'+
+      '<div style="background:#1e2130;border-radius:4px;height:8px"><div style="width:'+compPct+'%;height:100%;background:var(--green);border-radius:4px"></div></div>'+
+      '<div style="font-size:.68rem;color:var(--muted);margin-top:3px;text-align:center">'+compPct+'% مكتمل</div>'+
+    '</div>';
+  });
+
+  let rows='';
+  filtered.forEach((d,i)=>{
+    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    const progW=Math.min(d.pct,120);
+    const progBar='<div style="background:#1e2130;border-radius:3px;height:7px;width:100px;display:inline-block;vertical-align:middle;margin-right:6px"><div style="width:'+Math.min(progW,100)+'%;height:100%;background:'+pctColor(d.pct)+';border-radius:3px"></div></div>';
+    rows+='<tr id="boqRow_'+d.id+'" style="'+bg+'">'+
+      '<td style="padding:8px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
+      '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.68rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
+      '<td style="padding:8px 10px;font-weight:700">'+d.item+'</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+d.boqQty.toLocaleString()+' '+(d.unit||'')+'</td>'+
+      '<td style="padding:8px 10px;text-align:center">'+d.execQty.toLocaleString()+' '+(d.unit||'')+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+(d.remaining>0?'var(--yellow)':d.remaining<0?'var(--red)':'var(--green)')+'">'+d.remaining.toLocaleString()+' '+(d.unit||'')+'</td>'+
+      '<td style="padding:8px 10px">'+progBar+'<span style="font-size:.78rem;font-weight:700;color:'+pctColor(d.pct)+'">'+d.pct.toFixed(1)+'%</span></td>'+
+      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+devColor(Math.abs(d.devPct))+'">'+(d.devPct>0?'+':'')+d.devPct.toFixed(2)+'%</td>'+
+      '<td style="padding:8px 10px;font-size:.72rem;color:var(--muted);max-width:120px">'+(d.note||'—')+'</td>'+
+      (canDel?'<td class="boq-del-cell" style="text-align:center"><button onclick="deleteBoqItem('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button></td>':'')+
+    '</tr>';
+  });
+  const delTh=canDel?'<th>حذف</th>':'';
+
+  document.getElementById('tab-balances').innerHTML=
+    '<div class="section-title">📊 الأرصدة المتبقية والحصر المعياري</div>'+
+    '<div class="kpi-grid" style="margin-bottom:16px">'+
+      '<div class="kpi blue"><div class="kpi-val">'+totalItems+'</div><div class="kpi-lbl">إجمالي البنود</div></div>'+
+      '<div class="kpi green"><div class="kpi-val" style="color:var(--green)">'+completed+'</div><div class="kpi-lbl">✅ بنود مكتملة</div></div>'+
+      (overBudget>0?'<div class="kpi" style="border-right-color:var(--red)"><div class="kpi-val" style="color:var(--red)">'+overBudget+'</div><div class="kpi-lbl">⚠ تجاوز الحصر {>2%}</div></div>':'')+
+      (underBudget>0?'<div class="kpi" style="border-right-color:#22d3ee"><div class="kpi-val" style="color:#22d3ee">'+underBudget+'</div><div class="kpi-lbl">💧 توفير {>2%}</div></div>':'')+
+    '</div>'+
+
+    (canEdit?
+    '<div class="form-section" style="margin-bottom:16px">'+
+      '<h3>➕ إضافة / تحديث بند وحصر معياري</h3>'+
+      '<div id="boqNotice" style="display:none;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:.82rem"></div>'+
+      '<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;background:rgba(99,102,241,.1);padding:8px 12px;border-radius:8px">💡 إذا أدخلت نفس المشروع + البند سيتم تحديث الكميات تلقائياً بدلاً من إنشاء سجل جديد</div>'+
+      '<div class="form-row">'+
+        '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="boqProject"><option value="">-- اختر --</option>'+projOpts+'</select></div>'+
+        '<div class="form-group" style="min-width:200px"><label>البند *</label><input type="text" id="boqItem" placeholder="مثال: خرسانة أساسات / حديد تسليح / بلاط..."></div>'+
+        '<div class="form-group" style="min-width:130px"><label>الحصر المعياري (BOQ) *</label><input type="number" id="boqPlanned" placeholder="0" step="0.01"></div>'+
+        '<div class="form-group" style="min-width:130px"><label>المنفذ الفعلي</label><input type="number" id="boqExecuted" placeholder="0" step="0.01"></div>'+
+        '<div class="form-group" style="min-width:100px"><label>الوحدة</label><select id="boqUnit"><option value="م³">م³</option><option value="طن">طن</option><option value="م²">م²</option><option value="م.ط">م.ط</option><option value="كجم">كجم</option><option value="عدد">عدد</option><option value="لتر">لتر</option></select></div>'+
+      '</div>'+
+      '<div class="form-row">'+
+        '<div class="form-group" style="flex:2;min-width:200px"><label>ملاحظة</label><input type="text" id="boqNote" placeholder="أي ملاحظات..."></div>'+
+        '<div class="form-group" style="justify-content:flex-end"><label style="color:transparent">.</label><button class="form-btn form-btn-green" onclick="addBoqItem()">✅ حفظ</button></div>'+
+      '</div>'+
+      '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+        '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع حصر من Excel <input type="file" id="boqExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadBoqExcel()"></label>'+
+        '<span style="font-size:.68rem;color:var(--muted)">الأعمدة: المشروع، البند، الحصر المعياري، المنفذ، الوحدة، ملاحظة</span>'+
+      '</div>'+
+    '</div>':'')+
+
+    // Project summary
+    (Object.keys(byProj).length?
+    '<div class="section-title" style="margin-top:12px">📊 ملخص لكل مشروع</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">'+projCards+'</div>':'')+
+
+    // Table
+    '<div class="section-title" style="margin-top:12px;flex-wrap:wrap;gap:8px">'+
+      '<span>📋 جدول الأرصدة والانحرافات</span>'+
+      '<span style="display:inline-flex;gap:8px;margin-right:10px">'+
+        '<select id="boqFilterProj" onchange="renderBalances()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل المشاريع</option>'+projOpts+'</select>'+
+      '</span>'+
+    '</div>'+
+    (filtered.length?
+    '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">'+
+      '<th>#</th><th>المشروع</th><th>البند</th><th>الحصر المعياري</th><th>المنفذ</th><th>الرصيد المتبقي</th><th>نسبة الإنجاز</th><th>الانحراف %</th><th>ملاحظة</th>'+delTh+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+    :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد بنود مسجّلة بعد. '+(canEdit?'ارفع الحصر المعياري من Excel أو أضف يدوياً.':'')+'</div>');
+}
+// ============ / BALANCES & BOQ ============
+
 // Init: wrapped in startApp(), called after successful login
 function startApp(){
   _initUsersListener();
   loadFromStorage();
   loadDeliveries();
+  _initDeviationsListener();
+  _initWarehouseListener();
+  _initInvoicesListener();
+  _initBoqListener();
   _initTabPermListener();
   populateFormDropdowns();
   renderChangelog();
@@ -2198,6 +2978,15 @@ function startApp(){
   </div>
   <div id="delivLog" style="margin-top:10px"></div>
 </div>
+
+<!-- WAREHOUSE TAB -->
+<div id="tab-warehouse" class="content hidden"></div>
+
+<!-- INVOICES TAB -->
+<div id="tab-invoices" class="content hidden"></div>
+
+<!-- BALANCES & BOQ TAB -->
+<div id="tab-balances" class="content hidden"></div>
 
 <!-- ADMIN PANEL TAB -->
 <div id="tab-admin" class="content hidden">
