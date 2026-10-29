@@ -2479,19 +2479,21 @@ function _initInvoicesListener(){
 
 function addInvoice(){
   const proj=document.getElementById('invProject').value;
+  const item=(document.getElementById('invItem')||{}).value||'';
   const unit=document.getElementById('invUnit').value;
   const unitPrice=parseFloat(document.getElementById('invUnitPrice').value);
   const execQty=parseFloat(document.getElementById('invExecQty').value);
   const execPct=parseFloat(document.getElementById('invExecPct').value);
   const status=document.getElementById('invStatus').value;
-  if(!proj||isNaN(unitPrice)||isNaN(execQty)||isNaN(execPct)){
-    const n=document.getElementById('invNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ يرجى ملء المشروع وسعر الوحدة والكمية ونسبة التنفيذ';setTimeout(()=>n.style.display='none',3000);}
+  if(!proj||!item.trim()||isNaN(unitPrice)||isNaN(execQty)||isNaN(execPct)){
+    const n=document.getElementById('invNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ يرجى ملء المشروع واسم البند وسعر الوحدة والكمية ونسبة التنفيذ';setTimeout(()=>n.style.display='none',3000);}
     return;
   }
   const total=unitPrice*execQty*(execPct/100);
   const sess=window._CURRENT_SESSION||{};
-  _INVOICES_DATA.unshift({id:Date.now(),project:proj,unit:unit,unitPrice:unitPrice,execQty:execQty,execPct:execPct,total:total,status:status,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+  _INVOICES_DATA.unshift({id:Date.now(),project:proj,item:item.trim(),unit:unit,unitPrice:unitPrice,execQty:execQty,execPct:execPct,total:total,status:status,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
   _saveInvoicesData();
+  const iEl=document.getElementById('invItem');if(iEl)iEl.value='';
   document.getElementById('invUnitPrice').value='';document.getElementById('invExecQty').value='';document.getElementById('invExecPct').value='';
   const n=document.getElementById('invNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم تسجيل المستخلص — إجمالي: '+total.toLocaleString()+' جم';setTimeout(()=>n.style.display='none',3000);}
   renderInvoices();
@@ -2525,6 +2527,7 @@ function uploadInvoicesExcel(){
       let added=0;const sess=window._CURRENT_SESSION||{};
       rows.forEach(r=>{
         const proj=r['المشروع']||r['project']||'';
+        const item=r['اسم البند']||r['item']||'';
         const unit=r['الوحدة']||r['unit']||'متر';
         const unitPrice=parseFloat(r['سعر الوحدة']||r['unitPrice']||r['unit_price']||0);
         const execQty=parseFloat(r['الكمية المنفذة']||r['execQty']||r['qty']||0);
@@ -2532,7 +2535,7 @@ function uploadInvoicesExcel(){
         const status=r['الحالة']||r['status']||'قيد المراجعة';
         if(!proj||isNaN(unitPrice))return;
         const total=unitPrice*execQty*(execPct/100);
-        _INVOICES_DATA.unshift({id:Date.now()+added,project:proj,unit:unit,unitPrice:unitPrice,execQty:execQty,execPct:execPct,total:total,status:status,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'Excel',ts:new Date().toISOString()});
+        _INVOICES_DATA.unshift({id:Date.now()+added,project:proj,item:item,unit:unit,unitPrice:unitPrice,execQty:execQty,execPct:execPct,total:total,status:status,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'Excel',ts:new Date().toISOString()});
         added++;
       });
       if(added>0){_saveInvoicesData();renderInvoices();}
@@ -2591,6 +2594,7 @@ function renderInvoices(){
       '<td style="padding:8px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
       '<td style="padding:8px 10px;white-space:nowrap">'+d.date+'</td>'+
       '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.68rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
+      '<td style="padding:8px 10px;font-weight:600;color:var(--text)">'+(d.item||'—')+'</td>'+
       '<td style="padding:8px 10px;text-align:center"><span style="background:rgba(99,102,241,.15);color:var(--accent2);padding:2px 8px;border-radius:8px;font-size:.78rem">'+(d.unit||'—')+'</span></td>'+
       '<td style="padding:8px 10px;text-align:center">'+unitPx.toLocaleString()+' جم</td>'+
       '<td style="padding:8px 10px;text-align:center">'+qty.toLocaleString()+'</td>'+
@@ -2622,6 +2626,7 @@ function renderInvoices(){
       '<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;background:rgba(99,102,241,.1);padding:8px 12px;border-radius:8px">💡 إجمالي التنفيذ = سعر الوحدة × الكمية المنفذة × (نسبة التنفيذ ÷ 100)</div>'+
       '<div class="form-row">'+
         '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="invProject"><option value="">-- اختر --</option>'+projOpts+'</select></div>'+
+        '<div class="form-group" style="min-width:180px"><label>اسم البند *</label><input type="text" id="invItem" placeholder="مثال: أعمال الهيكل / بياض داخلي"></div>'+
         '<div class="form-group" style="min-width:130px"><label>الوحدة</label><select id="invUnit"><option value="متر">متر</option><option value="مقطوعية">مقطوعية</option></select></div>'+
         '<div class="form-group" style="min-width:140px"><label>سعر الوحدة (جم) *</label><input type="number" id="invUnitPrice" placeholder="0" step="0.01" min="0"></div>'+
         '<div class="form-group" style="min-width:120px"><label>الكمية المنفذة *</label><input type="number" id="invExecQty" placeholder="0" step="0.01" min="0"></div>'+
@@ -2650,7 +2655,7 @@ function renderInvoices(){
     '</div>'+
     (filtered.length?
     '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">'+
-      '<th>#</th><th>التاريخ</th><th>المشروع</th><th>الوحدة</th><th>سعر الوحدة</th><th>الكمية</th><th>نسبة التنفيذ</th><th>إجمالي التنفيذ</th><th>الحالة</th><th>المسجّل</th>'+delTh+
+      '<th>#</th><th>التاريخ</th><th>المشروع</th><th>اسم البند</th><th>الوحدة</th><th>سعر الوحدة</th><th>الكمية</th><th>نسبة التنفيذ</th><th>إجمالي التنفيذ</th><th>الحالة</th><th>المسجّل</th>'+delTh+
     '</tr></thead><tbody>'+rows+'</tbody></table></div></div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد مستخلصات مسجّلة بعد.</div>');
 }
