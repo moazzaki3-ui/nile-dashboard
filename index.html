@@ -480,30 +480,32 @@ function removeUser(uname){
   renderAdminPanel();
 }
 function changeUserPwd(uname){
-  const np=prompt('كلمة المرور الجديدة للمستخدم "'+uname+'":');
-  if(!np||!np.trim())return;
-  const users=_getUsers();const u=users.find(x=>x.username===uname);
-  if(u){u.password=np.trim();_saveUsers(users);alert('✓ تم تغيير كلمة المرور');}
+  // Show inline password input instead of blocked prompt()
+  const cell=document.getElementById('pwd-cell-'+uname);
+  if(!cell)return;
+  if(cell.querySelector('input')){cell.innerHTML='<button class="del-btn kb" onclick="changeUserPwd(\''+uname+'\')">🔑 باسورد</button>';return;}
+  cell.innerHTML='<input id="pwdinp-'+uname+'" type="text" style="width:100px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:.72rem" placeholder="باسورد جديد">'
+    +'<button class="del-btn" onclick="applyPwd(\''+uname+'\')">✓</button>';
 }
-function changeUserRole(uname){
+function applyPwd(uname){
+  const inp=document.getElementById('pwdinp-'+uname);
+  if(!inp||!inp.value.trim())return;
+  const users=_getUsers();const u=users.find(x=>x.username===uname);
+  if(u){u.password=inp.value.trim();_saveUsers(users);}
+  renderAdminPanel();
+}
+function changeUserRole(uname,nr){
+  if(!nr)return;
   const roles=['viewer','supervisor','engineer','editor','chairman','admin'];
-  const labels={'viewer':'مشاهد','supervisor':'Site Engineer','engineer':'Technical Office Eng.','editor':'Technical Office Manager','chairman':'Chairman','admin':'Projects Manager'};
+  if(!roles.includes(nr))return;
   let users=_getUsers();
   let u=users.find(x=>x.username===uname);
   if(!u){
-    // Static user — create Firebase override
     const st=_STATIC_USERS.find(x=>x.username===uname);
     if(!st)return;
     u={...st};users=[...users,u];
   }
-  const cur=u.role||'viewer';
-  const opts=roles.map(r=>(r===cur?'← ':'   ')+labels[r]+' ('+r+')').join('\n');
-  const np=prompt('صلاحية "'+uname+'" الحالية: '+labels[cur]+'\nاختر الجديدة:\n'+opts);
-  if(!np||!np.trim())return;
-  const nr=np.trim().toLowerCase();
-  if(!roles.includes(nr)){alert('صلاحية غير معروفة');return;}
   u.role=nr;_saveUsers(users);renderAdminPanel();
-  alert('✓ تم تغيير صلاحية "'+uname+'" إلى '+labels[nr]);
 }
 function renderAdminPanel(){
   const wrap=document.getElementById('usersTableWrap');
@@ -520,9 +522,11 @@ function renderAdminPanel(){
       const rl=u.role||'viewer';
       const rlColors={admin:'#6366f1',chairman:'#a855f7',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',viewer:'#64748b'};
       const rlBadge='<span style="background:'+rlColors[rl]+'22;color:'+rlColors[rl]+';border:1px solid '+rlColors[rl]+'44;border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700">'+(_ROLE_LABEL[rl]||rl)+'</span>';
-      html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td><td>'+rlBadge+'</td><td>'+(u.createdAt||'—')+'</td>'
-        +'<td><button class="del-btn kb" onclick="changeUserPwd(\''+u.username+'\')">🔑 باسورد</button>'
-        +' <button class="del-btn kb" onclick="changeUserRole(\''+u.username+'\')">🔄 صلاحية</button>'
+      const roleOpts=Object.entries(_ROLE_LABEL).map(([v,l])=>'<option value="'+v+'"'+(rl===v?' selected':'')+'>'+l+'</option>').join('');
+      html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td>'
+        +'<td><select style="background:var(--card);border:1px solid var(--border);color:'+rlColors[rl]+';border-radius:6px;padding:3px 6px;font-size:.72rem;font-family:Cairo,sans-serif" onchange="changeUserRole(\''+u.username+'\',this.value)">'+roleOpts+'</select></td>'
+        +'<td>'+(u.createdAt||'—')+'</td>'
+        +'<td id="pwd-cell-'+u.username+'"><button class="del-btn kb" onclick="changeUserPwd(\''+u.username+'\')">🔑 باسورد</button>'
         +' <button class="del-btn" onclick="removeUser(\''+u.username+'\')">🗑 حذف</button></td></tr>';
     });
     html+='</tbody></table>';
@@ -1610,6 +1614,7 @@ function addChangelog(entry){
   const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   changelog.unshift({time, text: entry, date: now.toLocaleDateString('ar-EG')});
   renderChangelog();
+  saveToStorage(); // save immediately to Firebase so all users see it
 }
 
 function renderChangelog(){
@@ -1793,8 +1798,9 @@ function submitFormUpdate(){
   if(!upd.packages) upd.packages = [];
 
   if(pkgVal === '__new__'){
-    const newName = prompt('اسم البند الجديد:');
-    if(!newName) return;
+    const newNameEl=document.getElementById('newPkgName');
+    const newName=newNameEl?newNameEl.value.trim():'';
+    if(!newName){addChatMsg('⚠️ ادخل اسم البند الجديد في الخانة المخصصة','error');return;}
     upd.packages.push({n:newName, p:pct, note:note});
     addChatMsg('✅ بند جديد <b>'+newName+'</b> في <b>'+ACTIVE_NAMES[code]+'</b> → <b>'+pct+'%</b>', 'bot');
     addChangelog('بند جديد '+newName+' في '+code+' → '+pct+'%');
@@ -1878,7 +1884,6 @@ function importData(event){
 }
 
 function resetData(){
-  if(!confirm('هل أنت متأكد؟ سيتم حذف جميع التعديلات المحفوظة والعودة للبيانات الأصلية.')) return;
   _DB.ref('dashboard_data').remove();_DB.ref('deliveries').remove();
   changelog = [];
   addChatMsg('🗑️ تم إعادة التعيين. أعد تحميل الصفحة لاستعادة البيانات الأصلية.', 'bot');
@@ -1937,7 +1942,6 @@ function addDelivery(){
 function deleteDelivery(id){
   const role=window._CURRENT_ROLE||'viewer';
   if(role!=='admin'&&role!=='editor'){alert('❌ ليس لديك صلاحية الحذف');return;}
-  if(!confirm('هل تريد حذف هذا الاستلام؟')) return;
   _DELIVERIES=_DELIVERIES.filter(d=>d.id!==id);
   saveDeliveries();
   renderDeliveries();
@@ -2224,7 +2228,8 @@ function startApp(){
         </div>
         <div class="form-group" style="min-width:180px">
           <label>اختر البند</label>
-          <select id="formPackage"><option value="">-- اختر بند --</option></select>
+          <select id="formPackage" onchange="document.getElementById('newPkgNameWrap').style.display=this.value==='__new__'?'block':'none'"><option value="">-- اختر بند --</option></select>
+          <div id="newPkgNameWrap" style="display:none;margin-top:4px"><input id="newPkgName" type="text" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-family:Cairo,sans-serif;font-size:.78rem" placeholder="اكتب اسم البند الجديد..."></div>
         </div>
         <div class="form-group" style="min-width:100px">
           <label>النسبة %</label>
