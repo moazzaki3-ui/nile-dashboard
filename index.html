@@ -185,6 +185,7 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
 <header>
   <div><div class="sub">مشاريع الأهرام</div><h1>🏗️ لوحة متابعة التخطيط الشامل</h1><div style="font-size:.7rem;color:var(--accent2);letter-spacing:.08em;margin-top:3px">✦ Design by <span style="color:#38bdf8;font-weight:700">Eng. Moaz Zaki</span> ✦</div></div>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span style="display:inline-flex;align-items:center;gap:4px;font-size:.68rem;color:var(--muted);direction:ltr"><span id="fbStatus" style="width:8px;height:8px;border-radius:50%;background:#f97316;display:inline-block;animation:pulse 2s infinite" title="جاري الاتصال..."></span><span id="fbLabel" style="color:#f97316">جاري الاتصال</span></span>
     <span class="badge" id="dateLabel"></span>
     <div id="headerUser">
       <span class="user-badge" id="userLabel"></span>
@@ -337,6 +338,29 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
 const _FB_CONFIG={apiKey:"AIzaSyAltynkQ8Ocu0I1uyeGCmUN5jMEQWoTqgc",authDomain:"my-app-moazzaki.firebaseapp.com",databaseURL:"https://my-app-moazzaki-default-rtdb.firebaseio.com",projectId:"my-app-moazzaki",storageBucket:"my-app-moazzaki.firebasestorage.app",messagingSenderId:"775013637589",appId:"1:775013637589:web:ecdbc34b516586e048f15c"};
 if(!firebase.apps.length) firebase.initializeApp(_FB_CONFIG);
 const _DB=firebase.database();
+let _FB_OK=true;
+function _fbErr(path,err){
+  console.error('Firebase error ['+path+']:',err.message||err);
+  _FB_OK=false;
+  const dot=document.getElementById('fbStatus');
+  if(dot){dot.style.background='#ef4444';dot.title='⚠ Firebase: '+(err.message||err);}
+  const lbl=document.getElementById('fbLabel');
+  if(lbl){lbl.textContent='⚠ غير متصل';lbl.style.color='#ef4444';}
+}
+function _fbOk(){
+  _FB_OK=true;
+  const dot=document.getElementById('fbStatus');
+  if(dot){dot.style.background='#22c55e';dot.title='متصل بالسيرفر';}
+  const lbl=document.getElementById('fbLabel');
+  if(lbl){lbl.textContent='متصل';lbl.style.color='#22c55e';}
+}
+_DB.ref('.info/connected').on('value',function(snap){
+  const c=snap.val()===true;
+  const dot=document.getElementById('fbStatus');
+  if(!dot)return;
+  if(c&&_FB_OK){dot.style.background='#22c55e';dot.title='متصل بالسيرفر';}
+  else if(!c){dot.style.background='#f97316';dot.title='جاري الاتصال...';}
+});
 
 // ========== AUTH SYSTEM ==========
 const _AU={u:'moaz',p:'Weza#zaki4251',role:'admin',name:'Eng. Moaz Zaki'};
@@ -360,7 +384,8 @@ function _getUsers(){return _fbUsersCache;}
 function _saveUsers(a){
   _fbUsersCache=a;
   const obj={};a.forEach(u=>{obj['u_'+u.username]=u;});
-  _DB.ref('users').set(Object.keys(obj).length?obj:null);
+  _DB.ref('users').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('users',e));
+  try{localStorage.setItem(_UK,JSON.stringify(a));}catch(e){}
 }
 function _getEffectiveRole(uname){
   const ov=_fbUsersCache.find(u=>u.username===uname);
@@ -370,9 +395,11 @@ function _getEffectiveRole(uname){
 }
 function _initUsersListener(){
   if(_fbUsersInit)return;_fbUsersInit=true;
-  _DB.ref('users').on('value',snap=>{
+  _DB.ref('users').on('value',function(snap){
+    _fbOk();
     const v=snap.val();
     _fbUsersCache=v?Object.values(v):[];
+    try{localStorage.setItem(_UK,JSON.stringify(_fbUsersCache));}catch(e){}
     // Migrate localStorage users to Firebase on first load (one-time)
     if(_fbUsersCache.length===0){
       try{const old=JSON.parse(localStorage.getItem(_UK)||'[]');if(old.length>0)_saveUsers(old);}catch(e){}
@@ -389,6 +416,9 @@ function _initUsersListener(){
         _setSession(sess);applyPermissions(nr);
       }
     }
+  },function(err){
+    _fbErr('users',err);
+    try{_fbUsersCache=JSON.parse(localStorage.getItem(_UK)||'[]');}catch(e){}
   });
 }
 function _checkCreds(u,p){
@@ -557,12 +587,19 @@ function _getTabPerm(){
 }
 function _saveTabPerm(p){
   _TAB_PERM_CACHE=p;
-  _DB.ref('tab_perm').set(p);
+  _DB.ref('tab_perm').set(p).then(()=>_fbOk()).catch(e=>_fbErr('tab_perm',e));
+  try{localStorage.setItem('nile_tab_perm',JSON.stringify(p));}catch(e){}
 }
 function _initTabPermListener(){
   if(_fbTabPermInit)return;_fbTabPermInit=true;
-  _DB.ref('tab_perm').on('value',snap=>{
-    const v=snap.val();if(v){_TAB_PERM_CACHE=v;if(window._CURRENT_ROLE)_applyTabVisibility(window._CURRENT_ROLE);}
+  _DB.ref('tab_perm').on('value',function(snap){
+    _fbOk();
+    const v=snap.val();
+    if(v){_TAB_PERM_CACHE=v;try{localStorage.setItem('nile_tab_perm',JSON.stringify(v));}catch(e){}}
+    if(window._CURRENT_ROLE)_applyTabVisibility(window._CURRENT_ROLE);
+  },function(err){
+    _fbErr('tab_perm',err);
+    try{const v=JSON.parse(localStorage.getItem('nile_tab_perm')||'null');if(v){_TAB_PERM_CACHE=v;if(window._CURRENT_ROLE)_applyTabVisibility(window._CURRENT_ROLE);}}catch(e){}
   });
 }
 function _applyTabVisibility(role){
@@ -1581,23 +1618,32 @@ let changelog = [];
 
 // Load saved data from Firebase Realtime Database
 let _fbDataInit=false;
+function _mergeData(data){
+  if(!data)return;
+  if(data.UPDATES){data.UPDATES.forEach(su=>{const idx=UPDATES.findIndex(u=>u.code===su.code);if(idx>=0)UPDATES[idx]=su;else UPDATES.push(su);});}
+  if(data.PROJECTS){data.PROJECTS.forEach(sp=>{const idx=PROJECTS.findIndex(p=>p.code===sp.code);if(idx>=0)PROJECTS[idx]=sp;});}
+  if(data.changelog)changelog=data.changelog;
+}
 function loadFromStorage(){
   if(_fbDataInit)return;_fbDataInit=true;
-  _DB.ref('dashboard_data').on('value',snap=>{
+  _DB.ref('dashboard_data').on('value',function(snap){
+    _fbOk();
     const data=snap.val();
-    if(data){
-      if(data.UPDATES){data.UPDATES.forEach(su=>{const idx=UPDATES.findIndex(u=>u.code===su.code);if(idx>=0)UPDATES[idx]=su;else UPDATES.push(su);});}
-      if(data.PROJECTS){data.PROJECTS.forEach(sp=>{const idx=PROJECTS.findIndex(p=>p.code===sp.code);if(idx>=0)PROJECTS[idx]=sp;});}
-      if(data.changelog)changelog=data.changelog;
-    }
+    _mergeData(data);
+    if(data)try{localStorage.setItem('nile_dashboard_data',JSON.stringify(data));}catch(e){}
     refreshAll();
     renderChangelog();
+  },function(err){
+    _fbErr('dashboard_data',err);
+    try{const raw=localStorage.getItem('nile_dashboard_data');if(raw)_mergeData(JSON.parse(raw));}catch(e){}
+    refreshAll();renderChangelog();
   });
 }
 
 function saveToStorage(){
   const data={UPDATES:UPDATES.filter(u=>ACTIVE_CODES.includes(u.code)),PROJECTS:PROJECTS.filter(p=>ACTIVE_CODES.includes(p.code)),changelog:changelog.slice(0,200),savedAt:new Date().toISOString()};
-  _DB.ref('dashboard_data').set(data);
+  _DB.ref('dashboard_data').set(data).then(()=>_fbOk()).catch(e=>_fbErr('dashboard_data',e));
+  try{localStorage.setItem('nile_dashboard_data',JSON.stringify(data));}catch(e){}
 }
 
 function addChatMsg(text, type){
@@ -1884,7 +1930,8 @@ function importData(event){
 }
 
 function resetData(){
-  _DB.ref('dashboard_data').remove();_DB.ref('deliveries').remove();
+  _DB.ref('dashboard_data').remove().catch(e=>_fbErr('dashboard_data',e));_DB.ref('deliveries').remove().catch(e=>_fbErr('deliveries',e));
+  try{localStorage.removeItem('nile_dashboard_data');localStorage.removeItem(_DELIV_KEY);}catch(e){}
   changelog = [];
   addChatMsg('🗑️ تم إعادة التعيين. أعد تحميل الصفحة لاستعادة البيانات الأصلية.', 'bot');
   addChangelog('إعادة تعيين البيانات');
@@ -1903,15 +1950,22 @@ const _DELIV_KEY='nile_deliveries';
 let _fbDelivInit=false;
 function loadDeliveries(){
   if(_fbDelivInit)return;_fbDelivInit=true;
-  _DB.ref('deliveries').on('value',snap=>{
+  _DB.ref('deliveries').on('value',function(snap){
+    _fbOk();
     const v=snap.val();
     _DELIVERIES=v?Object.values(v).sort((a,b)=>b.id-a.id):[];
+    try{localStorage.setItem(_DELIV_KEY,JSON.stringify(_DELIVERIES));}catch(e){}
+    renderDeliveries();
+  },function(err){
+    _fbErr('deliveries',err);
+    try{_DELIVERIES=JSON.parse(localStorage.getItem(_DELIV_KEY)||'[]');}catch(e){}
     renderDeliveries();
   });
 }
 function saveDeliveries(){
   const obj={};_DELIVERIES.forEach(d=>{obj['d'+d.id]=d;});
-  _DB.ref('deliveries').set(Object.keys(obj).length?obj:null);
+  _DB.ref('deliveries').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('deliveries',e));
+  try{localStorage.setItem(_DELIV_KEY,JSON.stringify(_DELIVERIES));}catch(e){}
 }
 function addDelivery(){
   const code=document.getElementById('delivProject').value;
