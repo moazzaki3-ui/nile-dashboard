@@ -334,11 +334,26 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
 // ========== AUTH SYSTEM ==========
 const _AU={u:'moaz',p:'Weza#zaki4251',role:'admin',name:'Eng. Moaz Zaki'};
 const _UK='nile_auth_users',_SK='nile_auth_session';
+// مستخدمون ثابتون في الكود — يشتغلوا على أي جهاز
+const _STATIC_USERS=[
+  {username:'huseiny',    password:'123456',fullname:'الحسيني',      role:'editor'},
+  {username:'khaled',     password:'123456',fullname:'خالد عمر',     role:'supervisor'},
+  {username:'ibrahim',    password:'123456',fullname:'ابراهيم',       role:'supervisor'},
+  {username:'hady',       password:'123456',fullname:'هادي',          role:'supervisor'},
+  {username:'maged',      password:'123456',fullname:'ماجد',          role:'supervisor'},
+  {username:'mohamedtaher',password:'123456',fullname:'م/محمد طاهر', role:'chairman'},
+  {username:'ahmedalaa',  password:'123456',fullname:'احمد علاء',     role:'engineer'},
+  {username:'abdelrahman',password:'123456',fullname:'عبد الرحمن',   role:'supervisor'},
+  {username:'eman',       password:'123456',fullname:'ايمان',         role:'engineer'},
+  {username:'farah',      password:'123456',fullname:'فرح',           role:'engineer'},
+  {username:'ammar',      password:'123456',fullname:'عمار',          role:'engineer'},
+];
 function _getUsers(){try{return JSON.parse(localStorage.getItem(_UK)||'[]');}catch(e){return[];}}
 function _saveUsers(a){try{localStorage.setItem(_UK,JSON.stringify(a));}catch(e){}}
 function _checkCreds(u,p){
   if(u===_AU.u&&p===_AU.p)return{username:u,role:'admin',fullname:_AU.name};
-  const x=_getUsers().find(r=>r.username===u&&r.password===p);
+  const all=[..._STATIC_USERS,..._getUsers()];
+  const x=all.find(r=>r.username===u&&r.password===p);
   if(x)return{username:x.username,role:x.role||'viewer',fullname:x.fullname||x.username};
   return null;
 }
