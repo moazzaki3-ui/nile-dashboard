@@ -1635,8 +1635,8 @@ function updateTotal(code, pct){
 
   refreshAll();
   saveToStorage();
-  addChatMsg('✅ تم تحديث <b>' + ACTIVE_NAMES[code] + '</b> (' + code + ') → <b>' + pct + '%</b>', 'bot');
-  addChangelog('تحديث ' + code + ' (' + ACTIVE_NAMES[code] + ') → ' + pct + '%');
+  addChatMsg('✅ تم تحديث <b>' + _projName(code) + '</b> (' + code + ') → <b>' + pct + '%</b>', 'bot');
+  addChangelog('تحديث ' + code + ' (' + _projName(code) + ') → ' + pct + '%');
 }
 
 function updatePackage(code, pkgName, pct){
@@ -1672,13 +1672,58 @@ function todayAr(){
 }
 
 // Form functions
+function _projName(code){
+  return ACTIVE_NAMES[code]||(PROJECTS.find(p=>p.code===code)||{}).name||code;
+}
+
+function _buildAllProjOpts(placeholder){
+  const EXEC_ST=new Set(['جارى اعمال الهيكل','جارى تشطيب الوجهات','جارى التشطيب الداخلي']);
+  const LIC_ST=new Set(['تحت الترخيص','جارى الترخيص']);
+  let execOpts='',licOpts='';
+  PROJECTS.forEach(p=>{
+    const opt='<option value="'+p.code+'">'+p.code+' — '+p.name+'</option>';
+    if(EXEC_ST.has(p.status))execOpts+=opt;
+    else if(LIC_ST.has(p.status))licOpts+=opt;
+  });
+  return '<option value="">'+placeholder+'</option>'+
+    (execOpts?'<optgroup label="🏗 جارى التنفيذ">'+execOpts+'</optgroup>':'')+
+    (licOpts?'<optgroup label="📋 جارى الترخيص">'+licOpts+'</optgroup>':'');
+}
+
 function populateFormDropdowns(){
-  const s1 = document.getElementById('formProject');
-  const s2 = document.getElementById('formProjectTotal');
-  if(!s1) return;
-  const opts = ACTIVE_CODES.map(c => '<option value="'+c+'">'+c+' — '+ACTIVE_NAMES[c]+'</option>').join('');
-  s1.innerHTML = '<option value="">-- اختر مشروع --</option>' + opts;
-  s2.innerHTML = '<option value="">-- اختر مشروع --</option>' + opts;
+  const s1=document.getElementById('formProject');
+  const s2=document.getElementById('formProjectTotal');
+  const s3=document.getElementById('formProjectStatus');
+  if(!s1)return;
+  const opts=_buildAllProjOpts('-- اختر مشروع --');
+  s1.innerHTML=opts;
+  s2.innerHTML=opts;
+  if(s3)s3.innerHTML=opts;
+}
+
+function changeProjectStatus(){
+  const code=document.getElementById('formProjectStatus').value;
+  const newStatus=document.getElementById('formNewStatus').value;
+  if(!code){addChatMsg('⚠️ اختر مشروع أولاً','error');return;}
+  if(!newStatus){addChatMsg('⚠️ اختر الحالة الجديدة','error');return;}
+  const proj=PROJECTS.find(p=>p.code===code);
+  if(!proj){addChatMsg('⚠️ المشروع غير موجود','error');return;}
+  const oldStatus=proj.status;
+  proj.status=newStatus;
+  const EXEC_ST=new Set(['جارى اعمال الهيكل','جارى تشطيب الوجهات','جارى التشطيب الداخلي']);
+  let upd=UPDATES.find(u=>u.code===code);
+  if(!upd&&EXEC_ST.has(newStatus)){
+    UPDATES.push({code:code,status:newStatus,pct:proj.pct||0,packages:[],last_updated:todayAr()});
+  } else if(upd){
+    upd.status=newStatus;
+    upd.last_updated=todayAr();
+  }
+  refreshAll();
+  saveToStorage();
+  populateFormDropdowns();
+  document.getElementById('formProjectStatus').value='';
+  addChatMsg('✅ تم تغيير حالة <b>'+proj.name+'</b> ('+code+') من <b>'+oldStatus+'</b> → <b>'+newStatus+'</b>','bot');
+  addChangelog('تغيير حالة '+code+' ('+proj.name+') من '+oldStatus+' إلى '+newStatus);
 }
 
 function loadProjectPackages(){
@@ -1705,10 +1750,12 @@ function submitFormUpdate(){
   if(!pkgVal){addChatMsg('⚠️ اختر بند أولاً', 'error'); return;}
   if(isNaN(pct)||pct<0||pct>100){addChatMsg('⚠️ أدخل نسبة صحيحة (0-100)', 'error'); return;}
 
+  const proj = PROJECTS.find(p=>p.code===code);
   let upd = UPDATES.find(u=>u.code===code);
   if(!upd){
-    addChatMsg('⚠️ المشروع ليس له بيانات بنود. جرّب تحديث إجمالي أولاً.', 'error');
-    return;
+    // Auto-create UPDATES entry so any project can have packages
+    UPDATES.push({code:code,status:proj?proj.status:'',pct:proj?proj.pct||0:0,packages:[],last_updated:todayAr()});
+    upd=UPDATES[UPDATES.length-1];
   }
   if(!upd.packages) upd.packages = [];
 
@@ -1717,14 +1764,14 @@ function submitFormUpdate(){
     const newName=newNameEl?newNameEl.value.trim():'';
     if(!newName){addChatMsg('⚠️ ادخل اسم البند الجديد في الخانة المخصصة','error');return;}
     upd.packages.push({n:newName, p:pct, note:note});
-    addChatMsg('✅ بند جديد <b>'+newName+'</b> في <b>'+ACTIVE_NAMES[code]+'</b> → <b>'+pct+'%</b>', 'bot');
+    addChatMsg('✅ بند جديد <b>'+newName+'</b> في <b>'+_projName(code)+'</b> → <b>'+pct+'%</b>', 'bot');
     addChangelog('بند جديد '+newName+' في '+code+' → '+pct+'%');
   } else {
     const pkg = upd.packages.find(p=>p.n===pkgVal);
     if(pkg){
       pkg.p = pct;
       if(note) pkg.note = note;
-      addChatMsg('✅ تم تحديث <b>'+pkgVal+'</b> في <b>'+ACTIVE_NAMES[code]+'</b> → <b>'+pct+'%</b>'+(note?' ('+note+')':''), 'bot');
+      addChatMsg('✅ تم تحديث <b>'+pkgVal+'</b> في <b>'+_projName(code)+'</b> → <b>'+pct+'%</b>'+(note?' ('+note+')':''), 'bot');
       addChangelog(pkgVal+' في '+code+' → '+pct+'%');
     }
   }
@@ -3092,6 +3139,23 @@ function startApp(){
           <input type="number" id="formTotalPct" min="0" max="100" placeholder="0-100">
         </div>
         <button class="form-btn form-btn-green" onclick="submitTotalUpdate()">تحديث الإجمالي ✓</button>
+      </div>
+
+      <div class="form-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:12px">
+        <div class="form-group" style="min-width:220px">
+          <label style="color:var(--yellow)">🔄 تغيير حالة مشروع (ترخيص ← تنفيذ)</label>
+          <select id="formProjectStatus"><option value="">-- اختر مشروع --</option></select>
+        </div>
+        <div class="form-group" style="min-width:220px">
+          <label>الحالة الجديدة</label>
+          <select id="formNewStatus">
+            <option value="جارى اعمال الهيكل">🏗 جارى اعمال الهيكل</option>
+            <option value="جارى تشطيب الوجهات">🏠 جارى تشطيب الوجهات</option>
+            <option value="جارى التشطيب الداخلي">🪟 جارى التشطيب الداخلي</option>
+            <option value="تم الانتهاء من الاعمال">✅ تم الانتهاء من الاعمال</option>
+          </select>
+        </div>
+        <button class="form-btn form-btn-primary" onclick="changeProjectStatus()">تغيير الحالة ✓</button>
       </div>
     </div>
 
