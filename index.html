@@ -156,6 +156,8 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
 .del-btn:hover{border-color:var(--red);color:var(--red)}
 .del-btn.kb:hover{border-color:var(--accent2);color:var(--accent2)}
 </style>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 <!-- LOGIN OVERLAY -->
@@ -331,6 +333,11 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
 <div id="tab-deviations" class="content hidden"></div>
 
 <script>
+// ========== FIREBASE INIT ==========
+const _FB_CONFIG={apiKey:"AIzaSyAltynkQ8Ocu0I1uyeGCmUN5jMEQWoTqgc",authDomain:"my-app-moazzaki.firebaseapp.com",databaseURL:"https://my-app-moazzaki-default-rtdb.firebaseio.com",projectId:"my-app-moazzaki",storageBucket:"my-app-moazzaki.firebasestorage.app",messagingSenderId:"775013637589",appId:"1:775013637589:web:ecdbc34b516586e048f15c"};
+if(!firebase.apps.length) firebase.initializeApp(_FB_CONFIG);
+const _DB=firebase.database();
+
 // ========== AUTH SYSTEM ==========
 const _AU={u:'moaz',p:'Weza#zaki4251',role:'admin',name:'Eng. Moaz Zaki'};
 const _UK='nile_auth_users',_SK='nile_auth_session';
@@ -348,13 +355,48 @@ const _STATIC_USERS=[
   {username:'farah',      password:'123456',fullname:'فرح',           role:'engineer'},
   {username:'ammar',      password:'123456',fullname:'عمار',          role:'engineer'},
 ];
-function _getUsers(){try{return JSON.parse(localStorage.getItem(_UK)||'[]');}catch(e){return[];}}
-function _saveUsers(a){try{localStorage.setItem(_UK,JSON.stringify(a));}catch(e){}}
+let _fbUsersCache=[];let _fbUsersInit=false;
+function _getUsers(){return _fbUsersCache;}
+function _saveUsers(a){
+  _fbUsersCache=a;
+  const obj={};a.forEach(u=>{obj['u_'+u.username]=u;});
+  _DB.ref('users').set(Object.keys(obj).length?obj:null);
+}
+function _getEffectiveRole(uname){
+  const ov=_fbUsersCache.find(u=>u.username===uname);
+  if(ov)return ov.role||'viewer';
+  const st=_STATIC_USERS.find(u=>u.username===uname);
+  return st?st.role||'viewer':'viewer';
+}
+function _initUsersListener(){
+  if(_fbUsersInit)return;_fbUsersInit=true;
+  _DB.ref('users').on('value',snap=>{
+    const v=snap.val();
+    _fbUsersCache=v?Object.values(v):[];
+    // Migrate localStorage users to Firebase on first load (one-time)
+    if(_fbUsersCache.length===0){
+      try{const old=JSON.parse(localStorage.getItem(_UK)||'[]');if(old.length>0)_saveUsers(old);}catch(e){}
+    }
+    // Re-render admin panel if open
+    const at=document.getElementById('tab-admin');
+    if(at&&!at.classList.contains('hidden'))renderAdminPanel();
+    // Update current user role if changed
+    const sess=window._CURRENT_SESSION;
+    if(sess&&sess.username!==_AU.u){
+      const nr=_getEffectiveRole(sess.username);
+      if(nr!==window._CURRENT_ROLE){
+        window._CURRENT_ROLE=nr;sess.role=nr;window._CURRENT_SESSION=sess;
+        _setSession(sess);applyPermissions(nr);
+      }
+    }
+  });
+}
 function _checkCreds(u,p){
   if(u===_AU.u&&p===_AU.p)return{username:u,role:'admin',fullname:_AU.name};
-  const all=[..._STATIC_USERS,..._getUsers()];
-  const x=all.find(r=>r.username===u&&r.password===p);
-  if(x)return{username:x.username,role:x.role||'viewer',fullname:x.fullname||x.username};
+  const st=_STATIC_USERS.find(r=>r.username===u&&r.password===p);
+  if(st)return{username:st.username,role:_getEffectiveRole(st.username),fullname:st.fullname||st.username};
+  const dy=_fbUsersCache.find(r=>r.username===u&&r.password===p);
+  if(dy)return{username:dy.username,role:dy.role||'viewer',fullname:dy.fullname||dy.username};
   return null;
 }
 const _ROLE_LABEL={admin:'📊 Projects Manager',chairman:'👑 Chairman',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',viewer:'👁 مشاهد'};
@@ -421,7 +463,7 @@ function addUser(){
   if(!u||!p){msg.style.color='var(--red)';msg.textContent='يرجى إدخال اسم المستخدم وكلمة المرور';return;}
   if(u===_AU.u){msg.style.color='var(--red)';msg.textContent='هذا الاسم محجوز للمسؤول';return;}
   const users=_getUsers();
-  if(users.find(x=>x.username===u)){msg.style.color='var(--red)';msg.textContent='اسم المستخدم موجود بالفعل';return;}
+  if(users.find(x=>x.username===u)||_STATIC_USERS.find(x=>x.username===u)){msg.style.color='var(--red)';msg.textContent='اسم المستخدم موجود بالفعل';return;}
   const role=(document.getElementById('newRole')||{value:'viewer'}).value||'viewer';
   users.push({username:u,password:p,fullname:fn||u,role:role,createdAt:new Date().toLocaleDateString('ar-EG')});
   _saveUsers(users);
@@ -446,11 +488,17 @@ function changeUserPwd(uname){
 function changeUserRole(uname){
   const roles=['viewer','supervisor','engineer','editor','chairman','admin'];
   const labels={'viewer':'مشاهد','supervisor':'Site Engineer','engineer':'Technical Office Eng.','editor':'Technical Office Manager','chairman':'Chairman','admin':'Projects Manager'};
-  const users=_getUsers();const u=users.find(x=>x.username===uname);
-  if(!u)return;
+  let users=_getUsers();
+  let u=users.find(x=>x.username===uname);
+  if(!u){
+    // Static user — create Firebase override
+    const st=_STATIC_USERS.find(x=>x.username===uname);
+    if(!st)return;
+    u={...st};users=[...users,u];
+  }
   const cur=u.role||'viewer';
   const opts=roles.map(r=>(r===cur?'← ':'   ')+labels[r]+' ('+r+')').join('\n');
-  const np=prompt('صلاحية "'+uname+'" الحالية: '+labels[cur]+'\nاختر الجديدة (viewer/supervisor/editor/admin):\n'+opts);
+  const np=prompt('صلاحية "'+uname+'" الحالية: '+labels[cur]+'\nاختر الجديدة:\n'+opts);
   if(!np||!np.trim())return;
   const nr=np.trim().toLowerCase();
   if(!roles.includes(nr)){alert('صلاحية غير معروفة');return;}
@@ -460,10 +508,12 @@ function changeUserRole(uname){
 function renderAdminPanel(){
   const wrap=document.getElementById('usersTableWrap');
   if(!wrap)return;
-  const users=_getUsers();
+  // Merge all users: Firebase overrides first, then static users not yet in Firebase
+  const fbNames=new Set(_fbUsersCache.map(u=>u.username));
+  const users=[..._fbUsersCache,..._STATIC_USERS.filter(u=>!fbNames.has(u.username))];
   let html='';
   if(users.length===0){
-    html='<p style="color:var(--muted);font-size:.82rem;padding:10px 0">لا يوجد مستخدمون إضافيون بعد.<br>المسؤول <b style="color:var(--text)">'+_AU.u+'</b> يستطيع دائماً الدخول.</p>';
+    html='<p style="color:var(--muted);font-size:.82rem;padding:10px 0">لا يوجد مستخدمون بعد.<br>المسؤول <b style="color:var(--text)">'+_AU.u+'</b> يستطيع دائماً الدخول.</p>';
   }else{
     html='<table class="user-table"><thead><tr><th>اسم المستخدم</th><th>الاسم الكامل</th><th>الصلاحية</th><th>تاريخ الإضافة</th><th>إجراءات</th></tr></thead><tbody>';
     users.forEach(u=>{
@@ -496,11 +546,21 @@ const _TABS_CONFIG=[
   {id:'chat',label:'💬 تحديث البيانات'},
   {id:'deliveries',label:'📦 التوريدات'},
 ];
+let _TAB_PERM_CACHE=null;let _fbTabPermInit=false;
 function _getTabPerm(){
-  try{const d=localStorage.getItem(_TAB_PERM_KEY);if(d)return JSON.parse(d);}catch(e){}
+  if(_TAB_PERM_CACHE)return _TAB_PERM_CACHE;
   const def={};_TABS_CONFIG.forEach(t=>{def[t.id]={admin:true,editor:true,supervisor:true,viewer:true};});return def;
 }
-function _saveTabPerm(p){try{localStorage.setItem(_TAB_PERM_KEY,JSON.stringify(p));}catch(e){}}
+function _saveTabPerm(p){
+  _TAB_PERM_CACHE=p;
+  _DB.ref('tab_perm').set(p);
+}
+function _initTabPermListener(){
+  if(_fbTabPermInit)return;_fbTabPermInit=true;
+  _DB.ref('tab_perm').on('value',snap=>{
+    const v=snap.val();if(v){_TAB_PERM_CACHE=v;if(window._CURRENT_ROLE)_applyTabVisibility(window._CURRENT_ROLE);}
+  });
+}
 function _applyTabVisibility(role){
   const perm=_getTabPerm();
   _TABS_CONFIG.forEach(t=>{
@@ -1515,41 +1575,25 @@ Object.entries(ACTIVE_NAMES).forEach(([c,n])=>CODE_FROM_NAME[n]=c);
 
 let changelog = [];
 
-// Load saved data from localStorage
+// Load saved data from Firebase Realtime Database
+let _fbDataInit=false;
 function loadFromStorage(){
-  try {
-    const saved = localStorage.getItem('nile_dashboard_data');
-    if(saved){
-      const data = JSON.parse(saved);
-      if(data.UPDATES) {
-        // Merge saved updates into live UPDATES array
-        data.UPDATES.forEach(su => {
-          const idx = UPDATES.findIndex(u => u.code === su.code);
-          if(idx >= 0) UPDATES[idx] = su;
-          else UPDATES.push(su);
-        });
-      }
-      if(data.PROJECTS) {
-        data.PROJECTS.forEach(sp => {
-          const idx = PROJECTS.findIndex(p => p.code === sp.code);
-          if(idx >= 0) PROJECTS[idx] = sp;
-        });
-      }
-      if(data.changelog) changelog = data.changelog;
+  if(_fbDataInit)return;_fbDataInit=true;
+  _DB.ref('dashboard_data').on('value',snap=>{
+    const data=snap.val();
+    if(data){
+      if(data.UPDATES){data.UPDATES.forEach(su=>{const idx=UPDATES.findIndex(u=>u.code===su.code);if(idx>=0)UPDATES[idx]=su;else UPDATES.push(su);});}
+      if(data.PROJECTS){data.PROJECTS.forEach(sp=>{const idx=PROJECTS.findIndex(p=>p.code===sp.code);if(idx>=0)PROJECTS[idx]=sp;});}
+      if(data.changelog)changelog=data.changelog;
     }
-  } catch(e){ console.log('No saved data or parse error'); }
+    refreshAll();
+    renderChangelog();
+  });
 }
 
 function saveToStorage(){
-  try {
-    const data = {
-      UPDATES: UPDATES.filter(u => ACTIVE_CODES.includes(u.code)),
-      PROJECTS: PROJECTS.filter(p => ACTIVE_CODES.includes(p.code)),
-      changelog: changelog.slice(0, 200),
-      savedAt: new Date().toISOString()
-    };
-    localStorage.setItem('nile_dashboard_data', JSON.stringify(data));
-  } catch(e){ console.log('Storage save error:', e); }
+  const data={UPDATES:UPDATES.filter(u=>ACTIVE_CODES.includes(u.code)),PROJECTS:PROJECTS.filter(p=>ACTIVE_CODES.includes(p.code)),changelog:changelog.slice(0,200),savedAt:new Date().toISOString()};
+  _DB.ref('dashboard_data').set(data);
 }
 
 function addChatMsg(text, type){
@@ -1835,7 +1879,7 @@ function importData(event){
 
 function resetData(){
   if(!confirm('هل أنت متأكد؟ سيتم حذف جميع التعديلات المحفوظة والعودة للبيانات الأصلية.')) return;
-  try { localStorage.removeItem('nile_dashboard_data'); } catch(e){}
+  _DB.ref('dashboard_data').remove();_DB.ref('deliveries').remove();
   changelog = [];
   addChatMsg('🗑️ تم إعادة التعيين. أعد تحميل الصفحة لاستعادة البيانات الأصلية.', 'bot');
   addChangelog('إعادة تعيين البيانات');
@@ -1851,11 +1895,18 @@ function refreshAll(){
 // ============ DELIVERIES / استلامات التوريدات ============
 let _DELIVERIES=[];
 const _DELIV_KEY='nile_deliveries';
+let _fbDelivInit=false;
 function loadDeliveries(){
-  try{const d=localStorage.getItem(_DELIV_KEY);if(d)_DELIVERIES=JSON.parse(d);}catch(e){_DELIVERIES=[];}
+  if(_fbDelivInit)return;_fbDelivInit=true;
+  _DB.ref('deliveries').on('value',snap=>{
+    const v=snap.val();
+    _DELIVERIES=v?Object.values(v).sort((a,b)=>b.id-a.id):[];
+    renderDeliveries();
+  });
 }
 function saveDeliveries(){
-  try{localStorage.setItem(_DELIV_KEY,JSON.stringify(_DELIVERIES));}catch(e){}
+  const obj={};_DELIVERIES.forEach(d=>{obj['d'+d.id]=d;});
+  _DB.ref('deliveries').set(Object.keys(obj).length?obj:null);
 }
 function addDelivery(){
   const code=document.getElementById('delivProject').value;
@@ -1967,13 +2018,16 @@ function renderDeliveries(){
 
 // Init: wrapped in startApp(), called after successful login
 function startApp(){
+  _initUsersListener();
   loadFromStorage();
   loadDeliveries();
+  _initTabPermListener();
   populateFormDropdowns();
   renderChangelog();
 }
-// Session check on load
+// Session check on load — init users listener early so Firebase users load before login attempt
 (function(){
+  _initUsersListener();
   const sess=_getSession();
   if(sess){applySession(sess);}
   else{document.getElementById('loginOverlay').style.display='flex';}
