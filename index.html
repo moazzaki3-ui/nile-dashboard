@@ -4129,8 +4129,12 @@ function _drawSchedDetail(){
 function _drawSchedProjects(){
   const tbody=document.getElementById('schedDelayBody');if(!tbody)return;
   const total=_AHR_TOTAL;
-  // Show all projects (both active + permit-stage, so transitioning ones appear)
-  tbody.innerHTML=PROJECTS.map(p=>{
+  // Show only active construction projects — exclude completed & permit-stage
+  const _EXEC_SHOW=new Set(['جارى اعمال الهيكل','جارى تشطيب الوجهات','جارى التشطيب الداخلي',
+    'جارى تركيب الأبواب','جارى اللاندسكيب','جارى تركيب العدادات','جارى صب الجراج']);
+  const filteredProjs=PROJECTS.filter(p=>_EXEC_SHOW.has(p.status));
+  if(!filteredProjs.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">لا توجد مشاريع جارية حالياً</td></tr>';return;}
+  tbody.innerHTML=filteredProjs.map(p=>{
     const sd=_PROJECT_DATES[p.code]||'';
     const elapsed=sd?(typeof calcWorkingDays==='function'?calcWorkingDays(sd):0):null;
     const expPct=elapsed!==null?Math.min(100,Math.round(elapsed/total*100)):null;
