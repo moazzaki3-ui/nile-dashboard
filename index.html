@@ -829,16 +829,29 @@ function filterProjects(){
   });
   const _fl=_kpiFilter?`<button onclick="_kpiFilter=null;filterProjects()" style="background:rgba(239,68,68,.18);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:1px 9px;font-family:Cairo,sans-serif;font-size:.72rem;cursor:pointer;margin-right:8px">× مسح: ${_kpiFilter.label}</button>`:'';
   document.getElementById('countInfo').innerHTML=`<span style="color:var(--muted)">عرض ${f.length} من ${PROJECTS.length} مشروع</span>${_fl}`;
-  document.getElementById('projectBody').innerHTML=f.map((p,i)=>`<tr>
+  const _role=window._CURRENT_ROLE||'viewer';
+  const _canEdit=_role==='admin'||_role==='chairman'||_role==='editor'||_role==='engineer'||_role==='supervisor';
+  document.getElementById('projectBody').innerHTML=f.map((p,i)=>{
+    const ph=_PROJECT_PHASES_DATA[p.code]||{};
+    const dv=ph.door!==undefined?ph.door:p.door;
+    const iv=ph.internal!==undefined?ph.internal:p.internal;
+    const gv=ph.garage!==undefined?ph.garage:p.garage;
+    const lv=ph.landscape!==undefined?ph.landscape:p.landscape;
+    const mv=ph.meters!==undefined?ph.meters:p.meters;
+    return `<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td style="color:var(--accent2);font-weight:700">${p.code}</td>
     <td style="font-weight:600">${p.name}</td>
     <td style="color:var(--muted)">${p.locLabel}</td>
     <td><span class="status-badge ${statusClass(p.status)}">${p.status}</span></td>
     <td><div class="pct-bar"><div class="pct-fill" style="width:${p.pct}%;background:${pctColor(p.pct)}"></div></div><span style="font-size:.73rem">${p.pct}%</span></td>
-    <td>${tagHtml(p.door,'باب')}</td><td>${tagHtml(p.internal,'داخلي')}</td>
-    <td>${tagHtml(p.garage,'جراج')}</td><td>${tagHtml(p.landscape,'لاندسكيب')}</td><td>${tagHtml(p.meters,'عدادات')}</td>
-  </tr>`).join('');
+    <td>${_canEdit?_phSel(p.code,'door',dv,'باب'):tagHtml(dv,'باب')}</td>
+    <td>${_canEdit?_phSel(p.code,'internal',iv,'داخلي'):tagHtml(iv,'داخلي')}</td>
+    <td>${_canEdit?_phSel(p.code,'garage',gv,'جراج'):tagHtml(gv,'جراج')}</td>
+    <td>${_canEdit?_phSel(p.code,'landscape',lv,'لاندسكيب'):tagHtml(lv,'لاندسكيب')}</td>
+    <td>${_canEdit?_phSel(p.code,'meters',mv,'عدادات'):tagHtml(mv,'عدادات')}</td>
+  </tr>`;
+  }).join('');
 }
 function baselineGantt(startStr){
   if(!startStr)return '';
@@ -1481,6 +1494,33 @@ const ACTIVE_NAMES = {'P-003':'117A','P-004':'59A','P-005':'33I','P-006':'98A','
 const CODE_FROM_NAME = {};
 Object.entries(ACTIVE_NAMES).forEach(([c,n])=>CODE_FROM_NAME[n]=c);
 
+// ============ PROJECT PHASES (Firebase /project_phases) ============
+let _PROJECT_PHASES_DATA = {};
+function _initProjectPhasesListener(){
+  _DB.ref('/project_phases').on('value', snap=>{
+    _PROJECT_PHASES_DATA = snap.val() || {};
+    if(document.getElementById('projectBody')) filterProjects();
+  }, err=>_fbErr('project_phases',err));
+}
+function updateProjectPhase(code, field, val){
+  const upd={};upd[field]=val;
+  if(!_PROJECT_PHASES_DATA[code]) _PROJECT_PHASES_DATA[code]={};
+  _PROJECT_PHASES_DATA[code][field]=val;
+  _DB.ref('/project_phases/'+code).update(upd).then(()=>_fbOk()).catch(e=>_fbErr('phases',e));
+  filterProjects();
+  renderKPIs();
+}
+function _phSel(code, field, val, lbl){
+  const col = val==='تم'?'var(--green)':val==='جارى'?'var(--yellow)':'var(--muted)';
+  return `<select onchange="updateProjectPhase('${code}','${field}',this.value)"
+    style="background:transparent;border:none;color:${col};font-size:.71rem;font-family:Cairo,sans-serif;cursor:pointer;outline:none;max-width:70px;direction:rtl">
+    <option value="" ${!val?'selected':''}>–${lbl}</option>
+    <option value="جارى" ${val==='جارى'?'selected':''}>⟳${lbl}</option>
+    <option value="تم" ${val==='تم'?'selected':''}>✓${lbl}</option>
+  </select>`;
+}
+// ============ / PROJECT PHASES ============
+
 // Old static renderDeviations removed — replaced by enhanced version below
 renderKPIs();renderStatusChart();renderLocChart();renderLocMap();buildLocOptions();filterProjects();renderUpdates();renderCashFlow();renderFinancial();renderTracking();
 
@@ -1705,9 +1745,23 @@ function _buildAllProjOpts(placeholder){
     licOpts+='</optgroup>';
   });
 
+  // Group completed projects by compound/location
+  const doneByLoc={};
+  PROJECTS.filter(p=>p.status==='تم الانتهاء من الاعمال').forEach(p=>{
+    const loc=_locAr(p)||'أخرى';
+    if(!doneByLoc[loc])doneByLoc[loc]=[];
+    doneByLoc[loc].push(p);
+  });
+  let doneOpts='';
+  Object.entries(doneByLoc).sort((a,b)=>a[0].localeCompare(b[0],'ar')).forEach(([loc,arr])=>{
+    doneOpts+='<optgroup label="✅ '+loc+'">';
+    arr.forEach(p=>{doneOpts+='<option value="'+p.code+'">'+p.code+' — '+p.name+'</option>';});
+    doneOpts+='</optgroup>';
+  });
+
   return '<option value="">'+placeholder+'</option>'+
     (execOpts?'<optgroup label="🏗 جارى التنفيذ">'+execOpts+'</optgroup>':'')+
-    licOpts;
+    licOpts+doneOpts;
 }
 
 function populateFormDropdowns(){
@@ -1719,6 +1773,25 @@ function populateFormDropdowns(){
   s1.innerHTML=opts;
   s2.innerHTML=opts;
   if(s3)s3.innerHTML=opts;
+  // Re-apply search if active
+  const si=document.getElementById('projSearchInput');
+  if(si&&si.value.trim()) filterProjSelect();
+}
+function filterProjSelect(){
+  const q=((document.getElementById('projSearchInput')||{}).value||'').toLowerCase().trim();
+  ['formProject','formProjectTotal','formProjectStatus'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    Array.from(sel.querySelectorAll('optgroup')).forEach(og=>{
+      let anyVis=false;
+      Array.from(og.options).forEach(opt=>{
+        const show=!q||opt.text.toLowerCase().includes(q)||opt.value.toLowerCase().includes(q);
+        opt.style.display=show?'':'none';
+        if(show)anyVis=true;
+      });
+      og.style.display=anyVis?'':'none';
+    });
+  });
 }
 
 function changeProjectStatus(){
@@ -3397,6 +3470,7 @@ function startApp(){
   _initStdItemsListener();
   _initStdBoqListener();
   _initTabPermListener();
+  _initProjectPhasesListener();
   populateFormDropdowns();
   renderChangelog();
 }
@@ -3604,6 +3678,13 @@ function startApp(){
 
     <div class="form-section" id="formUpdateSection">
       <h3>📝 تحديث عبر النموذج</h3>
+      <div class="form-row" style="margin-bottom:8px">
+        <div class="form-group" style="flex:1;min-width:220px">
+          <label style="color:var(--accent2)">🔍 بحث بالاسم أو الكود</label>
+          <input type="text" id="projSearchInput" placeholder="اكتب اسم المشروع أو الكود..." oninput="filterProjSelect()"
+            style="width:100%;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-group" style="min-width:180px">
           <label>اختر المشروع</label>
