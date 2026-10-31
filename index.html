@@ -1606,6 +1606,7 @@ function _phSel(code, field, val, lbl){
 // ============ PURCHASES TAB (طلبات الشراء) ============
 let _PURCHASES_DATA={};
 let _PO_EDIT_ID=null;
+let _PO_FILTERED_CACHE=[];
 
 function _initPurchasesListener(){
   _DB.ref('/purchase_orders').on('value',snap=>{
@@ -1705,17 +1706,18 @@ function updatePoStatus(id,val){
 }
 
 function exportPurchasesExcel(){
-  const rows=Object.values(_PURCHASES_DATA).sort((a,b)=>(b.requestDate||'').localeCompare(a.requestDate||''));
+  const rows=_PO_FILTERED_CACHE.length?_PO_FILTERED_CACHE:Object.values(_PURCHASES_DATA);
   if(!rows.length){
     const m=document.getElementById('poMsg');if(m){m.style.color='var(--red)';m.textContent='لا توجد بيانات للتصدير';setTimeout(()=>{try{m.textContent='';}catch(e){}},2000);}return;
   }
-  const data=[['#','المشروع','البند / الصنف','الكمية','الوحدة','المورد','تاريخ الطلب','تاريخ التوريد','الحالة','ملاحظات']];
+  const data=[['#','المشروع','البند / الصنف','الكمية','الوحدة','المورد','تاريخ الطلب','تاريخ التوريد','الحالة','ملاحظات','المسجل']];
   rows.forEach((r,i)=>{
     const statusClean=(r.status||'').replace(/[📋🔄✅]/g,'').trim();
-    data.push([i+1,r.project||'',r.item||'',r.qty||'',r.unit||'',r.supplier||'—',r.requestDate||'',r.deliveryDate||'',statusClean,r.notes||'']);
+    const registeredBy=r.requestedBy&&r.requestedBy!=='import'?r.requestedBy:'';
+    data.push([i+1,r.project||'',r.item||'',r.qty||'',r.unit||'',r.supplier||'',r.requestDate||'',r.deliveryDate||'',statusClean,r.notes||'',registeredBy]);
   });
   const ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:4},{wch:18},{wch:28},{wch:8},{wch:8},{wch:16},{wch:13},{wch:13},{wch:14},{wch:22}];
+  ws['!cols']=[{wch:4},{wch:18},{wch:28},{wch:8},{wch:8},{wch:16},{wch:13},{wch:13},{wch:14},{wch:22},{wch:16}];
   ws['!rtl']=true;
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'طلبات الشراء');
@@ -1761,6 +1763,7 @@ function renderPurchases(){
     if(filterProj&&!(o.project||'').includes(filterProj)&&!(o.item||'').includes(filterProj))return false;
     return true;
   });
+  _PO_FILTERED_CACHE=filtered;
   const lateCount=orders.filter(o=>_poIsLate(o)).length;
   const doneCount=orders.filter(o=>o.status==='تم التوريد').length;
   const pendCount=orders.filter(o=>o.status==='تم الطلب').length;
@@ -1877,11 +1880,12 @@ ${canAdd?`
       <th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">تاريخ التوريد</th>
       <th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:600;white-space:nowrap">الحالة</th>
       <th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600">ملاحظات</th>
+      <th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">المسجل</th>
       ${canAdd||canDel?'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:600">إجراء</th>':''}
     </tr>
   </thead>
   <tbody>
-    ${filtered.length===0?`<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">لا توجد طلبات شراء</td></tr>`
+    ${filtered.length===0?`<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--muted)">لا توجد طلبات شراء</td></tr>`
     :filtered.map((o,i)=>{
       const late=_poIsLate(o);
       const rowBg=late?'background:rgba(239,68,68,.09);':'';
@@ -1901,6 +1905,7 @@ ${canAdd?`
         <td style="padding:8px 10px;color:${o.deliveryDate?'var(--green)':'var(--muted)'};white-space:nowrap">${o.deliveryDate||'–'}</td>
         <td style="padding:8px 10px;text-align:center">${statusSel}</td>
         <td style="padding:8px 10px;color:var(--muted);font-size:.75rem">${o.notes||''}</td>
+        <td style="padding:8px 10px;color:var(--muted);font-size:.72rem;white-space:nowrap">${o.requestedBy&&o.requestedBy!=='import'?o.requestedBy:'–'}</td>
         ${canAdd||canDel?`<td style="padding:8px 10px;text-align:center;white-space:nowrap">
           ${canAdd?`<button onclick="editPurchaseOrder('${o.id}')" style="background:rgba(99,102,241,.2);color:var(--accent2);border:1px solid rgba(99,102,241,.3);border-radius:5px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">✏️</button>`:''}
           ${canDel?`<button onclick="deletePurchaseOrder('${o.id}')" style="background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem;margin-right:4px">🗑</button>`:''}
