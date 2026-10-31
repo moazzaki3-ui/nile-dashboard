@@ -437,7 +437,7 @@ function _checkCreds(u,p){
 }
 const _ROLE_LABEL={admin:'📊 Projects Manager',chairman:'👑 Chairman',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',sitemanager:'🏗 مدير الموقع',foreman:'🦺 مشرفين',storekeeper:'📦 أمين مخزن',viewer:'👁 مشاهد'};
 let _CUSTOM_ROLE_LABELS={};
-function _getRoleLabel(r){return _CUSTOM_ROLE_LABELS[r]||_ROLE_LABEL[r]||r;}
+function _getRoleLabel(r){return (_EXTRA_ROLES[r]&&_EXTRA_ROLES[r].label)||_CUSTOM_ROLE_LABELS[r]||_ROLE_LABEL[r]||r;}
 function _initRoleLabelsListener(){
   _DB.ref('/role_labels').on('value',snap=>{
     _CUSTOM_ROLE_LABELS=snap.val()||{};
@@ -451,6 +451,54 @@ function _fillRoleLabelInputs(){
     if(el)el.value=_CUSTOM_ROLE_LABELS[r]||'';
   });
 }
+// ===== EXTRA (CUSTOM) ROLES — Firebase /extra_roles =====
+let _EXTRA_ROLES={}; // { id: {label, baseRole} }
+function _getBaseRole(role){
+  if(_EXTRA_ROLES[role])return _EXTRA_ROLES[role].baseRole||'viewer';
+  return role;
+}
+function _initExtraRolesListener(){
+  _DB.ref('/extra_roles').on('value',snap=>{
+    _EXTRA_ROLES=snap.val()||{};
+    _refreshNewRoleSelect();
+    _renderExtraRolesAdmin();
+  },err=>_fbErr('extra_roles',err));
+}
+function _refreshNewRoleSelect(){
+  const sel=document.getElementById('newRole');if(!sel)return;
+  Array.from(sel.options).forEach(opt=>{if(opt.getAttribute('data-extra'))opt.remove();});
+  Object.entries(_EXTRA_ROLES).forEach(([id,cr])=>{
+    const opt=document.createElement('option');
+    opt.value=id;opt.textContent=cr.label;opt.setAttribute('data-extra','1');
+    const anchor=Array.from(sel.options).find(o=>o.value==='viewer');
+    if(anchor)sel.insertBefore(opt,anchor);else sel.appendChild(opt);
+  });
+}
+function _renderExtraRolesAdmin(){
+  const wrap=document.getElementById('extraRolesWrap');if(!wrap)return;
+  const list=Object.entries(_EXTRA_ROLES);
+  wrap.innerHTML=list.length===0?'<div style="color:var(--muted);font-size:.78rem">لا توجد أدوار مضافة بعد</div>':
+    list.map(([id,cr])=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1;font-weight:600;color:#e2e8f0">${cr.label}</span>
+      <span style="color:var(--muted);font-size:.75rem">مثل: ${_ROLE_LABEL[cr.baseRole]||cr.baseRole}</span>
+      <button onclick="deleteExtraRole('${id}')" style="background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button>
+    </div>`).join('');
+}
+function addExtraRole(){
+  const name=((document.getElementById('extraRoleName')||{}).value||'').trim();
+  const base=(document.getElementById('extraRoleBase')||{value:'viewer'}).value||'viewer';
+  if(!name){const m=document.getElementById('extraRoleMsg');if(m){m.style.color='var(--red)';m.textContent='اكتب اسم الدور';setTimeout(()=>{try{m.textContent='';}catch(e){}},2000);}return;}
+  const id='er_'+Date.now();
+  _DB.ref('/extra_roles/'+id).set({label:name,baseRole:base}).then(()=>{
+    _fbOk();document.getElementById('extraRoleName').value='';
+    const m=document.getElementById('extraRoleMsg');if(m){m.style.color='var(--green)';m.textContent='✓ تمت الإضافة';setTimeout(()=>{try{m.textContent='';}catch(e){}},2000);}
+  }).catch(e=>_fbErr('add_er',e));
+}
+function deleteExtraRole(id){
+  _DB.ref('/extra_roles/'+id).remove().then(()=>_fbOk()).catch(e=>_fbErr('del_er',e));
+}
+// ===== /EXTRA ROLES =====
+
 function saveRoleLabels(){
   const updates={};
   Object.keys(_ROLE_LABEL).forEach(r=>{
@@ -468,7 +516,8 @@ function applyPermissions(role){
   const formUpd=document.getElementById('formUpdateSection');
   const formData=document.getElementById('formDataSection');
   // admin & editor & supervisor can add updates; viewer cannot
-  const canAdd=(role==='admin'||role==='chairman'||role==='editor'||role==='engineer'||role==='supervisor'||role==='sitemanager'||role==='foreman'||role==='storekeeper');
+  const _br=_getBaseRole(role);
+  const canAdd=(_br==='admin'||_br==='chairman'||_br==='editor'||_br==='engineer'||_br==='supervisor'||_br==='sitemanager'||_br==='foreman'||_br==='storekeeper');
   if(chatIn)chatIn.style.display=canAdd?'':'none';
   if(formUpd)formUpd.style.display=canAdd?'':'none';
   // only admin & editor can export/import/reset data
@@ -573,6 +622,8 @@ function renderAdminPanel(){
   const wrap=document.getElementById('usersTableWrap');
   if(!wrap)return;
   _fillRoleLabelInputs();
+  _refreshNewRoleSelect();
+  _renderExtraRolesAdmin();
   // Merge all users: Firebase overrides first, then static users not yet in Firebase
   const fbNames=new Set(_fbUsersCache.map(u=>u.username));
   const users=[..._fbUsersCache,..._STATIC_USERS.filter(u=>!fbNames.has(u.username))];
@@ -860,7 +911,8 @@ function filterProjects(){
   const _fl=_kpiFilter?`<button onclick="_kpiFilter=null;filterProjects()" style="background:rgba(239,68,68,.18);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:1px 9px;font-family:Cairo,sans-serif;font-size:.72rem;cursor:pointer;margin-right:8px">× مسح: ${_kpiFilter.label}</button>`:'';
   document.getElementById('countInfo').innerHTML=`<span style="color:var(--muted)">عرض ${f.length} من ${PROJECTS.length} مشروع</span>${_fl}`;
   const _role=window._CURRENT_ROLE||'viewer';
-  const _canEdit=_role==='admin'||_role==='chairman'||_role==='editor'||_role==='engineer'||_role==='supervisor'||_role==='sitemanager';
+  const _eff=_getBaseRole(_role);
+  const _canEdit=_eff==='admin'||_eff==='chairman'||_eff==='editor'||_eff==='engineer'||_eff==='supervisor'||_eff==='sitemanager';
   document.getElementById('projectBody').innerHTML=f.map((p,i)=>{
     const ph=_PROJECT_PHASES_DATA[p.code]||{};
     const dv=ph.door!==undefined?ph.door:p.door;
@@ -1579,7 +1631,7 @@ function _poStatusColor(s){
 
 function savePurchaseOrder(){
   const role=window._CURRENT_ROLE||'viewer';
-  const canAdd=role==='admin'||role==='chairman'||role==='editor'||role==='engineer'||role==='supervisor'||role==='sitemanager'||role==='foreman'||role==='storekeeper';
+  const _br0=_getBaseRole(role);const canAdd=_br0==='admin'||_br0==='chairman'||_br0==='editor'||_br0==='engineer'||_br0==='supervisor'||_br0==='sitemanager'||_br0==='foreman'||_br0==='storekeeper';
   if(!canAdd)return;
   const proj=(document.getElementById('poProject')||{}).value||'';
   const item=(document.getElementById('poItem')||{}).value||'';
@@ -1649,9 +1701,9 @@ function importPurchasesExcel(e){
 }
 
 function renderPurchases(){
-  const role=window._CURRENT_ROLE||'viewer';
-  const canAdd=role==='admin'||role==='chairman'||role==='editor'||role==='engineer'||role==='supervisor'||role==='sitemanager'||role==='foreman'||role==='storekeeper';
-  const canDel=role==='admin'||role==='editor';
+  const role=window._CURRENT_ROLE||'viewer';const _brrp=_getBaseRole(role);
+  const canAdd=_brrp==='admin'||_brrp==='chairman'||_brrp==='editor'||_brrp==='engineer'||_brrp==='supervisor'||_brrp==='sitemanager'||_brrp==='foreman'||_brrp==='storekeeper';
+  const canDel=_brrp==='admin'||_brrp==='editor';
   const orders=Object.values(_PURCHASES_DATA).sort((a,b)=>{
     if(!a.requestDate)return 1;if(!b.requestDate)return-1;
     return new Date(b.requestDate)-new Date(a.requestDate);
@@ -2486,9 +2538,9 @@ function uploadDeviationsExcel(){
 
 function renderDeviations(){
   _initDeviationsListener();
-  const role=window._CURRENT_ROLE||'viewer';
-  const canEdit=(role==='admin'||role==='editor'||role==='engineer');
-  const canDel=(role==='admin'||role==='editor');
+  const role=window._CURRENT_ROLE||'viewer';const _brd=_getBaseRole(role);
+  const canEdit=(_brd==='admin'||_brd==='editor'||_brd==='engineer');
+  const canDel=(_brd==='admin'||_brd==='editor');
   const filterType=(document.getElementById('devFilterType')||{}).value||'';
   const filterProj=(document.getElementById('devFilterProj')||{}).value||'';
 
@@ -2828,9 +2880,9 @@ function uploadWarehouseExcel(){
 
 function renderWarehouse(){
   _initWarehouseListener();
-  const role=window._CURRENT_ROLE||'viewer';
-  const canEdit=(role==='admin'||role==='editor'||role==='engineer'||role==='supervisor'||role==='foreman'||role==='storekeeper');
-  const canDel=(role==='admin'||role==='editor');
+  const role=window._CURRENT_ROLE||'viewer';const _brw=_getBaseRole(role);
+  const canEdit=(_brw==='admin'||_brw==='editor'||_brw==='engineer'||_brw==='supervisor'||_brw==='foreman'||_brw==='storekeeper');
+  const canDel=(_brw==='admin'||_brw==='editor');
   const filterType=(document.getElementById('whFilterType')||{}).value||'';
   const filterItem=((document.getElementById('whFilterItem')||{}).value||'').toLowerCase().trim();
 
@@ -3075,9 +3127,9 @@ function saveInvoiceEdit(id){
 }
 function renderInvoices(){
   _initInvoicesListener();
-  const role=window._CURRENT_ROLE||'viewer';
-  const canEdit=(role==='admin'||role==='editor'||role==='engineer'||role==='supervisor'||role==='foreman'||role==='storekeeper');
-  const canDel=(role==='admin'||role==='editor');
+  const role=window._CURRENT_ROLE||'viewer';const _bri=_getBaseRole(role);
+  const canEdit=(_bri==='admin'||_bri==='editor'||_bri==='engineer'||_bri==='supervisor'||_bri==='foreman'||_bri==='storekeeper');
+  const canDel=(_bri==='admin'||_bri==='editor');
   const canApprove=(role==='admin');
   const filterProj=(document.getElementById('invFilterProj')||{}).value||'';
   const filterStatus=(document.getElementById('invFilterStatus')||{}).value||'';
@@ -3319,9 +3371,9 @@ function uploadBoqExcel(){
 
 function renderBalances(){
   _initBoqListener();
-  const role=window._CURRENT_ROLE||'viewer';
-  const canEdit=(role==='admin'||role==='editor'||role==='engineer'||role==='supervisor'||role==='foreman'||role==='storekeeper');
-  const canDel=(role==='admin'||role==='editor');
+  const role=window._CURRENT_ROLE||'viewer';const _brb=_getBaseRole(role);
+  const canEdit=(_brb==='admin'||_brb==='editor'||_brb==='engineer'||_brb==='supervisor'||_brb==='foreman'||_brb==='storekeeper');
+  const canDel=(_brb==='admin'||_brb==='editor');
   const filterProj=(document.getElementById('boqFilterProj')||{}).value||'';
   const filtered=_BOQ_DATA.filter(d=>(!filterProj||d.project===filterProj));
 
@@ -3646,9 +3698,9 @@ function uploadStdBoqExcel(){
 
 function renderStdBoq(){
   _initStdItemsListener();_initStdBoqListener();
-  const role=window._CURRENT_ROLE||'viewer';
-  const canEdit=(role==='admin'||role==='editor'||role==='engineer'||role==='supervisor'||role==='foreman'||role==='storekeeper');
-  const canDel=(role==='admin'||role==='editor');
+  const role=window._CURRENT_ROLE||'viewer';const _brs=_getBaseRole(role);
+  const canEdit=(_brs==='admin'||_brs==='editor'||_brs==='engineer'||_brs==='supervisor'||_brs==='foreman'||_brs==='storekeeper');
+  const canDel=(_brs==='admin'||_brs==='editor');
   const IS='background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%';
   const projOpts2=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
   const itemOpts=_STD_ITEMS_DATA.map(d=>'<option value="'+d.item.replace(/"/g,'&quot;')+'" data-unit="'+d.unit+'">'+d.item+(d.unit?' ('+d.unit+')':'')+'</option>').join('');
@@ -3767,6 +3819,7 @@ function startApp(){
   _initProjectPhasesListener();
   _initPurchasesListener();
   _initRoleLabelsListener();
+  _initExtraRolesListener();
   populateFormDropdowns();
   renderChangelog();
 }
@@ -3991,6 +4044,36 @@ function startApp(){
       <span id="rlMsg" style="font-size:.78rem;min-height:18px"></span>
     </div>
   </div>
+  <!-- ===== EXTRA CUSTOM ROLES ===== -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:18px">
+    <div style="font-weight:700;font-size:.9rem;color:#e2e8f0;margin-bottom:12px">➕ إضافة مسمى وظيفي جديد</div>
+    <div style="color:var(--muted);font-size:.75rem;margin-bottom:12px">أضف مسميات جديدة مش موجودة في الأدوار الأصلية — كل مسمى بيورث صلاحيات دور أساسي</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:12px">
+      <div>
+        <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">اسم المسمى الجديد</label>
+        <input type="text" id="extraRoleName" placeholder="مثال: مشرف البنية التحتية" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">يرث صلاحيات</label>
+        <select id="extraRoleBase" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+          <option value="viewer">👁 مشاهد</option>
+          <option value="supervisor">👷 Site Engineer</option>
+          <option value="sitemanager">🏗 مدير الموقع</option>
+          <option value="foreman">🦺 مشرفين</option>
+          <option value="storekeeper">📦 أمين مخزن</option>
+          <option value="engineer">📐 Technical Office Eng.</option>
+          <option value="editor">🏗️ Technical Office Manager</option>
+          <option value="chairman">👑 Chairman</option>
+        </select>
+      </div>
+      <button class="form-btn form-btn-primary" onclick="addExtraRole()" style="padding:7px 16px;white-space:nowrap">➕ إضافة</button>
+    </div>
+    <span id="extraRoleMsg" style="font-size:.78rem;min-height:18px;display:block;margin-bottom:10px"></span>
+    <div id="extraRolesWrap" style="border-top:1px solid var(--border);padding-top:10px">
+      <div style="color:var(--muted);font-size:.78rem">لا توجد أدوار مضافة بعد</div>
+    </div>
+  </div>
+  <!-- ===== /EXTRA CUSTOM ROLES ===== -->
   <div class="section-title" style="margin-top:18px">👁 إعدادات ظهور التبويبات للأدوار</div>
   <div class="admin-section" id="tabPermContainer">
     <p style="color:var(--muted);font-size:.82rem">جارٍ التحميل...</p>
