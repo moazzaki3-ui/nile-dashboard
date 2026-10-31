@@ -436,6 +436,32 @@ function _checkCreds(u,p){
   return null;
 }
 const _ROLE_LABEL={admin:'📊 Projects Manager',chairman:'👑 Chairman',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',sitemanager:'🏗 مدير الموقع',foreman:'🦺 مشرفين',storekeeper:'📦 أمين مخزن',viewer:'👁 مشاهد'};
+let _CUSTOM_ROLE_LABELS={};
+function _getRoleLabel(r){return _CUSTOM_ROLE_LABELS[r]||_ROLE_LABEL[r]||r;}
+function _initRoleLabelsListener(){
+  _DB.ref('/role_labels').on('value',snap=>{
+    _CUSTOM_ROLE_LABELS=snap.val()||{};
+    _fillRoleLabelInputs();
+    if(document.getElementById('usersTableWrap'))renderAdminPanel();
+  },err=>_fbErr('role_labels',err));
+}
+function _fillRoleLabelInputs(){
+  Object.keys(_ROLE_LABEL).forEach(r=>{
+    const el=document.getElementById('rl_input_'+r);
+    if(el)el.value=_CUSTOM_ROLE_LABELS[r]||'';
+  });
+}
+function saveRoleLabels(){
+  const updates={};
+  Object.keys(_ROLE_LABEL).forEach(r=>{
+    const el=document.getElementById('rl_input_'+r);
+    if(el)updates[r]=el.value.trim()||'';
+  });
+  _DB.ref('/role_labels').set(updates).then(()=>{
+    _fbOk();
+    const m=document.getElementById('rlMsg');if(m){m.style.color='var(--green)';m.textContent='✓ تم حفظ الأسماء';setTimeout(()=>{try{m.textContent='';}catch(e){}},2500);}
+  }).catch(e=>_fbErr('save_rl',e));
+}
 function applyPermissions(role){
   // chat input + add forms
   const chatIn=document.getElementById('chatInputSection');
@@ -455,7 +481,7 @@ function applyPermissions(role){
   // show role badge in header
   const lbl=document.getElementById('userLabel');
   if(lbl&&window._CURRENT_ROLE){
-    const rl=_ROLE_LABEL[window._CURRENT_ROLE]||'';
+    const rl=_getRoleLabel(window._CURRENT_ROLE)||'';
     if(rl&&!lbl.textContent.includes(rl))lbl.textContent+=' — '+rl;
   }
 }
@@ -546,6 +572,7 @@ function changeUserRole(uname,nr){
 function renderAdminPanel(){
   const wrap=document.getElementById('usersTableWrap');
   if(!wrap)return;
+  _fillRoleLabelInputs();
   // Merge all users: Firebase overrides first, then static users not yet in Firebase
   const fbNames=new Set(_fbUsersCache.map(u=>u.username));
   const users=[..._fbUsersCache,..._STATIC_USERS.filter(u=>!fbNames.has(u.username))];
@@ -557,8 +584,8 @@ function renderAdminPanel(){
     users.forEach(u=>{
       const rl=u.role||'viewer';
       const rlColors={admin:'#6366f1',chairman:'#a855f7',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',viewer:'#64748b'};
-      const rlBadge='<span style="background:'+rlColors[rl]+'22;color:'+rlColors[rl]+';border:1px solid '+rlColors[rl]+'44;border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700">'+(_ROLE_LABEL[rl]||rl)+'</span>';
-      const roleOpts=Object.entries(_ROLE_LABEL).map(([v,l])=>'<option value="'+v+'"'+(rl===v?' selected':'')+'>'+l+'</option>').join('');
+      const rlBadge='<span style="background:'+rlColors[rl]+'22;color:'+rlColors[rl]+';border:1px solid '+rlColors[rl]+'44;border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700">'+_getRoleLabel(rl)+'</span>';
+      const roleOpts=Object.entries(_ROLE_LABEL).map(([v])=>'<option value="'+v+'"'+(rl===v?' selected':'')+'>'+ _getRoleLabel(v)+'</option>').join('');
       html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td>'
         +'<td><select style="background:var(--card);border:1px solid var(--border);color:'+rlColors[rl]+';border-radius:6px;padding:3px 6px;font-size:.72rem;font-family:Cairo,sans-serif" onchange="changeUserRole(\''+u.username+'\',this.value)">'+roleOpts+'</select></td>'
         +'<td>'+(u.createdAt||'—')+'</td>'
@@ -639,7 +666,7 @@ function saveTabPermissions(){
 }
 function renderTabPermissions(){
   const p=_getTabPerm();
-  const roles=[{id:'chairman',label:'👑 Chairman'},{id:'editor',label:'🏗️ Technical Office Manager'},{id:'engineer',label:'📐 Technical Office Eng.'},{id:'supervisor',label:'👷 Site Engineer'},{id:'sitemanager',label:'🏗 مدير الموقع'},{id:'foreman',label:'🦺 مشرفين'},{id:'storekeeper',label:'📦 أمين مخزن'},{id:'viewer',label:'👁 مشاهد'}];
+  const roles=['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','viewer'].map(id=>({id,label:_getRoleLabel(id)}));
   const thead='<tr style="background:var(--panel)"><th style="text-align:right;padding:8px 12px">التبويب</th>'
     +'<th style="text-align:center;padding:8px 6px;font-size:.75rem">📊 Projects Manager</th>'
     +roles.map(r=>'<th style="text-align:center;padding:8px 6px;font-size:.75rem">'+r.label+'</th>').join('')+'</tr>';
@@ -3739,6 +3766,7 @@ function startApp(){
   _initTabPermListener();
   _initProjectPhasesListener();
   _initPurchasesListener();
+  _initRoleLabelsListener();
   populateFormDropdowns();
   renderChangelog();
 }
@@ -3920,6 +3948,48 @@ function startApp(){
       • كلمات المرور محفوظة في المتصفح — هذا التطبيق على GitHub Pages فقط.<br>
       • الجلسة تبقى مفتوحة لمدة 7 أيام بدون الحاجة لإعادة الدخول.
     </p>
+  </div>
+  <div class="section-title" style="margin-top:18px">✏️ تخصيص أسماء الأدوار</div>
+  <div class="admin-section" id="roleLabelEditor">
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:14px">اكتب اسم مخصص لأي دور — يظهر للمستخدمين بدلاً من الاسم الافتراضي. اتركه فارغاً للرجوع للاسم الافتراضي.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">👑 Chairman (الافتراضي)</label>
+        <input type="text" id="rl_input_chairman" placeholder="👑 Chairman" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">🏗️ Technical Office Manager (الافتراضي)</label>
+        <input type="text" id="rl_input_editor" placeholder="🏗️ Technical Office Manager" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">📐 Technical Office Eng. (الافتراضي)</label>
+        <input type="text" id="rl_input_engineer" placeholder="📐 Technical Office Eng." style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">👷 Site Engineer (الافتراضي)</label>
+        <input type="text" id="rl_input_supervisor" placeholder="👷 Site Engineer" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">🏗 مدير الموقع (الافتراضي)</label>
+        <input type="text" id="rl_input_sitemanager" placeholder="🏗 مدير الموقع" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">🦺 مشرفين (الافتراضي)</label>
+        <input type="text" id="rl_input_foreman" placeholder="🦺 مشرفين" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">📦 أمين مخزن (الافتراضي)</label>
+        <input type="text" id="rl_input_storekeeper" placeholder="📦 أمين مخزن" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">👁 مشاهد (الافتراضي)</label>
+        <input type="text" id="rl_input_viewer" placeholder="👁 مشاهد" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+      <button class="form-btn form-btn-primary" onclick="saveRoleLabels()">💾 حفظ الأسماء</button>
+      <span id="rlMsg" style="font-size:.78rem;min-height:18px"></span>
+    </div>
   </div>
   <div class="section-title" style="margin-top:18px">👁 إعدادات ظهور التبويبات للأدوار</div>
   <div class="admin-section" id="tabPermContainer">
