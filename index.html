@@ -1672,8 +1672,54 @@ function deletePurchaseOrder(id){
 
 function updatePoStatus(id,val){
   const upd={status:val};
-  if(val==='تم التوريد'){upd.deliveryDate=new Date().toISOString().slice(0,10);}
-  _DB.ref('/purchase_orders/'+id).update(upd).then(()=>_fbOk()).catch(e=>_fbErr('po_status',e));
+  const today=new Date().toISOString().slice(0,10);
+  if(val==='تم التوريد'){upd.deliveryDate=today;}
+  _DB.ref('/purchase_orders/'+id).update(upd).then(()=>{
+    _fbOk();
+    // ===== AUTO-SYNC TO WAREHOUSE =====
+    if(val==='تم التوريد'){
+      const po=_PURCHASES_DATA[id];
+      if(po){
+        const whEntry={
+          id:Date.now(),
+          type:'توريد',
+          item:po.item||'',
+          qty:po.qty||'',
+          unit:po.unit||'',
+          project:po.project||'—',
+          supplier:po.supplier||'—',
+          note:'📦 من طلب شراء #'+id.slice(-6)+(po.notes?(' — '+po.notes):''),
+          date:new Date().toLocaleDateString('ar-EG'),
+          user:window._CURRENT_SESSION?.name||window._CURRENT_SESSION?.username||'—',
+          ts:new Date().toISOString(),
+          fromPO:id
+        };
+        _WAREHOUSE_DATA.unshift(whEntry);
+        _saveWarehouseData();
+        const m=document.getElementById('poMsg');
+        if(m){m.style.color='var(--green)';m.textContent='✅ تم التوريد وتسجيل الرصيد في المخزن';setTimeout(()=>{try{m.textContent='';}catch(e){}},3500);}
+      }
+    }
+    // ===== /AUTO-SYNC =====
+  }).catch(e=>_fbErr('po_status',e));
+}
+
+function exportPurchasesExcel(){
+  const rows=Object.values(_PURCHASES_DATA).sort((a,b)=>(b.requestDate||'').localeCompare(a.requestDate||''));
+  if(!rows.length){
+    const m=document.getElementById('poMsg');if(m){m.style.color='var(--red)';m.textContent='لا توجد بيانات للتصدير';setTimeout(()=>{try{m.textContent='';}catch(e){}},2000);}return;
+  }
+  const data=[['#','المشروع','البند / الصنف','الكمية','الوحدة','المورد','تاريخ الطلب','تاريخ التوريد','الحالة','ملاحظات']];
+  rows.forEach((r,i)=>{
+    const statusClean=(r.status||'').replace(/[📋🔄✅]/g,'').trim();
+    data.push([i+1,r.project||'',r.item||'',r.qty||'',r.unit||'',r.supplier||'—',r.requestDate||'',r.deliveryDate||'',statusClean,r.notes||'']);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:4},{wch:18},{wch:28},{wch:8},{wch:8},{wch:16},{wch:13},{wch:13},{wch:14},{wch:22}];
+  ws['!rtl']=true;
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'طلبات الشراء');
+  XLSX.writeFile(wb,'طلبات_الشراء_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
 function importPurchasesExcel(e){
@@ -1801,6 +1847,7 @@ ${canAdd?`
       📥 استيراد Excel
       <input type="file" accept=".xlsx,.xls" onchange="importPurchasesExcel(event)" style="display:none">
     </label>
+    <button class="form-btn" onclick="exportPurchasesExcel()" style="background:var(--card);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:7px 16px;font-size:.8rem;font-family:Cairo,sans-serif;cursor:pointer">📤 تصدير Excel</button>
     <span id="poMsg" style="font-size:.78rem;min-height:18px"></span>
   </div>
 </div>`:''}
