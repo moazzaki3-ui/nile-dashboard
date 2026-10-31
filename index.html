@@ -2293,6 +2293,64 @@ function renderDeviations(){
     '</tr></thead><tbody>'+dynRows+'</tbody></table></div></div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد انحرافات مسجّلة بعد. '+(canEdit?'استخدم النموذج أعلاه لتسجيل أول انحراف.':'')+'</div>')+
 
+    // AUTO-DEVIATIONS from Standard BOQ
+    (function(){
+      // Material (supply) deviations: BOQ used vs stdQty
+      let matRows='';let matCount=0;let matOver=0;
+      _BOQ_DATA.forEach(d=>{
+        const std=getStdBoqEntry(d.project,d.item);
+        if(!std||(std.stdQty||0)===0)return;
+        const used=d.used!=null?d.used:((d.supply||0)-(d.balance||0)+(d.prevBalance||0)+(d.transfer||0));
+        const diff=used-std.stdQty;
+        const pct=diff/std.stdQty*100;
+        if(Math.abs(pct)<0.01)return;
+        matCount++;if(pct>0)matOver++;
+        const clr=pct<=0?'#22d3ee':pct<5?'var(--green)':pct<10?'var(--orange)':'var(--red)';
+        matRows+='<tr style="'+(matCount%2===0?'background:rgba(255,255,255,.025)':'')+'">'+
+          '<td style="padding:7px 10px;color:var(--muted);text-align:center;font-size:.72rem">'+matCount+'</td>'+
+          '<td style="padding:7px 10px"><b style="color:var(--accent2)">'+d.project+'</b></td>'+
+          '<td style="padding:7px 10px;font-weight:700">'+d.item+'</td>'+
+          '<td style="padding:7px 10px;text-align:center;color:var(--green)">'+std.stdQty.toLocaleString()+' '+(d.unit||'')+'</td>'+
+          '<td style="padding:7px 10px;text-align:center">'+used.toLocaleString()+' '+(d.unit||'')+'</td>'+
+          '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+clr+'">'+(pct>0?'+':'')+pct.toFixed(2)+'%</td>'+
+          '<td style="padding:7px 10px;font-size:.72rem;color:'+clr+';">'+(pct<=0?'💧 توفير في الخامات':pct<5?'✓ ضمن المعقول':'✗ تجاوز في الخامات')+'</td>'+
+        '</tr>';
+      });
+      // Work (execution) deviations: invoice execQty vs stdQtyWork
+      let workRows='';let workCount=0;let workOver=0;
+      _STD_BOQ_DATA.forEach(std=>{
+        if(!(std.stdQtyWork>0))return;
+        const relInv=_INVOICES_DATA.filter(d=>d.project===std.project&&d.item===std.item);
+        if(!relInv.length)return;
+        const totalExec=relInv.reduce((s,d)=>s+(d.execQty||0),0);
+        const diff=totalExec-std.stdQtyWork;
+        const pct=diff/std.stdQtyWork*100;
+        if(Math.abs(pct)<0.01)return;
+        workCount++;if(pct>0)workOver++;
+        const clr=pct<=0?'#22d3ee':pct<5?'var(--green)':pct<10?'var(--orange)':'var(--red)';
+        workRows+='<tr style="'+(workCount%2===0?'background:rgba(255,255,255,.025)':'')+'">'+
+          '<td style="padding:7px 10px;color:var(--muted);text-align:center;font-size:.72rem">'+workCount+'</td>'+
+          '<td style="padding:7px 10px"><b style="color:var(--accent2)">'+std.project+'</b></td>'+
+          '<td style="padding:7px 10px;font-weight:700">'+std.item+'</td>'+
+          '<td style="padding:7px 10px;text-align:center;color:var(--accent2)">'+std.stdQtyWork.toLocaleString()+' '+(std.unit||'')+'</td>'+
+          '<td style="padding:7px 10px;text-align:center">'+totalExec.toLocaleString()+' '+(std.unit||'')+'</td>'+
+          '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+clr+'">'+(pct>0?'+':'')+pct.toFixed(2)+'%</td>'+
+          '<td style="padding:7px 10px;font-size:.72rem;color:'+clr+';">'+(pct<=0?'💧 توفير في الأعمال':pct<5?'✓ ضمن المعقول':'✗ تجاوز في الأعمال')+'</td>'+
+        '</tr>';
+      });
+      const hasAuto=matCount>0||workCount>0;
+      return hasAuto?
+        '<div class="section-title" style="margin-top:20px">🔄 انحرافات الحصر المعياري — مزامنة تلقائية <span style="font-size:.7rem;color:var(--green);font-weight:400">مُحدَّث في الوقت الحقيقي</span></div>'+
+        '<div style="font-size:.74rem;color:var(--muted);margin-bottom:10px;padding:8px 12px;background:rgba(99,102,241,.1);border-radius:8px">📌 هذه الانحرافات محسوبة تلقائياً من مقارنة الكميات الفعلية بالحصر المعياري — البنود ذات الانحراف صفر لا تظهر.</div>'+
+        (matCount>0?
+          '<div class="chart-card" style="margin-bottom:12px"><div class="chart-title">📦 انحرافات الخامات (توريدات) — '+matCount+' بند / '+matOver+' بند متجاوز</div><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th>#</th><th>المشروع</th><th>البند</th><th style="color:var(--green)">الكمية المعيارية</th><th>المستخدم الفعلي</th><th>الانحراف %</th><th>التقييم</th></tr></thead><tbody>'+matRows+'</tbody></table></div></div>'
+        :'')+
+        (workCount>0?
+          '<div class="chart-card" style="margin-bottom:14px"><div class="chart-title">⚙️ انحرافات الأعمال (مستخلصات) — '+workCount+' بند / '+workOver+' بند متجاوز</div><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th>#</th><th>المشروع</th><th>البند</th><th style="color:var(--accent2)">كميات أعمال معيارية</th><th>المنفذ الفعلي</th><th>الانحراف %</th><th>التقييم</th></tr></thead><tbody>'+workRows+'</tbody></table></div></div>'
+        :'')
+      :'';
+    })()+
+
     // STATIC SECTION — original concrete & steel deviations
     '<div class="section-title" style="margin-top:20px">📉 هالك الخرسانة والحديد <span style="font-size:.7rem;color:var(--muted);font-weight:400">آخر تحديث: ٢٢ أكتوبر ٢٠٢٦</span></div>'+
     staticKpi+
@@ -2726,11 +2784,11 @@ function renderInvoices(){
       '<div id="invNotice" style="display:none;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:.82rem"></div>'+
       '<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;background:rgba(99,102,241,.1);padding:8px 12px;border-radius:8px">💡 إجمالي التنفيذ = سعر الوحدة × الكمية المنفذة × (نسبة التنفيذ ÷ 100)</div>'+
       '<div class="form-row">'+
-        '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="invProject"><option value="">-- اختر --</option>'+projOpts+'</select></div>'+
-        '<div class="form-group" style="min-width:180px"><label>اسم البند *</label><input type="text" id="invItem" placeholder="مثال: أعمال الهيكل / بياض داخلي"></div>'+
-        '<div class="form-group" style="min-width:130px"><label>الوحدة</label><select id="invUnit"><option value="متر">متر</option><option value="مقطوعية">مقطوعية</option></select></div>'+
+        '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="invProject" onchange="autoFillInvFromStd()"><option value="">-- اختر --</option>'+projOpts+'</select></div>'+
+        '<div class="form-group" style="min-width:180px"><label>اسم البند *</label><input type="text" id="invItem" list="invItemList" placeholder="اختر بنداً معيارياً أو اكتب..." oninput="autoFillInvFromStd()"><datalist id="invItemList">'+_STD_ITEMS_DATA.map(d=>'<option value="'+d.item.replace(/"/g,'&quot;')+'">').join('')+'</datalist></div>'+
+        '<div class="form-group" style="min-width:130px"><label>الوحدة</label><select id="invUnit"><option value="م²">م²</option><option value="م³">م³</option><option value="طن">طن</option><option value="م.ط">م.ط</option><option value="كجم">كجم</option><option value="عدد">عدد</option><option value="لتر">لتر</option><option value="متر">متر</option><option value="مقطوعية">مقطوعية</option></select></div>'+
         '<div class="form-group" style="min-width:140px"><label>سعر الوحدة (جم) *</label><input type="number" id="invUnitPrice" placeholder="0" step="0.01" min="0"></div>'+
-        '<div class="form-group" style="min-width:120px"><label>الكمية المنفذة *</label><input type="number" id="invExecQty" placeholder="0" step="0.01" min="0"></div>'+
+        '<div class="form-group" style="min-width:120px"><label>الكمية المنفذة * <span id="invExecQtyLock" style="font-size:.66rem;color:var(--accent2)"></span></label><input type="number" id="invExecQty" placeholder="0" step="0.01" min="0"></div>'+
         '<div class="form-group" style="min-width:120px"><label>نسبة التنفيذ % *</label><input type="number" id="invExecPct" placeholder="0" step="1" min="0" max="100"></div>'+
         '<div class="form-group" style="min-width:130px"><label>الحالة</label><select id="invStatus"><option value="قيد المراجعة">⏳ قيد المراجعة</option><option value="معتمد">✅ معتمد</option><option value="مرفوض">❌ مرفوض</option></select></div>'+
       '</div>'+
@@ -3055,6 +3113,29 @@ function autoFillBoqPlanned(){
   }
 }
 
+function autoFillInvFromStd(){
+  const proj=(document.getElementById('invProject')||{}).value||'';
+  const item=((document.getElementById('invItem')||{}).value||'').trim();
+  const inp=document.getElementById('invExecQty');
+  const lbl=document.getElementById('invExecQtyLock');
+  const priceInp=document.getElementById('invUnitPrice');
+  if(!proj||!item){
+    if(inp){inp.readOnly=false;inp.style.color='';inp.style.borderColor='';}
+    if(lbl){lbl.textContent='';lbl.style.color='';}return;
+  }
+  const std=getStdBoqEntry(proj,item);
+  if(std&&(std.stdQtyWork||0)>0){
+    if(inp){inp.value=std.stdQtyWork;inp.readOnly=true;inp.style.color='var(--accent2)';inp.style.borderColor='rgba(99,102,241,.5)';}
+    if(lbl){lbl.textContent='🔒 مقفول من الحصر';lbl.style.color='var(--accent2)';}
+    if(priceInp&&std.unitPrice&&!parseFloat(priceInp.value)){priceInp.value=std.unitPrice;}
+    const unitEl=document.getElementById('invUnit');
+    if(unitEl&&std.unit){for(let i=0;i<unitEl.options.length;i++){if(unitEl.options[i].value===std.unit){unitEl.selectedIndex=i;break;}}}
+  }else{
+    if(inp){inp.readOnly=false;inp.style.color='';inp.style.borderColor='';}
+    if(lbl){lbl.textContent='';lbl.style.color='';}
+  }
+}
+
 function _syncStdBoqToBOQ(project,item,stdQty,unit){
   let changed=false;
   _BOQ_DATA.forEach(d=>{
@@ -3066,6 +3147,18 @@ function _syncStdBoqToBOQ(project,item,stdQty,unit){
     }
   });
   if(changed){_saveBoqData();}
+}
+
+function _syncStdBoqToInvoices(project,item,stdQtyWork,unit){
+  // When std_boq is saved, lock all matching invoice entries' execQty to stdQtyWork
+  let changed=false;
+  _INVOICES_DATA.forEach(d=>{
+    if(d.project===project&&d.item===item&&stdQtyWork>0){
+      d.stdQtyWork=stdQtyWork;if(unit&&!d.unit)d.unit=unit;
+      d.lastUpdate=new Date().toISOString();changed=true;
+    }
+  });
+  if(changed){_saveInvoicesData();}
 }
 
 function addStdItem(){
@@ -3100,6 +3193,7 @@ function addStdBoqEntry(){
   const project=(document.getElementById('stdBoqProject')||{}).value||'';
   const item=((document.getElementById('stdBoqItem')||{}).value||'').trim();
   const stdQty=parseFloat((document.getElementById('stdBoqQty')||{}).value)||0;
+  const stdQtyWork=parseFloat((document.getElementById('stdBoqQtyWork')||{}).value)||0;
   const unit=(document.getElementById('stdBoqUnit')||{}).value||'';
   const unitPrice=parseFloat((document.getElementById('stdBoqPrice')||{}).value)||0;
   const notes=((document.getElementById('stdBoqNotes')||{}).value||'').trim();
@@ -3109,12 +3203,13 @@ function addStdBoqEntry(){
   const sess=window._CURRENT_SESSION||{};
   const existing=_STD_BOQ_DATA.find(d=>d.project===project&&d.item===item);
   if(existing){
-    existing.stdQty=stdQty;existing.unit=unit;existing.unitPrice=unitPrice;existing.notes=notes;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'—';
+    existing.stdQty=stdQty;existing.stdQtyWork=stdQtyWork;existing.unit=unit;existing.unitPrice=unitPrice;existing.notes=notes;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'—';
   }else{
-    _STD_BOQ_DATA.push({id:Date.now(),project:project,item:item,unit:unit,stdQty:stdQty,unitPrice:unitPrice,notes:notes,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',lastUpdate:new Date().toISOString()});
+    _STD_BOQ_DATA.push({id:Date.now(),project:project,item:item,unit:unit,stdQty:stdQty,stdQtyWork:stdQtyWork,unitPrice:unitPrice,notes:notes,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',lastUpdate:new Date().toISOString()});
   }
-  _saveStdBoq();_syncStdBoqToBOQ(project,item,stdQty,unit);
+  _saveStdBoq();_syncStdBoqToBOQ(project,item,stdQty,unit);_syncStdBoqToInvoices(project,item,stdQtyWork,unit);
   if(document.getElementById('stdBoqQty'))document.getElementById('stdBoqQty').value='';
+  if(document.getElementById('stdBoqQtyWork'))document.getElementById('stdBoqQtyWork').value='';
   if(document.getElementById('stdBoqPrice'))document.getElementById('stdBoqPrice').value='';
   if(document.getElementById('stdBoqNotes'))document.getElementById('stdBoqNotes').value='';
   _sn(existing?'✅ تم تحديث الحصر المعياري':'✅ تمت إضافة الحصر المعياري','var(--green)');renderStdBoq();
@@ -3168,6 +3263,7 @@ function renderStdBoq(){
       '<td style="padding:7px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.66rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
       '<td style="padding:7px 10px;font-weight:700">'+d.item+'</td>'+
       '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--green)">'+((d.stdQty||0).toLocaleString())+' <span style="font-size:.7rem;color:var(--muted)">'+(d.unit||'')+'</span></td>'+
+      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--accent2)">'+((d.stdQtyWork||0)>0?(d.stdQtyWork||0).toLocaleString()+'<span style="font-size:.7rem;color:var(--muted)"> '+(d.unit||'')+'</span>':'<span style="color:var(--muted);font-size:.75rem">—</span>')+'</td>'+
       '<td style="padding:7px 10px;text-align:center;color:var(--muted)">'+((d.unitPrice||0).toLocaleString())+' جم</td>'+
       '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--yellow)">'+total.toLocaleString()+' جم</td>'+
       '<td style="padding:7px 10px;font-size:.72rem;color:var(--muted)">'+(d.notes||'—')+'</td>'+
@@ -3213,7 +3309,8 @@ function renderStdBoq(){
         '<div class="form-row" style="align-items:flex-end;flex-wrap:wrap">'+
           '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="stdBoqProject" style="'+IS+'"><option value="">-- اختر --</option>'+projOpts2+'</select></div>'+
           '<div class="form-group" style="min-width:220px"><label>البند * (من القائمة)</label><select id="stdBoqItem" style="'+IS+'"><option value="">-- اختر البند --</option>'+itemOpts+'</select></div>'+
-          '<div class="form-group" style="min-width:110px"><label>🔒 الكمية المعيارية</label><input type="number" id="stdBoqQty" placeholder="0" step="0.01" min="0" style="'+IS+'"></div>'+
+          '<div class="form-group" style="min-width:110px"><label>📦 كميات خامات (توريد)</label><input type="number" id="stdBoqQty" placeholder="0" step="0.01" min="0" style="'+IS+'"></div>'+
+          '<div class="form-group" style="min-width:110px"><label>⚙️ كميات أعمال (تنفيذ)</label><input type="number" id="stdBoqQtyWork" placeholder="0" step="0.01" min="0" style="'+IS+'"></div>'+
           '<div class="form-group" style="min-width:100px"><label>الوحدة</label>'+unitSel.replace('<select ','<select id="stdBoqUnit" ')+'</div>'+
           '<div class="form-group" style="min-width:110px"><label>سعر الوحدة (جم)</label><input type="number" id="stdBoqPrice" placeholder="0" step="0.01" min="0" style="'+IS+'"></div>'+
           '<div class="form-group" style="min-width:150px"><label>ملاحظات</label><input type="text" id="stdBoqNotes" placeholder="اختياري" style="'+IS+'"></div>'+
@@ -3226,7 +3323,7 @@ function renderStdBoq(){
         '<span style="margin-right:auto"><select id="stdBoqFilterProj" onchange="renderStdBoq()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل المشاريع</option>'+projOpts2+'</select></span>'+
       '</div>'+
       (filteredStd.length?
-        '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th>#</th><th>المشروع</th><th>البند</th><th style="color:var(--green)">🔒 الكمية المعيارية</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th><th>بواسطة</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead><tbody>'+stdRows+'</tbody></table></div>'+
+        '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th>#</th><th>المشروع</th><th>البند</th><th style="color:var(--green)">📦 خامات (توريد)</th><th style="color:var(--accent2)">⚙️ أعمال (تنفيذ)</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th><th>بواسطة</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead><tbody>'+stdRows+'</tbody></table></div>'+
         (totalCost>0?'<div style="text-align:left;padding:10px;font-size:.82rem;color:var(--yellow)">إجمالي القيمة المعيارية للعرض الحالي: <b>'+totalCost.toLocaleString()+' جم</b></div>':'')+
         '</div>'
         :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد بنود حصر مسجّلة بعد.'+(canEdit?' أضف بنوداً من النموذج أعلاه.':'')+'</div>')+
