@@ -159,6 +159,7 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 </head>
 <body>
 <!-- LOGIN OVERLAY -->
@@ -209,6 +210,7 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
   <div class="tab" onclick="showTab('balances')">📊 الأرصدة والحصر</div>
   <div class="tab" onclick="showTab('stdboq')">📏 الحصر المعياري</div>
   <div class="tab" onclick="showTab('purchases')">🛒 طلبات الشراء</div>
+  <div class="tab" onclick="showTab('schedule')">📅 البرنامج الزمني</div>
   <div class="tab" id="adminTab" onclick="showTab('admin')" style="display:none">⚙️ الإدارة</div>
 </div>
 
@@ -668,6 +670,7 @@ const _TABS_CONFIG=[
   {id:'balances',label:'📊 الأرصدة والحصر'},
   {id:'stdboq',label:'📏 الحصر المعياري'},
   {id:'purchases',label:'🛒 طلبات الشراء'},
+  {id:'schedule',label:'📅 البرنامج الزمني'},
 ];
 let _TAB_PERM_CACHE=null;let _fbTabPermInit=false;
 function _getTabPerm(){
@@ -758,7 +761,8 @@ function showTab(t){
   if(t==='balances'){renderBalances();}
   if(t==='stdboq'){renderStdBoq();}
   if(t==='purchases'){renderPurchases();}
-  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','deliveries','warehouse','invoices','balances','stdboq','purchases','admin'].forEach(id=>{
+  if(t==='schedule'){renderScheduleTab();}
+  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','deliveries','warehouse','invoices','balances','stdboq','purchases','schedule','admin'].forEach(id=>{
     const el=document.getElementById('tab-'+id);if(el)el.classList.toggle('hidden',id!==t);
   });
   document.querySelectorAll('.tab').forEach(el=>{
@@ -3965,6 +3969,171 @@ function renderStdBoq(){
 // ============ / STANDARD BOQ ============
 
 // Init: wrapped in startApp(), called after successful login
+// ===== SCHEDULE TAB =====
+let _SCHEDULE_DATA={activities:[],totalDays:0};
+let _PROJECT_DATES={};
+let _fbSchInit=false;
+const _STATUS_PCT={
+  'تحت الترخيص':0,'جارى الترخيص':4,
+  'جارى اعمال الهيكل':25,'جارى تشطيب الوجهات':58,
+  'جارى التشطيب الداخلي':78,'تم الانتهاء من الاعمال':93,
+  'جارى تركيب الأبواب':95,'جارى اللاندسكيب':96,
+  'جارى تركيب العدادات':97,'جارى صب الجراج':97
+};
+function _initScheduleListener(){
+  if(_fbSchInit)return;_fbSchInit=true;
+  _DB.ref('/schedule_template').on('value',snap=>{
+    const v=snap.val();if(v)_SCHEDULE_DATA=v;
+    if(document.getElementById('schedActBody'))renderScheduleTab();
+  });
+  _DB.ref('/project_start_dates').on('value',snap=>{
+    _PROJECT_DATES=snap.val()||{};
+    if(document.getElementById('schedDelayBody'))_drawSchedDelay();
+  });
+}
+function renderScheduleTab(){
+  const acts=_SCHEDULE_DATA.activities||[];
+  const tot=_SCHEDULE_DATA.totalDays||0;
+  const tbody=document.getElementById('schedActBody');
+  if(tbody&&acts.length){
+    tbody.innerHTML=acts.map(a=>`<tr>
+      <td style="padding:6px 8px"><input class="sact-n" type="text" value="${a.name.replace(/</g,'&lt;').replace(/"/g,'&quot;')}" style="width:100%;background:var(--bg);color:var(--text,#e2e8f0);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:inherit;font-size:.8rem"></td>
+      <td style="padding:6px 8px;text-align:center"><input class="sact-d" type="number" min="1" value="${a.duration}" oninput="_updSchedTot()" style="width:70px;background:var(--bg);color:var(--text,#e2e8f0);border:1px solid var(--border);border-radius:4px;padding:4px 6px;text-align:center"></td>
+      <td style="padding:6px 8px;text-align:center"><button onclick="this.closest('tr').remove();_updSchedTot()" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.8rem">✕</button></td>
+    </tr>`).join('');
+    document.getElementById('schedTot').textContent=tot+' يوم';
+  }
+  _drawSchedGantt(acts,tot);
+  _drawSchedDelay();
+}
+function _updSchedTot(){
+  let t=0;document.querySelectorAll('.sact-d').forEach(i=>t+=parseInt(i.value)||0);
+  const el=document.getElementById('schedTot');if(el)el.textContent=t+' يوم';
+}
+function _drawSchedGantt(acts,total){
+  const el=document.getElementById('schedGantt');if(!el)return;
+  if(!acts||!acts.length||!total){el.innerHTML='<div style="color:var(--muted);padding:16px;text-align:center">لا يوجد برنامج بعد — أضف بنوداً واضغط حفظ</div>';return;}
+  const C=['#6366f1','#22d3ee','#f59e0b','#10b981','#ef4444','#a78bfa','#fb923c','#4ade80','#38bdf8','#fbbf24'];
+  let d=0;
+  el.innerHTML=acts.map((a,i)=>{
+    const L=(d/total*100).toFixed(1);const W=(a.duration/total*100).toFixed(1);d+=a.duration;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="min-width:150px;max-width:150px;font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;color:#e2e8f0" title="${a.name}">${a.name}</div>
+      <div style="flex:1;background:rgba(255,255,255,.06);border-radius:3px;height:20px;position:relative;overflow:hidden;direction:ltr">
+        <div style="position:absolute;left:${L}%;width:${W}%;height:100%;background:${C[i%C.length]};display:flex;align-items:center;justify-content:center;font-size:.68rem;color:#fff;font-weight:700;overflow:hidden">${a.duration}ي</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function _drawSchedDelay(){
+  const tbody=document.getElementById('schedDelayBody');if(!tbody)return;
+  const hasSched=(_SCHEDULE_DATA.activities||[]).length>0&&(_SCHEDULE_DATA.totalDays||0)>0;
+  const tot=_SCHEDULE_DATA.totalDays||365;
+  tbody.innerHTML=PROJECTS.map(p=>{
+    const sd=_PROJECT_DATES[p.code]||'';
+    const elapsed=sd?(typeof calcWorkingDays==='function'?calcWorkingDays(sd):0):null;
+    const expPct=hasSched&&elapsed!==null?Math.min(100,Math.round(elapsed/tot*100)):null;
+    const actPct=(_STATUS_PCT[p.status]!==undefined)?_STATUS_PCT[p.status]:null;
+    let delay=null;
+    if(expPct!==null&&actPct!==null)delay=Math.round((expPct-actPct)/100*tot);
+    const dc=delay===null?'var(--muted)':delay<0?'var(--green)':delay===0?'var(--green)':delay<=14?'var(--yellow)':'var(--red)';
+    const dl=delay===null?'—':delay<0?`⬆ مبكر ${Math.abs(delay)} يوم`:delay===0?'✔ في الميعاد':`⬇ متأخر ${delay} يوم`;
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:7px 10px;font-weight:700;font-size:.8rem">${p.name}</td>
+      <td style="padding:7px 10px;color:var(--muted);font-size:.75rem">${p.code}</td>
+      <td style="padding:7px 6px"><input type="date" value="${sd}" onchange="saveProjectDate('${p.code}',this.value)" style="background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:.75rem;font-family:inherit"></td>
+      <td style="padding:7px 10px;color:var(--muted);text-align:center;font-size:.8rem">${elapsed!==null?elapsed+' ي':'—'}</td>
+      <td style="padding:7px 10px;color:#a78bfa;text-align:center;font-weight:700;font-size:.8rem">${expPct!==null?expPct+'%':'—'}</td>
+      <td style="padding:7px 10px;color:var(--accent2);text-align:center;font-weight:700;font-size:.8rem">${actPct!==null?actPct+'%':'—'}</td>
+      <td style="padding:7px 10px;color:${dc};font-weight:700;font-size:.8rem;white-space:nowrap">${dl}</td>
+    </tr>`;
+  }).join('');
+}
+function saveProjectDate(code,val){
+  _PROJECT_DATES[code]=val||null;
+  if(val){_DB.ref('/project_start_dates/'+code).set(val).then(()=>_fbOk()).catch(e=>_fbErr('psd',e));}
+  else{_DB.ref('/project_start_dates/'+code).remove().then(()=>_fbOk());}
+  _drawSchedDelay();
+}
+function addSchedActivity(){
+  const tb=document.getElementById('schedActBody');if(!tb)return;
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td style="padding:6px 8px"><input class="sact-n" type="text" placeholder="اسم البند / المرحلة" style="width:100%;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:inherit;font-size:.8rem"></td><td style="padding:6px 8px;text-align:center"><input class="sact-d" type="number" min="1" placeholder="0" oninput="_updSchedTot()" style="width:70px;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:4px 6px;text-align:center"></td><td style="padding:6px 8px;text-align:center"><button onclick="this.closest('tr').remove();_updSchedTot()" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.8rem">✕</button></td>`;
+  tb.appendChild(tr);tr.querySelector('.sact-n').focus();
+}
+function saveSchedTemplate(){
+  const acts=[];
+  document.querySelectorAll('#schedActBody tr').forEach(tr=>{
+    const n=tr.querySelector('.sact-n')?.value?.trim();
+    const d=parseInt(tr.querySelector('.sact-d')?.value||0);
+    if(n&&d>0)acts.push({name:n,duration:d});
+  });
+  if(!acts.length){addChatMsg('⚠️ أضف بنوداً أولاً','error');return;}
+  const tot=acts.reduce((s,a)=>s+a.duration,0);
+  _SCHEDULE_DATA={activities:acts,totalDays:tot};
+  _DB.ref('/schedule_template').set(_SCHEDULE_DATA).then(()=>{
+    addChatMsg('✅ تم حفظ البرنامج — '+acts.length+' بند / '+tot+' يوم عمل','bot');
+    _drawSchedGantt(acts,tot);_drawSchedDelay();
+  }).catch(e=>_fbErr('sched',e));
+}
+async function handleSchedPdf(input){
+  const file=input.files[0];if(!file)return;
+  const pdfLib=window.pdfjsLib;
+  if(!pdfLib){addChatMsg('⚠️ PDF.js لم يُحمَّل بعد، انتظر لحظة وأعد المحاولة','error');input.value='';return;}
+  pdfLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  const lblEl=document.getElementById('schedPdfLbl');
+  if(lblEl)lblEl.textContent='جارى التحليل...';
+  try{
+    const ab=await file.arrayBuffer();
+    const pdf=await pdfLib.getDocument({data:new Uint8Array(ab)}).promise;
+    const allLines=[];
+    for(let pg=1;pg<=pdf.numPages;pg++){
+      const page=await pdf.getPage(pg);
+      const tc=await page.getTextContent();
+      const yG={};
+      tc.items.forEach(item=>{
+        const y=Math.round(item.transform[5]);
+        if(!yG[y])yG[y]=[];
+        yG[y].push({x:item.transform[4],t:item.str});
+      });
+      Object.keys(yG).sort((a,b)=>b-a).forEach(y=>{
+        const ln=yG[y].sort((a,b)=>b.x-a.x).map(i=>i.t).join(' ').trim();
+        if(ln)allLines.push(ln);
+      });
+    }
+    const acts=[];
+    allLines.forEach(line=>{
+      if(!line||line.length<3)return;
+      const parts=line.trim().split(/\s+/);
+      const lastNum=parseInt(parts[parts.length-1]);
+      if(isNaN(lastNum)||lastNum<1||lastNum>999)return;
+      const name=parts.slice(0,-1).join(' ').trim();
+      if(!name||name.length<2)return;
+      if(/total|الإجمالي|duration|مدة|page|صفحة|original|baseline|planned|^\d+$/i.test(name))return;
+      acts.push({name,duration:lastNum});
+    });
+    if(acts.length>0){
+      const tbody=document.getElementById('schedActBody');
+      if(tbody){
+        tbody.innerHTML=acts.map(a=>`<tr>
+          <td style="padding:6px 8px"><input class="sact-n" type="text" value="${a.name.replace(/</g,'&lt;').replace(/"/g,'&quot;')}" style="width:100%;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:inherit;font-size:.8rem"></td>
+          <td style="padding:6px 8px;text-align:center"><input class="sact-d" type="number" min="1" value="${a.duration}" oninput="_updSchedTot()" style="width:70px;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:4px 6px;text-align:center"></td>
+          <td style="padding:6px 8px;text-align:center"><button onclick="this.closest('tr').remove();_updSchedTot()" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.8rem">✕</button></td>
+        </tr>`).join('');
+        _updSchedTot();
+      }
+      addChatMsg('✅ استُخرج '+acts.length+' بند من الـ PDF — راجع الجدول وعدّل لو لزم، ثم اضغط حفظ البرنامج','bot');
+    } else {
+      addChatMsg('⚠️ لم يُستخرج بنود تلقائياً — أدخلهم يدوياً بالضغط على "بند يدوي"','error');
+    }
+  }catch(e){
+    addChatMsg('⚠️ خطأ في قراءة PDF: '+e.message,'error');
+  }
+  if(lblEl)lblEl.textContent='📄 رفع PDF Primavera';
+  input.value='';
+}
+// ===== END SCHEDULE TAB =====
+
 function startApp(){
   _initUsersListener();
   loadFromStorage();
@@ -3978,6 +4147,7 @@ function startApp(){
   _initTabPermListener();
   _initProjectPhasesListener();
   _initPurchasesListener();
+  _initScheduleListener();
   _initRoleLabelsListener();
   _initExtraRolesListener();
   populateFormDropdowns();
@@ -4113,6 +4283,68 @@ function startApp(){
 
 <!-- PURCHASES TAB -->
 <div id="tab-purchases" class="content hidden"></div>
+
+<!-- SCHEDULE TAB -->
+<div id="tab-schedule" class="content hidden">
+  <div class="section-title">📅 البرنامج الزمني المعياري</div>
+
+  <!-- Activities card -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div style="font-size:.88rem;font-weight:700;color:var(--accent)">📋 بنود البرنامج الزمني</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <label id="schedPdfLbl" style="background:rgba(34,211,238,.1);color:var(--accent2);border:1px solid rgba(34,211,238,.3);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.78rem;display:inline-flex;align-items:center;gap:5px">
+          📄 رفع PDF Primavera
+          <input type="file" accept=".pdf" style="display:none" onchange="handleSchedPdf(this)">
+        </label>
+        <button onclick="addSchedActivity()" style="background:rgba(99,102,241,.1);color:var(--accent);border:1px solid rgba(99,102,241,.3);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.78rem">➕ بند يدوي</button>
+        <button onclick="saveSchedTemplate()" style="background:var(--green);color:#000;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:.78rem;font-weight:700">💾 حفظ البرنامج</button>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:rgba(255,255,255,.04)">
+        <th style="padding:7px 10px;text-align:right;font-size:.78rem;color:var(--muted)">البند / المرحلة</th>
+        <th style="padding:7px 10px;text-align:center;font-size:.78rem;color:var(--muted);width:110px">المدة (أيام عمل)</th>
+        <th style="width:44px"></th>
+      </tr></thead>
+      <tbody id="schedActBody"></tbody>
+    </table>
+    <div style="padding:8px 10px;font-size:.78rem;color:var(--muted);text-align:left">
+      الإجمالي: <span id="schedTot" style="color:var(--accent);font-weight:700">0 يوم</span>
+    </div>
+  </div>
+
+  <!-- Gantt card -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:10px">📊 مخطط زمني مبسط</div>
+    <div id="schedGantt" style="padding:4px 0;min-height:40px"></div>
+  </div>
+
+  <!-- Delay analysis card -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
+    <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:10px">⏱ تحليل التأخير / التقدم — جميع المشاريع</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+        <thead><tr style="background:rgba(255,255,255,.04)">
+          <th style="padding:7px 10px;text-align:right;color:var(--muted)">المشروع</th>
+          <th style="padding:7px 10px;text-align:right;color:var(--muted)">الكود</th>
+          <th style="padding:7px 10px;text-align:right;color:var(--muted)">تاريخ البدء</th>
+          <th style="padding:7px 10px;text-align:center;color:var(--muted)">الأيام</th>
+          <th style="padding:7px 10px;text-align:center;color:var(--muted)">المستهدف%</th>
+          <th style="padding:7px 10px;text-align:center;color:var(--muted)">الفعلي%</th>
+          <th style="padding:7px 10px;text-align:right;color:var(--muted)">الحالة</th>
+        </tr></thead>
+        <tbody id="schedDelayBody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:.7rem;color:var(--muted);margin-top:8px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:6px">
+      * الفعلي% مستنتج من حالة المشروع الحالية &nbsp;|&nbsp;
+      <span style="color:var(--green)">أخضر = في الميعاد / مبكر</span> &nbsp;/&nbsp;
+      <span style="color:var(--yellow)">أصفر = تأخير ≤ 14 يوم</span> &nbsp;/&nbsp;
+      <span style="color:var(--red)">أحمر = تأخير &gt; 14 يوم</span>
+    </div>
+  </div>
+</div>
 
 <!-- ADMIN PANEL TAB -->
 <div id="tab-admin" class="content hidden">
