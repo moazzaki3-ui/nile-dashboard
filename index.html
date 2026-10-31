@@ -3970,82 +3970,193 @@ function renderStdBoq(){
 
 // Init: wrapped in startApp(), called after successful login
 // ===== SCHEDULE TAB =====
-let _SCHEDULE_DATA={activities:[],totalDays:0};
+// AHR Standard Baseline — Primavera P6, 28/10/2026, Total 205 working days
+const _AHR_PHASES=[
+  {id:'prelim',nameAr:'أعمال تمهيدية',nameEn:'Preliminary Works',startDay:0,duration:3,color:'#6366f1',
+   sub:[{n:'Preliminary Works',d:3,acts:[{id:'A8000',n:'Preliminary Works',d:3},{id:'A8100',n:'start project',d:0}]}]},
+  {id:'sub',nameAr:'الهيكل السفلي',nameEn:'Sub Structure',startDay:3,duration:68,color:'#f59e0b',
+   sub:[
+    {n:'أعمال الحفر والردم',d:68,acts:[
+      {id:'A1001',n:'excavation',d:30},{id:'A1011',n:'Soil Replacement',d:15},
+      {id:'A1030',n:'Soil Boring',d:2},{id:'A1020',n:'backfilling between footing',d:2},
+      {id:'A1140',n:'finishing Earthworking',d:0}]},
+    {n:'أعمال القواعد',d:12,acts:[
+      {id:'A1040',n:'shuttering plain footing',d:2},{id:'A1050',n:'placing plain concrete',d:1},
+      {id:'A1051',n:'de shuttering plain concrete',d:1},{id:'A1060',n:'shuttering RC footing',d:4},
+      {id:'A1070',n:'steel fixing for RC footing',d:3},{id:'A1080',n:'placing RC footing',d:1},
+      {id:'A1090',n:'de shuttering RC footing',d:1}]}]},
+  {id:'isolation',nameAr:'أعمال العزل',nameEn:'Isolation Works',startDay:75,duration:3,color:'#a78bfa',
+   sub:[{n:'Foundation Isolation',d:3,acts:[{id:'A7810',n:'Foundation Isolation Works',d:3}]}]},
+  {id:'super',nameAr:'الهيكل العلوي',nameEn:'Super Structure',startDay:62,duration:62,color:'#10b981',
+   sub:[
+    {n:'دور ZERO',d:10,acts:[{id:'A4810',n:'shuttering zero slab',d:3},{id:'A4820',n:'steel fixing zero slab',d:2},{id:'A4830',n:'placing zero slab',d:1},{id:'A4840',n:'de shuttering zero slab',d:1}]},
+    {n:'الدور البدروم',d:28,acts:[{id:'A3160',n:'shuttering basement columns',d:3},{id:'A3170',n:'steel fixing basement columns',d:2},{id:'A3180',n:'placing basement columns',d:1},{id:'A3190',n:'de shuttering basement columns',d:1},{id:'A3200',n:'shuttering basement slab',d:4},{id:'A3210',n:'steel fixing basement slab',d:3},{id:'A3220',n:'placing basement slab',d:1},{id:'A3230',n:'de shuttering basement slab',d:1}]},
+    {n:'الدور الأرضي',d:14,acts:[{id:'A3240',n:'shuttering ground columns',d:3},{id:'A3250',n:'steel fixing ground columns',d:2},{id:'A3260',n:'placing ground columns',d:1},{id:'A3270',n:'de shuttering ground columns',d:1},{id:'A3280',n:'shuttering ground slab',d:4},{id:'A3290',n:'steel fixing ground slab',d:3},{id:'A3300',n:'placing ground slab',d:1},{id:'A3310',n:'de shuttering ground slab',d:1}]},
+    {n:'الدور الأول',d:14,acts:[{id:'A3320',n:'shuttering first columns',d:3},{id:'A3330',n:'steel fixing first columns',d:2},{id:'A3340',n:'placing first columns',d:1},{id:'A3350',n:'de shuttering first columns',d:1},{id:'A3360',n:'shuttering first slab',d:4},{id:'A3370',n:'steel fixing first slab',d:3},{id:'A3380',n:'placing first slab',d:1},{id:'A3390',n:'de shuttering first slab',d:1}]},
+    {n:'الدور الثاني',d:15,acts:[{id:'A3400',n:'shuttering second columns',d:3},{id:'A3410',n:'steel fixing second columns',d:2},{id:'A3420',n:'placing second columns',d:1},{id:'A3430',n:'de shuttering second columns',d:1},{id:'A3440',n:'shuttering second slab',d:4},{id:'A3450',n:'steel fixing second slab',d:3},{id:'A3460',n:'placing second slab',d:1},{id:'A3470',n:'de shuttering second slab',d:1}]},
+    {n:'الدور الثالث',d:20,acts:[{id:'A3480',n:'shuttering third columns',d:3},{id:'A3490',n:'steel fixing third columns',d:2},{id:'A3500',n:'placing third columns',d:1},{id:'A3510',n:'de shuttering third columns',d:1},{id:'A3520',n:'shuttering third slab',d:4},{id:'A3530',n:'steel fixing third slab',d:3},{id:'A3540',n:'placing third slab',d:1},{id:'A3550',n:'de shuttering third slab',d:1}]}]},
+  {id:'fence',nameAr:'السور والواجهات',nameEn:'Fence & Facades',startDay:62,duration:133,color:'#22d3ee',
+   sub:[
+    {n:'طبقة الواجهة 1',d:70,acts:[{id:'A7890',n:'shuttering column fence layer 1',d:2},{id:'A7870',n:'building fence layer 1',d:3},{id:'A7880',n:'fence isolation layer 1',d:1},{id:'A7800',n:'front facade Crittal',d:2},{id:'A7790',n:'front facade paint & stone',d:3}]},
+    {n:'طبقة الواجهة 2',d:63,acts:[{id:'A5060',n:'building fence layer 2',d:3},{id:'A7640',n:'prepare plaster fence layer 2',d:2},{id:'A7670',n:'prepare elec fence layer 2',d:2},{id:'A7680',n:'paint & stone fence layer 2',d:3},{id:'A7690',n:'finishing elec fence layer 2',d:2}]}]},
+  {id:'finishing',nameAr:'أعمال التشطيب',nameEn:'Finishing Works',startDay:77,duration:128,color:'#ef4444',
+   sub:[
+    {n:'أعمال البناء (طوب)',d:32,acts:[{id:'A5470',n:'ground floor building',d:7},{id:'A5490',n:'first floor building',d:15},{id:'A5500',n:'second floor building',d:7},{id:'A5510',n:'third floor building',d:7},{id:'A6620',n:'basement floor building',d:4}]},
+    {n:'أعمال الكهرباء',d:111,acts:[{id:'A6730',n:'Electrical Conduits in zero slab',d:1},{id:'A6190',n:'Electrical Conduits in basement slab',d:1},{id:'A6200',n:'Electrical Conduits in ground slab',d:1},{id:'A6210',n:'Electrical Conduits in first slab',d:1},{id:'A6220',n:'Electrical Conduits in second slab',d:1},{id:'A6230',n:'Electrical Conduits in third slab',d:1},{id:'A6290',n:'Electricity establishment ground floor',d:3},{id:'A6300',n:'Electricity establishment first floor',d:3},{id:'A6310',n:'Electricity establishment second floor',d:3},{id:'A6320',n:'Electricity establishment third floor',d:3},{id:'A7590',n:'install TV & intercom system',d:4},{id:'A7160',n:'main board & main cables',d:3}]},
+    {n:'أعمال السباكة',d:31,acts:[{id:'A5860',n:'basement plumbing',d:5},{id:'A5870',n:'plumbing finishing skylight',d:3},{id:'A6460',n:'collect plumbing network',d:5}]},
+    {n:'اللياسة والجبس',d:51,acts:[{id:'A5660',n:'prepare basement plastering',d:2},{id:'A5670',n:'prepare plastering ground',d:2},{id:'A5680',n:'prepare plastering first floor',d:2},{id:'A5690',n:'prepare plastering second floor',d:2},{id:'A5710',n:'prepare plastering third floor',d:2},{id:'A5810',n:'plastering ground floor',d:5},{id:'A6750',n:'plastering first floor',d:5},{id:'A6770',n:'plastering second floor',d:5},{id:'A6780',n:'plastering third floor',d:5}]},
+    {n:'الرخام والحجر',d:50,acts:[{id:'A5900',n:'install stairs marble',d:7},{id:'A5910',n:'install entrance wall marble',d:5},{id:'A7380',n:'marble supply',d:15},{id:'A6180',n:'stone works installation',d:30}]},
+    {n:'الدهانات',d:25,acts:[{id:'A5920',n:'skylight painting',d:3},{id:'A5930',n:'basement painting',d:3},{id:'A5940',n:'stairs wall painting',d:3},{id:'A6090',n:'entrance painting',d:2},{id:'A6490',n:'painting left side',d:3},{id:'A6160',n:'painting right side',d:3}]},
+    {n:'التوريد والتركيب',d:29,acts:[{id:'A6360',n:'supply & install garage doors',d:5},{id:'A6020',n:'Alumetal front & side facade',d:4},{id:'A6000',n:'supply & install handrail',d:2},{id:'A6250',n:'supply & install unit doors',d:4},{id:'A6010',n:'supply & install main gate',d:2}]},
+    {n:'التشطيبات النهائية',d:14,acts:[{id:'A6050',n:'install elevator doors',d:7},{id:'A6030',n:'install interlock & landscape',d:7},{id:'A5450',n:'placing slab on grade & ramps',d:3},{id:'A7560',n:'ceramic for void',d:2},{id:'A6060',n:'finish project',d:0}]}]}
+];
+const _AHR_TOTAL=205;
 let _PROJECT_DATES={};
 let _fbSchInit=false;
+let _schedSubTab='summary';
 const _STATUS_PCT={
-  'تحت الترخيص':0,'جارى الترخيص':4,
-  'جارى اعمال الهيكل':25,'جارى تشطيب الوجهات':58,
-  'جارى التشطيب الداخلي':78,'تم الانتهاء من الاعمال':93,
-  'جارى تركيب الأبواب':95,'جارى اللاندسكيب':96,
-  'جارى تركيب العدادات':97,'جارى صب الجراج':97
+  'تحت الترخيص':0,'جارى الترخيص':1,
+  'جارى اعمال الهيكل':33,'جارى تشطيب الوجهات':62,
+  'جارى التشطيب الداخلي':77,'تم الانتهاء من الاعمال':93,
+  'جارى تركيب الأبواب':95,'جارى اللاندسكيب':97,
+  'جارى تركيب العدادات':98,'جارى صب الجراج':96
 };
 function _initScheduleListener(){
   if(_fbSchInit)return;_fbSchInit=true;
-  _DB.ref('/schedule_template').on('value',snap=>{
-    const v=snap.val();if(v)_SCHEDULE_DATA=v;
-    if(document.getElementById('schedActBody'))renderScheduleTab();
-  });
   _DB.ref('/project_start_dates').on('value',snap=>{
     _PROJECT_DATES=snap.val()||{};
-    if(document.getElementById('schedDelayBody'))_drawSchedDelay();
+    if(document.getElementById('schedDelayBody'))_drawSchedProjects();
   });
 }
-function renderScheduleTab(){
-  const acts=_SCHEDULE_DATA.activities||[];
-  const tot=_SCHEDULE_DATA.totalDays||0;
-  const tbody=document.getElementById('schedActBody');
-  if(tbody&&acts.length){
-    tbody.innerHTML=acts.map(a=>`<tr>
-      <td style="padding:6px 8px"><input class="sact-n" type="text" value="${a.name.replace(/</g,'&lt;').replace(/"/g,'&quot;')}" style="width:100%;background:var(--bg);color:var(--text,#e2e8f0);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:inherit;font-size:.8rem"></td>
-      <td style="padding:6px 8px;text-align:center"><input class="sact-d" type="number" min="1" value="${a.duration}" oninput="_updSchedTot()" style="width:70px;background:var(--bg);color:var(--text,#e2e8f0);border:1px solid var(--border);border-radius:4px;padding:4px 6px;text-align:center"></td>
-      <td style="padding:6px 8px;text-align:center"><button onclick="this.closest('tr').remove();_updSchedTot()" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.8rem">✕</button></td>
-    </tr>`).join('');
-    document.getElementById('schedTot').textContent=tot+' يوم';
-  }
-  _drawSchedGantt(acts,tot);
-  _drawSchedDelay();
+function renderScheduleTab(){_showSchedSubTab(_schedSubTab);}
+function _showSchedSubTab(tab){
+  _schedSubTab=tab;
+  ['summary','detail','projects'].forEach(t=>{
+    const el=document.getElementById('schedSub-'+t);
+    if(el)el.style.display=(t===tab)?'':'none';
+    const btn=document.getElementById('schedBtn-'+t);
+    if(btn){
+      btn.style.background=(t===tab)?'var(--card)':'rgba(255,255,255,.04)';
+      btn.style.color=(t===tab)?'var(--accent)':'var(--muted)';
+      btn.style.borderColor=(t===tab)?'var(--accent)':'var(--border)';
+    }
+  });
+  if(tab==='summary')_drawSchedSummary();
+  if(tab==='detail')_drawSchedDetail();
+  if(tab==='projects')_drawSchedProjects();
 }
-function _updSchedTot(){
-  let t=0;document.querySelectorAll('.sact-d').forEach(i=>t+=parseInt(i.value)||0);
-  const el=document.getElementById('schedTot');if(el)el.textContent=t+' يوم';
-}
-function _drawSchedGantt(acts,total){
-  const el=document.getElementById('schedGantt');if(!el)return;
-  if(!acts||!acts.length||!total){el.innerHTML='<div style="color:var(--muted);padding:16px;text-align:center">لا يوجد برنامج بعد — أضف بنوداً واضغط حفظ</div>';return;}
-  const C=['#6366f1','#22d3ee','#f59e0b','#10b981','#ef4444','#a78bfa','#fb923c','#4ade80','#38bdf8','#fbbf24'];
-  let d=0;
-  el.innerHTML=acts.map((a,i)=>{
-    const L=(d/total*100).toFixed(1);const W=(a.duration/total*100).toFixed(1);d+=a.duration;
-    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-      <div style="min-width:150px;max-width:150px;font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;color:#e2e8f0" title="${a.name}">${a.name}</div>
-      <div style="flex:1;background:rgba(255,255,255,.06);border-radius:3px;height:20px;position:relative;overflow:hidden;direction:ltr">
-        <div style="position:absolute;left:${L}%;width:${W}%;height:100%;background:${C[i%C.length]};display:flex;align-items:center;justify-content:center;font-size:.68rem;color:#fff;font-weight:700;overflow:hidden">${a.duration}ي</div>
+function _drawSchedSummary(){
+  const c=document.getElementById('schedSumContainer');if(!c)return;
+  const total=_AHR_TOTAL;
+  const kpi=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px">
+    <div style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.35);border-radius:8px;padding:10px;text-align:center">
+      <div style="font-size:1.5rem;font-weight:800;color:var(--accent)">${total}</div>
+      <div style="font-size:.7rem;color:var(--muted)">إجمالي أيام العمل</div>
+    </div>
+    <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:10px;text-align:center">
+      <div style="font-size:.95rem;font-weight:700;color:var(--green)">15 يون 2026</div>
+      <div style="font-size:.7rem;color:var(--muted)">تاريخ البداية</div>
+    </div>
+    <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px;text-align:center">
+      <div style="font-size:.95rem;font-weight:700;color:var(--red)">22 فبر 2027</div>
+      <div style="font-size:.7rem;color:var(--muted)">تاريخ الانتهاء</div>
+    </div>
+    <div style="background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.3);border-radius:8px;padding:10px;text-align:center">
+      <div style="font-size:1.5rem;font-weight:800;color:var(--accent2)">${_AHR_PHASES.length}</div>
+      <div style="font-size:.7rem;color:var(--muted)">مراحل رئيسية</div>
+    </div>
+  </div>`;
+  const markers=[0,25,50,75,100,125,150,175,205];
+  const mRow=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+    <div style="min-width:145px"></div>
+    <div style="flex:1;direction:ltr;position:relative;height:14px">
+      ${markers.map(d=>`<span style="position:absolute;left:${(d/total*100).toFixed(1)}%;font-size:.62rem;color:var(--muted);transform:translateX(-50%)">${d}</span>`).join('')}
+    </div><div style="min-width:45px"></div>
+  </div>`;
+  const rows=_AHR_PHASES.map(ph=>{
+    const L=(ph.startDay/total*100).toFixed(1);
+    const W=(ph.duration/total*100).toFixed(1);
+    const endDay=ph.startDay+ph.duration;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+      <div style="min-width:145px;max-width:145px;font-size:.78rem;color:#e2e8f0;text-align:right;font-weight:600;line-height:1.3">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${ph.color};margin-left:5px;vertical-align:middle"></span>${ph.nameAr}
       </div>
+      <div style="flex:1;background:rgba(255,255,255,.05);border-radius:4px;height:30px;position:relative;overflow:hidden;direction:ltr">
+        <div style="position:absolute;left:${L}%;width:${W}%;height:100%;background:${ph.color};opacity:.9;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#fff;font-weight:700;overflow:hidden;padding:0 4px;white-space:nowrap">${ph.duration}ي</div>
+      </div>
+      <div style="min-width:45px;font-size:.68rem;color:var(--muted);text-align:left;line-height:1.2">${ph.startDay}→${endDay}</div>
     </div>`;
   }).join('');
+  c.innerHTML=kpi+mRow+`<div style="margin-top:2px">${rows}</div>
+  <div style="font-size:.7rem;color:var(--muted);margin-top:10px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:6px">
+    📌 المحور: أيام عمل (بدون الجمعة) | المراحل المتوازية: الهيكل العلوي + السور + التشطيب تسير بالتوازي | AHR Standard Baseline
+  </div>`;
 }
-function _drawSchedDelay(){
+function _drawSchedDetail(){
+  const c=document.getElementById('schedDetContainer');if(!c)return;
+  let html=_AHR_PHASES.map(ph=>{
+    const end=ph.startDay+ph.duration;
+    const subHtml=(ph.sub||[]).map(sp=>`
+      <div style="margin-bottom:5px">
+        <div style="font-size:.76rem;font-weight:700;color:var(--accent2);padding:5px 10px;background:rgba(255,255,255,.04);border-radius:4px;margin-bottom:3px;display:flex;justify-content:space-between">
+          <span>${sp.n}</span><span style="color:var(--muted)">${sp.d} يوم</span>
+        </div>
+        ${(sp.acts||[]).map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 16px;font-size:.73rem;border-bottom:1px solid rgba(255,255,255,.03)">
+          <span style="color:var(--muted);font-size:.68rem;min-width:52px">${a.id}</span>
+          <span style="color:#cbd5e1;flex:1;padding:0 8px">${a.n}</span>
+          <span style="color:${ph.color};font-weight:700;min-width:34px;text-align:left">${a.d}ي</span>
+        </div>`).join('')}
+      </div>`).join('');
+    return `<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">
+      <div onclick="var nx=this.nextElementSibling;nx.style.display=nx.style.display?'':'none';this.querySelector('.sch-tog').textContent=nx.style.display?'▼':'▲'"
+           style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,.04);cursor:pointer;user-select:none">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div style="width:13px;height:13px;border-radius:3px;background:${ph.color};flex-shrink:0"></div>
+          <span style="font-weight:700;font-size:.85rem;color:#e2e8f0">${ph.nameAr}</span>
+          <span style="font-size:.7rem;color:var(--muted)">${ph.nameEn}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:.72rem;color:var(--muted)">يوم ${ph.startDay} → ${end}</span>
+          <span style="font-size:.82rem;font-weight:800;color:${ph.color}">${ph.duration} يوم</span>
+          <span class="sch-tog" style="font-size:.68rem;color:var(--muted)">▼</span>
+        </div>
+      </div>
+      <div style="display:none;padding:8px 12px">${subHtml}</div>
+    </div>`;
+  }).join('');
+  c.innerHTML=html||'<div style="color:var(--muted);padding:20px;text-align:center">لا توجد بيانات</div>';
+}
+function _drawSchedProjects(){
   const tbody=document.getElementById('schedDelayBody');if(!tbody)return;
-  const hasSched=(_SCHEDULE_DATA.activities||[]).length>0&&(_SCHEDULE_DATA.totalDays||0)>0;
-  const tot=_SCHEDULE_DATA.totalDays||365;
+  const total=_AHR_TOTAL;
+  // Show all projects (both active + permit-stage, so transitioning ones appear)
   tbody.innerHTML=PROJECTS.map(p=>{
     const sd=_PROJECT_DATES[p.code]||'';
     const elapsed=sd?(typeof calcWorkingDays==='function'?calcWorkingDays(sd):0):null;
-    const expPct=hasSched&&elapsed!==null?Math.min(100,Math.round(elapsed/tot*100)):null;
+    const expPct=elapsed!==null?Math.min(100,Math.round(elapsed/total*100)):null;
     const actPct=(_STATUS_PCT[p.status]!==undefined)?_STATUS_PCT[p.status]:null;
     let delay=null;
-    if(expPct!==null&&actPct!==null)delay=Math.round((expPct-actPct)/100*tot);
+    if(expPct!==null&&actPct!==null)delay=Math.round((expPct-actPct)/100*total);
     const dc=delay===null?'var(--muted)':delay<0?'var(--green)':delay===0?'var(--green)':delay<=14?'var(--yellow)':'var(--red)';
-    const dl=delay===null?'—':delay<0?`⬆ مبكر ${Math.abs(delay)} يوم`:delay===0?'✔ في الميعاد':`⬇ متأخر ${delay} يوم`;
+    const dl=delay===null?'—':delay<0?`⬆ مبكر ${Math.abs(delay)}ي`:delay===0?'✔ ميعاد':`⬇ متأخر ${delay}ي`;
+    // Find which phase the project should be in based on expPct
+    let phaseHint='—';
+    if(expPct!==null){
+      const day=Math.round(expPct/100*total);
+      for(let i=_AHR_PHASES.length-1;i>=0;i--){
+        if(day>=_AHR_PHASES[i].startDay){phaseHint=_AHR_PHASES[i].nameAr;break;}
+      }
+    }
     return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:7px 10px;font-weight:700;font-size:.8rem">${p.name}</td>
-      <td style="padding:7px 10px;color:var(--muted);font-size:.75rem">${p.code}</td>
-      <td style="padding:7px 6px"><input type="date" value="${sd}" onchange="saveProjectDate('${p.code}',this.value)" style="background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:.75rem;font-family:inherit"></td>
-      <td style="padding:7px 10px;color:var(--muted);text-align:center;font-size:.8rem">${elapsed!==null?elapsed+' ي':'—'}</td>
-      <td style="padding:7px 10px;color:#a78bfa;text-align:center;font-weight:700;font-size:.8rem">${expPct!==null?expPct+'%':'—'}</td>
-      <td style="padding:7px 10px;color:var(--accent2);text-align:center;font-weight:700;font-size:.8rem">${actPct!==null?actPct+'%':'—'}</td>
-      <td style="padding:7px 10px;color:${dc};font-weight:700;font-size:.8rem;white-space:nowrap">${dl}</td>
+      <td style="padding:6px 10px;font-weight:700;font-size:.8rem">${p.name}</td>
+      <td style="padding:6px 8px;color:var(--muted);font-size:.72rem">${p.code}</td>
+      <td style="padding:6px 8px;font-size:.72rem;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.status||''}">${p.status||'—'}</td>
+      <td style="padding:6px 6px"><input type="date" value="${sd}" onchange="saveProjectDate('${p.code}',this.value)" style="background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:.72rem;font-family:inherit;width:130px"></td>
+      <td style="padding:6px 8px;color:var(--muted);text-align:center;font-size:.78rem">${elapsed!==null?elapsed+'ي':'—'}</td>
+      <td style="padding:6px 8px;color:#a78bfa;text-align:center;font-weight:700;font-size:.78rem">${expPct!==null?expPct+'%':'—'}</td>
+      <td style="padding:6px 8px;color:var(--accent2);text-align:center;font-weight:700;font-size:.78rem">${actPct!==null?actPct+'%':'—'}</td>
+      <td style="padding:6px 8px;font-size:.7rem;color:var(--muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${phaseHint}">${phaseHint}</td>
+      <td style="padding:6px 8px;color:${dc};font-weight:700;font-size:.78rem;white-space:nowrap">${dl}</td>
     </tr>`;
   }).join('');
 }
@@ -4053,84 +4164,7 @@ function saveProjectDate(code,val){
   _PROJECT_DATES[code]=val||null;
   if(val){_DB.ref('/project_start_dates/'+code).set(val).then(()=>_fbOk()).catch(e=>_fbErr('psd',e));}
   else{_DB.ref('/project_start_dates/'+code).remove().then(()=>_fbOk());}
-  _drawSchedDelay();
-}
-function addSchedActivity(){
-  const tb=document.getElementById('schedActBody');if(!tb)return;
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td style="padding:6px 8px"><input class="sact-n" type="text" placeholder="اسم البند / المرحلة" style="width:100%;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:inherit;font-size:.8rem"></td><td style="padding:6px 8px;text-align:center"><input class="sact-d" type="number" min="1" placeholder="0" oninput="_updSchedTot()" style="width:70px;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:4px 6px;text-align:center"></td><td style="padding:6px 8px;text-align:center"><button onclick="this.closest('tr').remove();_updSchedTot()" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.8rem">✕</button></td>`;
-  tb.appendChild(tr);tr.querySelector('.sact-n').focus();
-}
-function saveSchedTemplate(){
-  const acts=[];
-  document.querySelectorAll('#schedActBody tr').forEach(tr=>{
-    const n=tr.querySelector('.sact-n')?.value?.trim();
-    const d=parseInt(tr.querySelector('.sact-d')?.value||0);
-    if(n&&d>0)acts.push({name:n,duration:d});
-  });
-  if(!acts.length){addChatMsg('⚠️ أضف بنوداً أولاً','error');return;}
-  const tot=acts.reduce((s,a)=>s+a.duration,0);
-  _SCHEDULE_DATA={activities:acts,totalDays:tot};
-  _DB.ref('/schedule_template').set(_SCHEDULE_DATA).then(()=>{
-    addChatMsg('✅ تم حفظ البرنامج — '+acts.length+' بند / '+tot+' يوم عمل','bot');
-    _drawSchedGantt(acts,tot);_drawSchedDelay();
-  }).catch(e=>_fbErr('sched',e));
-}
-async function handleSchedPdf(input){
-  const file=input.files[0];if(!file)return;
-  const pdfLib=window.pdfjsLib;
-  if(!pdfLib){addChatMsg('⚠️ PDF.js لم يُحمَّل بعد، انتظر لحظة وأعد المحاولة','error');input.value='';return;}
-  pdfLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-  const lblEl=document.getElementById('schedPdfLbl');
-  if(lblEl)lblEl.textContent='جارى التحليل...';
-  try{
-    const ab=await file.arrayBuffer();
-    const pdf=await pdfLib.getDocument({data:new Uint8Array(ab)}).promise;
-    const allLines=[];
-    for(let pg=1;pg<=pdf.numPages;pg++){
-      const page=await pdf.getPage(pg);
-      const tc=await page.getTextContent();
-      const yG={};
-      tc.items.forEach(item=>{
-        const y=Math.round(item.transform[5]);
-        if(!yG[y])yG[y]=[];
-        yG[y].push({x:item.transform[4],t:item.str});
-      });
-      Object.keys(yG).sort((a,b)=>b-a).forEach(y=>{
-        const ln=yG[y].sort((a,b)=>b.x-a.x).map(i=>i.t).join(' ').trim();
-        if(ln)allLines.push(ln);
-      });
-    }
-    const acts=[];
-    allLines.forEach(line=>{
-      if(!line||line.length<3)return;
-      const parts=line.trim().split(/\s+/);
-      const lastNum=parseInt(parts[parts.length-1]);
-      if(isNaN(lastNum)||lastNum<1||lastNum>999)return;
-      const name=parts.slice(0,-1).join(' ').trim();
-      if(!name||name.length<2)return;
-      if(/total|الإجمالي|duration|مدة|page|صفحة|original|baseline|planned|^\d+$/i.test(name))return;
-      acts.push({name,duration:lastNum});
-    });
-    if(acts.length>0){
-      const tbody=document.getElementById('schedActBody');
-      if(tbody){
-        tbody.innerHTML=acts.map(a=>`<tr>
-          <td style="padding:6px 8px"><input class="sact-n" type="text" value="${a.name.replace(/</g,'&lt;').replace(/"/g,'&quot;')}" style="width:100%;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:inherit;font-size:.8rem"></td>
-          <td style="padding:6px 8px;text-align:center"><input class="sact-d" type="number" min="1" value="${a.duration}" oninput="_updSchedTot()" style="width:70px;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:4px 6px;text-align:center"></td>
-          <td style="padding:6px 8px;text-align:center"><button onclick="this.closest('tr').remove();_updSchedTot()" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.8rem">✕</button></td>
-        </tr>`).join('');
-        _updSchedTot();
-      }
-      addChatMsg('✅ استُخرج '+acts.length+' بند من الـ PDF — راجع الجدول وعدّل لو لزم، ثم اضغط حفظ البرنامج','bot');
-    } else {
-      addChatMsg('⚠️ لم يُستخرج بنود تلقائياً — أدخلهم يدوياً بالضغط على "بند يدوي"','error');
-    }
-  }catch(e){
-    addChatMsg('⚠️ خطأ في قراءة PDF: '+e.message,'error');
-  }
-  if(lblEl)lblEl.textContent='📄 رفع PDF Primavera';
-  input.value='';
+  _drawSchedProjects();
 }
 // ===== END SCHEDULE TAB =====
 
@@ -4286,62 +4320,58 @@ function startApp(){
 
 <!-- SCHEDULE TAB -->
 <div id="tab-schedule" class="content hidden">
-  <div class="section-title">📅 البرنامج الزمني المعياري</div>
+  <div class="section-title">📅 البرنامج الزمني — AHR Standard Baseline</div>
 
-  <!-- Activities card -->
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <div style="font-size:.88rem;font-weight:700;color:var(--accent)">📋 بنود البرنامج الزمني</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <label id="schedPdfLbl" style="background:rgba(34,211,238,.1);color:var(--accent2);border:1px solid rgba(34,211,238,.3);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.78rem;display:inline-flex;align-items:center;gap:5px">
-          📄 رفع PDF Primavera
-          <input type="file" accept=".pdf" style="display:none" onchange="handleSchedPdf(this)">
-        </label>
-        <button onclick="addSchedActivity()" style="background:rgba(99,102,241,.1);color:var(--accent);border:1px solid rgba(99,102,241,.3);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.78rem">➕ بند يدوي</button>
-        <button onclick="saveSchedTemplate()" style="background:var(--green);color:#000;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:.78rem;font-weight:700">💾 حفظ البرنامج</button>
+  <!-- Sub-tab nav -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <button id="schedBtn-summary" onclick="_showSchedSubTab('summary')" style="background:var(--card);color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif;font-weight:700">📊 ملخص المراحل</button>
+    <button id="schedBtn-detail" onclick="_showSchedSubTab('detail')" style="background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif">📋 التفاصيل والبنود</button>
+    <button id="schedBtn-projects" onclick="_showSchedSubTab('projects')" style="background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif">⏱ تحليل المشاريع</button>
+    <div style="flex:1;text-align:left;font-size:.7rem;color:var(--muted)">205 يوم عمل &nbsp;|&nbsp; 15 يون 2026 → 22 فبر 2027</div>
+  </div>
+
+  <!-- SUMMARY sub-tab -->
+  <div id="schedSub-summary">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
+      <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:12px">📊 مخطط Gantt — المراحل الرئيسية (205 يوم عمل)</div>
+      <div id="schedSumContainer"></div>
+    </div>
+  </div>
+
+  <!-- DETAIL sub-tab -->
+  <div id="schedSub-detail" style="display:none">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
+      <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:12px">📋 البيانات التفصيلية — اضغط على المرحلة للتوسيع</div>
+      <div id="schedDetContainer"></div>
+    </div>
+  </div>
+
+  <!-- PROJECTS sub-tab -->
+  <div id="schedSub-projects" style="display:none">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
+      <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:10px">⏱ تحليل التأخير / التقدم — جميع المشاريع</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+          <thead><tr style="background:rgba(255,255,255,.05)">
+            <th style="padding:7px 10px;text-align:right;color:var(--muted);white-space:nowrap">المشروع</th>
+            <th style="padding:7px 8px;text-align:right;color:var(--muted)">الكود</th>
+            <th style="padding:7px 8px;text-align:right;color:var(--muted)">الحالة</th>
+            <th style="padding:7px 8px;text-align:right;color:var(--muted);white-space:nowrap">تاريخ البدء</th>
+            <th style="padding:7px 8px;text-align:center;color:var(--muted)">الأيام</th>
+            <th style="padding:7px 8px;text-align:center;color:var(--muted)">مستهدف%</th>
+            <th style="padding:7px 8px;text-align:center;color:var(--muted)">فعلي%</th>
+            <th style="padding:7px 8px;text-align:right;color:var(--muted)">المرحلة المتوقعة</th>
+            <th style="padding:7px 8px;text-align:right;color:var(--muted)">التأخير</th>
+          </tr></thead>
+          <tbody id="schedDelayBody"></tbody>
+        </table>
       </div>
-    </div>
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="background:rgba(255,255,255,.04)">
-        <th style="padding:7px 10px;text-align:right;font-size:.78rem;color:var(--muted)">البند / المرحلة</th>
-        <th style="padding:7px 10px;text-align:center;font-size:.78rem;color:var(--muted);width:110px">المدة (أيام عمل)</th>
-        <th style="width:44px"></th>
-      </tr></thead>
-      <tbody id="schedActBody"></tbody>
-    </table>
-    <div style="padding:8px 10px;font-size:.78rem;color:var(--muted);text-align:left">
-      الإجمالي: <span id="schedTot" style="color:var(--accent);font-weight:700">0 يوم</span>
-    </div>
-  </div>
-
-  <!-- Gantt card -->
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px">
-    <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:10px">📊 مخطط زمني مبسط</div>
-    <div id="schedGantt" style="padding:4px 0;min-height:40px"></div>
-  </div>
-
-  <!-- Delay analysis card -->
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
-    <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:10px">⏱ تحليل التأخير / التقدم — جميع المشاريع</div>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:.8rem">
-        <thead><tr style="background:rgba(255,255,255,.04)">
-          <th style="padding:7px 10px;text-align:right;color:var(--muted)">المشروع</th>
-          <th style="padding:7px 10px;text-align:right;color:var(--muted)">الكود</th>
-          <th style="padding:7px 10px;text-align:right;color:var(--muted)">تاريخ البدء</th>
-          <th style="padding:7px 10px;text-align:center;color:var(--muted)">الأيام</th>
-          <th style="padding:7px 10px;text-align:center;color:var(--muted)">المستهدف%</th>
-          <th style="padding:7px 10px;text-align:center;color:var(--muted)">الفعلي%</th>
-          <th style="padding:7px 10px;text-align:right;color:var(--muted)">الحالة</th>
-        </tr></thead>
-        <tbody id="schedDelayBody"></tbody>
-      </table>
-    </div>
-    <div style="font-size:.7rem;color:var(--muted);margin-top:8px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:6px">
-      * الفعلي% مستنتج من حالة المشروع الحالية &nbsp;|&nbsp;
-      <span style="color:var(--green)">أخضر = في الميعاد / مبكر</span> &nbsp;/&nbsp;
-      <span style="color:var(--yellow)">أصفر = تأخير ≤ 14 يوم</span> &nbsp;/&nbsp;
-      <span style="color:var(--red)">أحمر = تأخير &gt; 14 يوم</span>
+      <div style="font-size:.68rem;color:var(--muted);margin-top:8px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:6px">
+        * الفعلي% مستنتج من حالة المشروع | الإجمالي = 205 يوم عمل (AHR Standard Baseline) |
+        <span style="color:var(--green)">أخضر = في الميعاد/مبكر</span> /
+        <span style="color:var(--yellow)">أصفر = تأخير ≤14ي</span> /
+        <span style="color:var(--red)">أحمر = تأخير &gt;14ي</span>
+      </div>
     </div>
   </div>
 </div>
