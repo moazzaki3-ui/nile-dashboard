@@ -823,21 +823,23 @@ function renderKPIs(){
   `;
 }
 function renderStatusChart(){
-  const ss=[
-    {l:'تم الانتهاء',k:'تم الانتهاء من الاعمال',c:'var(--green)'},
-    {l:'جارى الأبواب',k:'جارى تركيب الأبواب',c:'#22d3ee'},
-    {l:'اللاندسكيب',k:'جارى اللاندسكيب',c:'#4ade80'},
-    {l:'العدادات',k:'جارى تركيب العدادات',c:'#a78bfa'},
-    {l:'الجراج',k:'جارى صب الجراج',c:'#fb923c'},
-    {l:'تشطيب وجهات',k:'جارى تشطيب الوجهات',c:'var(--yellow)'},
-    {l:'تشطيب داخلي',k:'جارى التشطيب الداخلي',c:'var(--orange)'},
-    {l:'هيكل جارى',k:'جارى اعمال الهيكل',c:'var(--accent)'},
-    {l:'جارى الترخيص',k:'جارى الترخيص',c:'var(--muted)'},
-    {l:'تحت الترخيص',k:'تحت الترخيص',c:'rgba(148,163,184,.35)'},
-  ];
   const t=PROJECTS.length;
+  const ss=[
+    {l:'تم الانتهاء',    k:'تم الانتهاء من الاعمال',       c:'var(--green)'},
+    {l:'✔ تم الباب',     tag:'door',                        c:'#22d3ee'},
+    {l:'✔ اللاندسكيب',  tag:'landscape',                   c:'#4ade80'},
+    {l:'✔ العدادات',    tag:'meters',                      c:'#a78bfa'},
+    {l:'✔ الجراج',      tag:'garage',                      c:'#fb923c'},
+    {l:'تشطيب وجهات',   k:'جارى تشطيب الوجهات',            c:'var(--yellow)'},
+    {l:'تشطيب داخلي',   k:'جارى التشطيب الداخلي',          c:'var(--orange)'},
+    {l:'هيكل جارى',     k:'جارى اعمال الهيكل',             c:'var(--accent)'},
+    {l:'جارى الترخيص',  k:'جارى الترخيص',                  c:'var(--muted)'},
+    {l:'تحت الترخيص',   k:'تحت الترخيص',                   c:'rgba(148,163,184,.35)'},
+  ];
   document.getElementById('statusChart').innerHTML=ss.map(s=>{
-    const n=PROJECTS.filter(p=>p.status===s.k).length;
+    const n=s.tag
+      ?PROJECTS.filter(p=>_pv(p.code,s.tag)==='تم').length
+      :PROJECTS.filter(p=>p.status===s.k).length;
     return `<div class="bar-row"><span class="lbl">${s.l}</span><div class="bar-wrap"><div class="bar-fill" style="width:${n/t*100}%;background:${s.c}"></div></div><span class="bar-val">${n}</span></div>`;
   }).join('');
 }
@@ -1588,7 +1590,7 @@ let _PROJECT_PHASES_DATA = {};
 function _initProjectPhasesListener(){
   _DB.ref('/project_phases').on('value', snap=>{
     _PROJECT_PHASES_DATA = snap.val() || {};
-    if(document.getElementById('projectBody')) filterProjects();
+    if(document.getElementById('projectBody')){filterProjects();renderKPIs();renderStatusChart();}
   }, err=>_fbErr('project_phases',err));
 }
 function updateProjectPhase(code, field, val){
@@ -1598,6 +1600,7 @@ function updateProjectPhase(code, field, val){
   _DB.ref('/project_phases/'+code).update(upd).then(()=>_fbOk()).catch(e=>_fbErr('phases',e));
   filterProjects();
   renderKPIs();
+  renderStatusChart();
 }
 function _phSel(code, field, val, lbl){
   const col = val==='تم'?'var(--green)':val==='جارى'?'var(--yellow)':'var(--muted)';
