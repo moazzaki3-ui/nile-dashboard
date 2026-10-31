@@ -793,15 +793,17 @@ function ring(pct,sz=56){
   </svg>`;
 }
 
+function _pv(code,f){const ph=_PROJECT_PHASES_DATA[code];return ph&&ph[f]!==undefined?ph[f]:(PROJECTS.find(x=>x.code===code)||{})[f];}
+
 function renderKPIs(){
   const total=PROJECTS.length,done=PROJECTS.filter(p=>_DONE_STATUSES.includes(p.status)).length;
   const inProg=PROJECTS.filter(p=>['جارى اعمال الهيكل','جارى التشطيب الداخلي','جارى تشطيب الوجهات'].includes(p.status)).length;
   const permit=PROJECTS.filter(p=>p.status.includes('الترخيص')).length;
   const avg=Math.round(PROJECTS.reduce((s,p)=>s+p.pct,0)/total);
-  const full=PROJECTS.filter(p=>_DONE_STATUSES.includes(p.status)&&p.internal==='تم'&&p.door==='تم'&&p.meters==='تم'&&p.landscape==='تم').length;
-  const cntMeters=PROJECTS.filter(p=>p.meters==='تم').length;
-  const cntDoor=PROJECTS.filter(p=>p.door==='تم').length;
-  const cntGarage=PROJECTS.filter(p=>p.garage==='تم').length;
+  const full=PROJECTS.filter(p=>_DONE_STATUSES.includes(p.status)&&_pv(p.code,'internal')==='تم'&&_pv(p.code,'door')==='تم'&&_pv(p.code,'meters')==='تم'&&_pv(p.code,'landscape')==='تم').length;
+  const cntMeters=PROJECTS.filter(p=>_pv(p.code,'meters')==='تم').length;
+  const cntDoor=PROJECTS.filter(p=>_pv(p.code,'door')==='تم').length;
+  const cntGarage=PROJECTS.filter(p=>_pv(p.code,'garage')==='تم').length;
   const startedProj=PROJECTS.filter(p=>!p.status.includes('الترخيص'));
   const avgStarted=startedProj.length?Math.round(startedProj.reduce((s,p)=>s+p.pct,0)/startedProj.length):0;
   const activeProj=PROJECTS.filter(p=>p.status.startsWith('جارى'));
@@ -895,20 +897,20 @@ function filterProjects(){
     if(q&&!p.name.toLowerCase().includes(q)&&!p.code.toLowerCase().includes(q)) return false;
     if(sf&&p.status!==sf) return false;
     if(lf&&p.locLabel!==lf) return false;
-    if(!matchF(p.door,df)) return false;
-    if(!matchF(p.internal,inf)) return false;
-    if(!matchF(p.garage,gf)) return false;
-    if(!matchF(p.landscape,lnf)) return false;
-    if(!matchF(p.meters,mf)) return false;
+    if(!matchF(_pv(p.code,'door'),df)) return false;
+    if(!matchF(_pv(p.code,'internal'),inf)) return false;
+    if(!matchF(_pv(p.code,'garage'),gf)) return false;
+    if(!matchF(_pv(p.code,'landscape'),lnf)) return false;
+    if(!matchF(_pv(p.code,'meters'),mf)) return false;
     if(_kpiFilter){
       const t=_kpiFilter.type;
       if(t==='تمام'&&!_DONE_STATUSES.includes(p.status)) return false;
-      if(t==='تسليم'&&!(_DONE_STATUSES.includes(p.status)&&p.internal==='تم'&&p.door==='تم'&&p.meters==='تم'&&p.landscape==='تم')) return false;
+      if(t==='تسليم'&&!(_DONE_STATUSES.includes(p.status)&&_pv(p.code,'internal')==='تم'&&_pv(p.code,'door')==='تم'&&_pv(p.code,'meters')==='تم'&&_pv(p.code,'landscape')==='تم')) return false;
       if(t==='تنفيذ'&&!_IP.includes(p.status)) return false;
       if(t==='ترخيص'&&!p.status.includes('الترخيص')) return false;
-      if(t==='عداد'&&p.meters!=='تم') return false;
-      if(t==='باب'&&p.door!=='تم') return false;
-      if(t==='جراج'&&p.garage!=='تم') return false;
+      if(t==='عداد'&&_pv(p.code,'meters')!=='تم') return false;
+      if(t==='باب'&&_pv(p.code,'door')!=='تم') return false;
+      if(t==='جراج'&&_pv(p.code,'garage')!=='تم') return false;
     }
     return true;
   });
