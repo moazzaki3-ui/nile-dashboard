@@ -2166,11 +2166,21 @@ function populateFormDropdowns(){
   const s1=document.getElementById('formProject');
   const s2=document.getElementById('formProjectTotal');
   const s3=document.getElementById('formProjectStatus');
+  const s4=document.getElementById('formTrackProject');
   if(!s1)return;
   const opts=_buildAllProjOpts('-- اختر مشروع --');
   s1.innerHTML=opts;
   s2.innerHTML=opts;
   if(s3)s3.innerHTML=opts;
+  // Tracking select: only active codes
+  if(s4){
+    const ACTIVE_CODES=['P-003','P-004','P-005','P-006','P-014','P-015','P-016','P-017','P-021','P-034','P-035','P-125'];
+    s4.innerHTML='<option value="">-- اختر مشروع --</option>'+
+      ACTIVE_CODES.map(c=>{
+        const p=PROJECTS.find(x=>x.code===c);
+        return `<option value="${c}">${c} — ${p?p.name:c}</option>`;
+      }).join('');
+  }
   // Re-apply search if active
   const si=document.getElementById('projSearchInput');
   if(si&&si.value.trim()) filterProjSelect();
@@ -2272,6 +2282,47 @@ function submitFormUpdate(){
   // Reset form
   document.getElementById('formPct').value='';
   document.getElementById('formNote').value='';
+}
+
+function loadTrackingData(){
+  const code=document.getElementById('formTrackProject').value;
+  if(!code)return;
+  const upd=UPDATES.find(u=>u.code===code);
+  if(upd){
+    document.getElementById('formTrackActivity').value=upd.current_activity||'';
+    document.getElementById('formTrackStart').value=upd.start||'';
+    document.getElementById('formTrackPlanned').value=upd.planned_pct!=null?upd.planned_pct:'';
+    document.getElementById('formTrackBLDays').value=upd.bl_days||'';
+  } else {
+    document.getElementById('formTrackActivity').value='';
+    document.getElementById('formTrackStart').value='';
+    document.getElementById('formTrackPlanned').value='';
+    document.getElementById('formTrackBLDays').value='';
+  }
+}
+
+function submitTrackingUpdate(){
+  const code=document.getElementById('formTrackProject').value;
+  if(!code){addChatMsg('⚠️ اختر مشروع أولاً','error');return;}
+  const activity=(document.getElementById('formTrackActivity').value||'').trim();
+  const start=document.getElementById('formTrackStart').value||'';
+  const plannedRaw=document.getElementById('formTrackPlanned').value;
+  const blDaysRaw=document.getElementById('formTrackBLDays').value;
+  const proj=PROJECTS.find(p=>p.code===code);
+  let upd=UPDATES.find(u=>u.code===code);
+  if(!upd){
+    UPDATES.push({code,status:proj?proj.status:'',pct:proj?proj.pct||0:0,packages:[],last_updated:todayAr()});
+    upd=UPDATES[UPDATES.length-1];
+  }
+  if(activity)upd.current_activity=activity;
+  if(start)upd.start=start;
+  if(plannedRaw!==''&&!isNaN(parseInt(plannedRaw)))upd.planned_pct=parseInt(plannedRaw);
+  if(blDaysRaw!==''&&!isNaN(parseInt(blDaysRaw)))upd.bl_days=parseInt(blDaysRaw);
+  upd.last_updated=todayAr();
+  refreshAll();
+  saveToStorage();
+  addChatMsg('✅ تم تحديث متابعة <b>'+_projName(code)+'</b>'+(activity?' — النشاط: '+activity:''),'bot');
+  addChangelog('تحديث متابعة '+code+(activity?' — '+activity:''));
 }
 
 function submitTotalUpdate(){
@@ -4213,6 +4264,37 @@ function startApp(){
         </div>
         <button class="form-btn form-btn-primary" onclick="changeProjectStatus()">تغيير الحالة ✓</button>
       </div>
+
+      <!-- ===== TRACKING UPDATE SECTION ===== -->
+      <div class="form-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:12px;flex-wrap:wrap;gap:10px">
+        <div style="width:100%;font-size:.8rem;font-weight:700;color:var(--accent2);margin-bottom:4px">📋 تحديث متابعة العمارة (جدول تحديثات العمارات النشطة)</div>
+        <div class="form-group" style="min-width:180px">
+          <label>اختر العمارة</label>
+          <select id="formTrackProject" onchange="loadTrackingData()">
+            <option value="">-- اختر مشروع --</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2;min-width:220px">
+          <label>النشاط الجاري <span style="color:var(--muted);font-weight:400;font-size:.7rem">(يظهر في جدول المتابعة)</span></label>
+          <input type="text" id="formTrackActivity" placeholder="مثال: بياض الواجهات الجانبية جاري..." style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
+        </div>
+        <div class="form-group" style="min-width:130px">
+          <label>تاريخ البدء <span style="color:var(--muted);font-weight:400;font-size:.7rem">(يحسب الأيام)</span></label>
+          <input type="date" id="formTrackStart" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
+        </div>
+        <div class="form-group" style="min-width:100px">
+          <label>المخطط % <span style="color:var(--muted);font-weight:400;font-size:.7rem">(اختياري)</span></label>
+          <input type="number" id="formTrackPlanned" min="0" max="100" placeholder="افتراضي" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
+        </div>
+        <div class="form-group" style="min-width:100px">
+          <label>أيام البرنامج <span style="color:var(--muted);font-weight:400;font-size:.7rem">(104K فقط)</span></label>
+          <input type="number" id="formTrackBLDays" min="1" placeholder="70" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="form-btn form-btn-green" onclick="submitTrackingUpdate()">تحديث المتابعة ✓</button>
+        </div>
+      </div>
+      <!-- ===== /TRACKING UPDATE ===== -->
     </div>
 
     <div class="form-section" id="formDataSection">
