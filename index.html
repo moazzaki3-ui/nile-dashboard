@@ -1679,15 +1679,32 @@ function _projName(code){
 function _buildAllProjOpts(placeholder){
   const EXEC_ST=new Set(['جارى اعمال الهيكل','جارى تشطيب الوجهات','جارى التشطيب الداخلي']);
   const LIC_ST=new Set(['تحت الترخيص','جارى الترخيص']);
-  let execOpts='',licOpts='';
-  PROJECTS.forEach(p=>{
-    const opt='<option value="'+p.code+'">'+p.code+' — '+p.name+'</option>';
-    if(EXEC_ST.has(p.status))execOpts+=opt;
-    else if(LIC_ST.has(p.status))licOpts+=opt;
+  const LOC_AR={'7st':'7th Settlement','7ST':'7th Settlement','NORTH HOUSE':'North House','NORTH REHAB':'North Rehab','alorked':'الأوركيد','andalus':'الأندلس','narges':'النرجس','louts':'اللوتس','LOUTS':'اللوتس','4st':'4th Settlement','4ST':'4th Settlement','8st':'8th Settlement','8ST':'8th Settlement','5st':'5th Settlement','5ST':'5th Settlement','6st':'6th Settlement','6ST':'6th Settlement','1st':'1st Settlement','1ST':'1st Settlement','2st':'2nd Settlement','2ST':'2nd Settlement','3st':'3rd Settlement','3ST':'3rd Settlement','SOUTHSUEZ':'جنوب السويس'};
+  function _locAr(p){return p.locLabel&&p.locLabel!==p.loc?p.locLabel:LOC_AR[p.loc]||LOC_AR[(p.loc||'').toUpperCase()]||p.loc||'';}
+
+  let execOpts='';
+  PROJECTS.filter(p=>EXEC_ST.has(p.status)).forEach(p=>{
+    const loc=_locAr(p);
+    execOpts+='<option value="'+p.code+'">'+p.code+' — '+p.name+(loc?' ('+loc+')':'')+'</option>';
   });
+
+  // Group licensing projects by compound/location
+  const licByLoc={};
+  PROJECTS.filter(p=>LIC_ST.has(p.status)).forEach(p=>{
+    const loc=_locAr(p)||'أخرى';
+    if(!licByLoc[loc])licByLoc[loc]=[];
+    licByLoc[loc].push(p);
+  });
+  let licOpts='';
+  Object.entries(licByLoc).sort((a,b)=>a[0].localeCompare(b[0],'ar')).forEach(([loc,arr])=>{
+    licOpts+='<optgroup label="📋 '+loc+'">';
+    arr.forEach(p=>{licOpts+='<option value="'+p.code+'">'+p.code+' — '+p.name+'</option>';});
+    licOpts+='</optgroup>';
+  });
+
   return '<option value="">'+placeholder+'</option>'+
     (execOpts?'<optgroup label="🏗 جارى التنفيذ">'+execOpts+'</optgroup>':'')+
-    (licOpts?'<optgroup label="📋 جارى الترخيص">'+licOpts+'</optgroup>':'');
+    licOpts;
 }
 
 function populateFormDropdowns(){
@@ -2738,6 +2755,7 @@ function addBoqItem(){
   const item=document.getElementById('boqItem').value.trim();
   const supply=parseFloat(document.getElementById('boqSupply').value)||0;
   const balance=parseFloat(document.getElementById('boqBalance').value)||0;
+  const prevBalance=parseFloat(document.getElementById('boqPrevBalance').value)||0;
   const transfer=parseFloat(document.getElementById('boqTransfer').value)||0;
   const boqQty=parseFloat(document.getElementById('boqPlanned').value)||0;
   const unit=document.getElementById('boqUnit').value;
@@ -2745,19 +2763,19 @@ function addBoqItem(){
     const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ يرجى ملء المشروع واسم البند';setTimeout(()=>n.style.display='none',3000);}
     return;
   }
-  const used=supply-balance-transfer;
-  const deviation=boqQty!==0?used-boqQty:0;
-  const devPct=boqQty!==0?((used-boqQty)/boqQty*100):0;
+  const used=supply-balance+prevBalance+transfer;
+  const deviation=boqQty!==0?boqQty-used:0;
+  const devPct=boqQty!==0?((boqQty-used)/boqQty*100):0;
   const sess=window._CURRENT_SESSION||{};
   const existing=_BOQ_DATA.find(d=>d.project===proj&&d.item===item);
   if(existing){
-    existing.supply=supply;existing.balance=balance;existing.transfer=transfer;existing.used=used;existing.boqQty=boqQty;existing.unit=unit;existing.deviation=deviation;existing.devPct=devPct;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'—';
+    existing.supply=supply;existing.balance=balance;existing.prevBalance=prevBalance;existing.transfer=transfer;existing.used=used;existing.boqQty=boqQty;existing.unit=unit;existing.deviation=deviation;existing.devPct=devPct;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'—';
   }else{
-    _BOQ_DATA.push({id:Date.now(),project:proj,item:item,supply:supply,balance:balance,transfer:transfer,used:used,boqQty:boqQty,unit:unit,deviation:deviation,devPct:devPct,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',lastUpdate:new Date().toISOString(),updatedBy:sess.name||sess.username||'—'});
+    _BOQ_DATA.push({id:Date.now(),project:proj,item:item,supply:supply,balance:balance,prevBalance:prevBalance,transfer:transfer,used:used,boqQty:boqQty,unit:unit,deviation:deviation,devPct:devPct,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',lastUpdate:new Date().toISOString(),updatedBy:sess.name||sess.username||'—'});
   }
   _saveBoqData();
-  document.getElementById('boqItem').value='';document.getElementById('boqSupply').value='';document.getElementById('boqBalance').value='';document.getElementById('boqTransfer').value='';document.getElementById('boqPlanned').value='';
-  const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent=(existing?'✅ تم تحديث البند':'✅ تم إضافة البند')+' — المستخدم: '+used.toLocaleString()+' | انحراف: '+(deviation>0?'+':'')+deviation.toFixed(2);setTimeout(()=>n.style.display='none',3000);}
+  document.getElementById('boqItem').value='';document.getElementById('boqSupply').value='';document.getElementById('boqBalance').value='';document.getElementById('boqPrevBalance').value='';document.getElementById('boqTransfer').value='';document.getElementById('boqPlanned').value='';
+  const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent=(existing?'✅ تم تحديث البند':'✅ تم إضافة البند')+' — المستخدم: '+used.toLocaleString()+' | انحراف: '+(deviation>=0?'+':'')+deviation.toFixed(2);setTimeout(()=>n.style.display='none',3000);}
   renderBalances();
 }
 
@@ -2787,16 +2805,17 @@ function uploadBoqExcel(){
         const item=r['البند']||r['item']||r['Item']||'';
         const supply=parseFloat(r['التوريد']||r['supply']||0);
         const balance=parseFloat(r['الرصيد']||r['balance']||0);
+        const prevBalance=parseFloat(r['الرصيد السابق']||r['prevBalance']||0);
         const transfer=parseFloat(r['التحويل']||r['transfer']||0);
         const boqQty=parseFloat(r['الحصر المعياري']||r['boq']||r['BOQ']||r['planned']||0);
         const unit=r['الوحدة']||r['unit']||'';
         if(!proj||!item)return;
-        const used=supply-balance-transfer;
-        const deviation=boqQty!==0?used-boqQty:0;
-        const devPct=boqQty!==0?((used-boqQty)/boqQty*100):0;
+        const used=supply-balance+prevBalance+transfer;
+        const deviation=boqQty!==0?boqQty-used:0;
+        const devPct=boqQty!==0?((boqQty-used)/boqQty*100):0;
         const existing=_BOQ_DATA.find(d=>d.project===proj&&d.item===item);
-        if(existing){existing.supply=supply;existing.balance=balance;existing.transfer=transfer;existing.used=used;existing.boqQty=boqQty;existing.unit=unit;existing.deviation=deviation;existing.devPct=devPct;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'Excel';updated++;}
-        else{_BOQ_DATA.push({id:Date.now()+added+updated,project:proj,item:item,supply:supply,balance:balance,transfer:transfer,used:used,boqQty:boqQty,unit:unit,deviation:deviation,devPct:devPct,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'Excel',lastUpdate:new Date().toISOString(),updatedBy:sess.name||sess.username||'Excel'});added++;}
+        if(existing){existing.supply=supply;existing.balance=balance;existing.prevBalance=prevBalance;existing.transfer=transfer;existing.used=used;existing.boqQty=boqQty;existing.unit=unit;existing.deviation=deviation;existing.devPct=devPct;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'Excel';updated++;}
+        else{_BOQ_DATA.push({id:Date.now()+added+updated,project:proj,item:item,supply:supply,balance:balance,prevBalance:prevBalance,transfer:transfer,used:used,boqQty:boqQty,unit:unit,deviation:deviation,devPct:devPct,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'Excel',lastUpdate:new Date().toISOString(),updatedBy:sess.name||sess.username||'Excel'});added++;}
       });
       if(added+updated>0){_saveBoqData();renderBalances();}
       const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم استيراد '+added+' بند جديد + تحديث '+updated+' بند';setTimeout(()=>n.style.display='none',4000);}
@@ -2821,29 +2840,31 @@ function renderBalances(){
   const onBudget=_BOQ_DATA.filter(d=>(d.devPct||0)<=0).length;
   const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
 
-  function devColor(p){return p<=0?'var(--green)':p<5?'var(--yellow)':'var(--red)';}
+  function devColor(p){return p>=0?'var(--green)':p>-5?'var(--yellow)':'var(--red)';}
 
   let rows='';
   filtered.forEach((d,i)=>{
     const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
     const supply=d.supply||0;
     const balance=d.balance||0;
+    const prevBalance=d.prevBalance||0;
     const transfer=d.transfer||0;
-    const used=d.used!=null?d.used:supply-balance-transfer;
+    const used=d.used!=null?d.used:supply-balance+prevBalance+transfer;
     const boq=d.boqQty||0;
-    const dev=d.deviation!=null?d.deviation:(boq!==0?used-boq:0);
-    const dp=d.devPct!=null?d.devPct:(boq!==0?(used-boq)/boq*100:0);
+    const dev=d.deviation!=null?d.deviation:(boq!==0?boq-used:0);
+    const dp=d.devPct!=null?d.devPct:(boq!==0?(boq-used)/boq*100:0);
     rows+='<tr id="boqRow_'+d.id+'" style="'+bg+'">'+
       '<td style="padding:8px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
-      '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.68rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
+      '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.68rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||(_projName&&_projName(d.project))||'')+'</span></td>'+
       '<td style="padding:8px 10px;font-weight:700">'+d.item+'</td>'+
       '<td style="padding:8px 10px;text-align:center">'+supply.toLocaleString()+'</td>'+
       '<td style="padding:8px 10px;text-align:center">'+balance.toLocaleString()+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;color:var(--blue)">'+prevBalance.toLocaleString()+'</td>'+
       '<td style="padding:8px 10px;text-align:center">'+transfer.toLocaleString()+'</td>'+
       '<td style="padding:8px 10px;text-align:center;font-weight:700;color:var(--accent2)">'+used.toLocaleString()+' '+(d.unit||'')+'</td>'+
       '<td style="padding:8px 10px;text-align:center;color:var(--muted)">'+boq.toLocaleString()+' '+(d.unit||'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+devColor(dp)+'">'+(dev>0?'+':'')+dev.toLocaleString()+' '+(d.unit||'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+devColor(dp)+'">'+(dp>0?'+':'')+dp.toFixed(2)+'%</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+devColor(dp)+'">'+(dev>=0?'+':'')+dev.toLocaleString()+' '+(d.unit||'')+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+devColor(dp)+'">'+(dp>=0?'+':'')+dp.toFixed(2)+'%</td>'+
       (canDel?'<td class="boq-del-cell" style="text-align:center"><button onclick="deleteBoqItem('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button></td>':'')+
     '</tr>';
   });
@@ -2861,22 +2882,23 @@ function renderBalances(){
     '<div class="form-section" style="margin-bottom:16px">'+
       '<h3>➕ إضافة / تحديث بند</h3>'+
       '<div id="boqNotice" style="display:none;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:.82rem"></div>'+
-      '<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;background:rgba(99,102,241,.1);padding:8px 12px;border-radius:8px">💡 المستخدم = التوريد − الرصيد − التحويل &nbsp;|&nbsp; الانحراف = المستخدم − الحصر المعياري &nbsp;|&nbsp; نفس المشروع + البند = تحديث تلقائي</div>'+
+      '<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;background:rgba(99,102,241,.1);padding:8px 12px;border-radius:8px">💡 المستخدم = التوريد − الرصيد الحالي + الرصيد السابق + التحويل &nbsp;|&nbsp; الانحراف = الحصر المعياري − المستخدم &nbsp;|&nbsp; <b style="color:var(--blue)">التحويل: موجب = وصل للقطعة ✅ &nbsp;|&nbsp; سالب = خرج من القطعة ❌ (لم يُستخدم)</b> &nbsp;|&nbsp; نفس المشروع + البند = تحديث تلقائي</div>'+
       '<div class="form-row">'+
         '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="boqProject"><option value="">-- اختر --</option>'+projOpts+'</select></div>'+
         '<div class="form-group" style="min-width:200px"><label>البند *</label><input type="text" id="boqItem" placeholder="مثال: خرسانة / حديد / بلاط..."></div>'+
         '<div class="form-group" style="min-width:110px"><label>التوريد</label><input type="number" id="boqSupply" placeholder="0" step="0.01" min="0"></div>'+
-        '<div class="form-group" style="min-width:110px"><label>الرصيد</label><input type="number" id="boqBalance" placeholder="0" step="0.01" min="0"></div>'+
-        '<div class="form-group" style="min-width:110px"><label>التحويل</label><input type="number" id="boqTransfer" placeholder="0" step="0.01" min="0"></div>'+
+        '<div class="form-group" style="min-width:110px"><label>الرصيد الحالي</label><input type="number" id="boqBalance" placeholder="0" step="0.01" min="0"></div>'+
+        '<div class="form-group" style="min-width:110px"><label style="color:var(--blue)">الرصيد السابق</label><input type="number" id="boqPrevBalance" placeholder="0" step="0.01" min="0"></div>'+
+        '<div class="form-group" style="min-width:130px"><label title="موجب = وصل للقطعة | سالب = خرج من القطعة">التحويل <span style="font-size:.68rem;color:var(--muted)">(+داخل / −خارج)</span></label><input type="number" id="boqTransfer" placeholder="0 أو سالب" step="0.01"></div>'+
       '</div>'+
       '<div class="form-row">'+
         '<div class="form-group" style="min-width:130px"><label>الحصر المعياري (BOQ)</label><input type="number" id="boqPlanned" placeholder="0" step="0.01" min="0"></div>'+
-        '<div class="form-group" style="min-width:100px"><label>الوحدة</label><select id="boqUnit"><option value="م³">م³</option><option value="طن">طن</option><option value="م²">م²</option><option value="م.ط">م.ط</option><option value="كجم">كجم</option><option value="عدد">عدد</option><option value="لتر">لتر</option></select></div>'+
+        '<div class="form-group" style="min-width:100px"><label>الوحدة</label><select id="boqUnit"><option value="م³">م³</option><option value="طن">طن</option><option value="م²">م²</option><option value="م.ط">م.ط</option><option value="كجم">كجم</option><option value="عدد">عدد</option><option value="لتر">لتر</option><option value="الف طوبة">الف طوبة</option></select></div>'+
         '<div class="form-group" style="justify-content:flex-end"><label style="color:transparent">.</label><button class="form-btn form-btn-green" onclick="addBoqItem()">✅ حفظ</button></div>'+
       '</div>'+
       '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
         '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع من Excel <input type="file" id="boqExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadBoqExcel()"></label>'+
-        '<span style="font-size:.68rem;color:var(--muted)">الأعمدة: المشروع، البند، التوريد، الرصيد، التحويل، الحصر المعياري، الوحدة</span>'+
+        '<span style="font-size:.68rem;color:var(--muted)">الأعمدة: المشروع، البند، التوريد، الرصيد، الرصيد السابق، التحويل، الحصر المعياري، الوحدة</span>'+
       '</div>'+
     '</div>':'')+
 
@@ -2888,7 +2910,7 @@ function renderBalances(){
     '</div>'+
     (filtered.length?
     '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">'+
-      '<th>#</th><th>المشروع</th><th>البند</th><th>التوريد</th><th>الرصيد</th><th>التحويل</th><th>المستخدم</th><th>الحصر المعياري</th><th>الانحراف</th><th>الانحراف %</th>'+delTh+
+      '<th>#</th><th>المشروع</th><th>البند</th><th>التوريد</th><th>الرصيد الحالي</th><th style="color:var(--blue)">الرصيد السابق</th><th>التحويل</th><th>المستخدم</th><th>الحصر المعياري</th><th>الانحراف</th><th>الانحراف %</th>'+delTh+
     '</tr></thead><tbody>'+rows+'</tbody></table></div></div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد بنود مسجّلة بعد. '+(canEdit?'أضف البنود يدوياً أو ارفع من Excel.':'')+'</div>');
 }
