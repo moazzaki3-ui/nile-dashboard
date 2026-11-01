@@ -925,7 +925,8 @@ function filterProjects(){
     return true;
   });
   const _fl=_kpiFilter?`<button onclick="_kpiFilter=null;filterProjects()" style="background:rgba(239,68,68,.18);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:1px 9px;font-family:Cairo,sans-serif;font-size:.72rem;cursor:pointer;margin-right:8px">× مسح: ${_kpiFilter.label}</button>`:'';
-  document.getElementById('countInfo').innerHTML=`<span style="color:var(--muted)">عرض ${f.length} من ${PROJECTS.length} مشروع</span>${_fl}`;
+  window._filteredProjectsForExport=f;
+  document.getElementById('countInfo').innerHTML=`<span style="color:var(--muted)">عرض ${f.length} من ${PROJECTS.length} مشروع</span>${_fl}<button onclick="exportProjectsExcel()" style="margin-right:12px;background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:3px 12px;font-size:.75rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير Excel</button>`;
   const _role=window._CURRENT_ROLE||'viewer';
   const _eff=_getBaseRole(_role);
   const _canEdit=_eff==='admin'||_eff==='chairman'||_eff==='editor'||_eff==='engineer'||_eff==='supervisor'||_eff==='sitemanager';
@@ -951,6 +952,23 @@ function filterProjects(){
   </tr>`;
   }).join('');
 }
+function exportProjectsExcel(){
+  const rows=window._filteredProjectsForExport||PROJECTS;
+  if(!rows.length){alert('لا توجد مشاريع للتصدير');return;}
+  const header=['#','الكود','الاسم','الموقع','الحالة','الإنجاز %','باب','داخلي','جراج','لاندسكيب','عدادات'];
+  const data=rows.map((p,i)=>[
+    i+1, p.code, p.name, p.locLabel||p.loc||'', p.status, p.pct||0,
+    _pv(p.code,'door')||'–', _pv(p.code,'internal')||'–',
+    _pv(p.code,'garage')||'–', _pv(p.code,'landscape')||'–', _pv(p.code,'meters')||'–'
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([header,...data]);
+  ws['!cols']=[{wch:4},{wch:8},{wch:12},{wch:16},{wch:26},{wch:10},{wch:10},{wch:10},{wch:10},{wch:12},{wch:10}];
+  // Color header row
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'المشاريع');
+  XLSX.writeFile(wb,'المشاريع_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
 function baselineGantt(startStr){
   if(!startStr)return '';
   const TOTAL=365;
