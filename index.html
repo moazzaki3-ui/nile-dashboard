@@ -4112,10 +4112,12 @@ function confirmStdBoqSave(){
   renderStdBoq();
 }
 
-function exportStdBoqExcel(){
+function exportStdBoqExcel(projCode){
   if(!_STD_BOQ_DATA||!_STD_BOQ_DATA.length){alert('لا توجد بيانات حصر للتصدير');return;}
+  const data=projCode?_STD_BOQ_DATA.filter(d=>d.project===projCode):_STD_BOQ_DATA;
+  if(!data.length){alert('لا توجد بيانات لهذا المشروع');return;}
   const header=['#','كود المشروع','اسم المشروع','البند','الوحدة','كمية الحصر المعياري','كميات الأعمال المنفذة','سعر الوحدة (جم)','الإجمالي (جم)','ملاحظات'];
-  const rows=_STD_BOQ_DATA.map((d,i)=>{
+  const rows=data.map((d,i)=>{
     const name=ACTIVE_NAMES[d.project]||(PROJECTS.find(p=>p.code===d.project)||{}).name||d.project;
     const total=((d.stdQty||0)*(d.unitPrice||0));
     return[i+1,d.project,name,d.item,d.unit||'',d.stdQty||0,d.stdQtyWork||0,d.unitPrice||0,total,d.notes||''];
@@ -4123,8 +4125,9 @@ function exportStdBoqExcel(){
   const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:4},{wch:10},{wch:16},{wch:32},{wch:8},{wch:16},{wch:18},{wch:14},{wch:14},{wch:20}];
   const wb=XLSX.utils.book_new();
+  const projName=projCode?(ACTIVE_NAMES[projCode]||projCode):'كل_المشاريع';
   XLSX.utils.book_append_sheet(wb,ws,'الحصر المعياري');
-  XLSX.writeFile(wb,'الحصر_المعياري_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  XLSX.writeFile(wb,'حصر_'+projName+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
 function renderStdBoq(){
@@ -4227,7 +4230,10 @@ function renderStdBoq(){
 
       '<div class="section-title" style="margin-top:14px;flex-wrap:wrap;gap:8px">'+
         '<span>📋 جدول الحصر المعياري</span>'+
-        '<span style="margin-right:auto"><select id="stdBoqFilterProj" onchange="renderStdBoq()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل المشاريع</option>'+projOpts2+'</select></span>'+
+        '<span style="margin-right:auto;display:flex;align-items:center;gap:8px">'+
+          '<select id="stdBoqFilterProj" onchange="renderStdBoq()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل المشاريع</option>'+projOpts2+'</select>'+
+          (filterProj?'<button onclick="exportStdBoqExcel(\''+filterProj+'\')" style="background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:5px 12px;font-size:.75rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير هذا المشروع</button>':'<button onclick="exportStdBoqExcel()" style="background:rgba(99,102,241,.12);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:5px 12px;font-size:.75rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير الكل</button>')+
+        '</span>'+
       '</div>'+
       (filteredStd.length?
         '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th>#</th><th>المشروع</th><th>البند</th><th style="color:var(--green)">📦 خامات (توريد)</th><th style="color:var(--accent2)">⚙️ أعمال (تنفيذ)</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th><th>بواسطة</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead><tbody>'+stdRows+'</tbody></table></div>'+
