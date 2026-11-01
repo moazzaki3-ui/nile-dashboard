@@ -303,7 +303,10 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
 </div>
 
 <div id="tab-financial" class="content hidden">
-  <div class="section-title">📋 الاحتياجات المالية — 12 قطعة نشطة (أكتوبر 2026 → يناير 2027)</div>
+  <div class="section-title" style="flex-wrap:wrap;gap:8px">
+    <span>📋 الاحتياجات المالية — قطعة نشطة (أكتوبر 2026 → يناير 2027)</span>
+    <button onclick="exportFinancialExcel()" style="background:rgba(34,197,94,.12);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:5px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير Excel</button>
+  </div>
   <div class="kpi-grid" id="finKpis"></div>
   <div class="chart-card" style="margin-bottom:14px">
     <div class="chart-title">الاحتياجات المالية الشهرية المتبقية (ج.م)
@@ -1209,14 +1212,24 @@ function renderFinancial(){
   ];
   const statusLabel={da5li:'تشطيب داخلي',wajhat:'تشطيب وجهات',k104:'هيكل (104K)'};
   const statusCol={da5li:'var(--orange)',wajhat:'var(--yellow)',k104:'var(--accent)'};
+  // الموقف التنفيذي الحقيقي من مصفوفة المشاريع
+  const _SPCT={'جارى اعمال الهيكل':33,'جارى تشطيب الوجهات':62,'جارى التشطيب الداخلي':77,
+    'تم الانتهاء من الاعمال':93,'جارى تركيب الأبواب':93,'جارى اللاندسكيب':95,
+    'جارى تركيب العدادات':97,'جارى صب الجراج':95};
   ACTIVE.forEach(p=>{
+    const liveProj=PROJECTS.find(x=>x.code===p.code);
+    p.liveStatus=liveProj?liveProj.status:statusLabel[p.type];
     const d=DIST[p.type];
+    const paidPct=(liveProj&&_SPCT[liveProj.status]!==undefined)?_SPCT[liveProj.status]/100:d.paid;
+    const distSum=d.oct+d.nov+d.dec+d.jan;
+    const remPct=Math.max(0,1-paidPct);
+    const scale=distSum>0?remPct/distSum:1;
     p.total=Math.round(BASE*p.area);
-    p.paid=Math.round(p.total*d.paid);
-    p.oct=Math.round(p.total*d.oct);
-    p.nov=Math.round(p.total*d.nov);
-    p.dec=Math.round(p.total*d.dec);
-    p.jan=Math.round(p.total*d.jan);
+    p.paid=Math.round(p.total*paidPct);
+    p.oct=Math.round(p.total*d.oct*scale);
+    p.nov=Math.round(p.total*d.nov*scale);
+    p.dec=Math.round(p.total*d.dec*scale);
+    p.jan=Math.round(p.total*d.jan*scale);
     p.rem=p.oct+p.nov+p.dec+p.jan;
   });
   const totTotal=ACTIVE.reduce((s,p)=>s+p.total,0);
@@ -1280,7 +1293,7 @@ function renderFinancial(){
       <td style="color:var(--accent2);font-weight:700">${p.code}</td>
       <td style="font-weight:600">${p.name}</td>
       <td style="color:var(--muted);font-size:.75rem">${p.area}</td>
-      <td><span class="status-badge" style="background:${sc.replace('var(--','rgba(').replace(')',',0.15)')};color:${sc};border:1px solid ${sc.replace('var(--','rgba(').replace(')',',0.3)')}">${statusLabel[p.type]}</span></td>
+      <td><span class="status-badge" style="background:${sc.replace('var(--','rgba(').replace(')',',0.15)')};color:${sc};border:1px solid ${sc.replace('var(--','rgba(').replace(')',',0.3)')}">${p.liveStatus||statusLabel[p.type]}</span></td>
       <td style="color:var(--text);font-size:.75rem">${fmt(p.total)}</td>
       <td style="color:var(--green);font-size:.75rem">${fmt(p.paid)}</td>
       <td style="color:var(--orange);font-weight:700;font-size:.75rem">${fmt(p.rem)}</td>
@@ -1301,6 +1314,41 @@ function renderFinancial(){
     <td style="background:rgba(16,185,129,.1);color:#10b981">${(totJan/1000000).toFixed(2)}م</td>
   </tr></tfoot>`;
   document.getElementById('finTable').innerHTML=thead+`<tbody>${tbody}</tbody>`+tfoot;
+}
+
+function exportFinancialExcel(){
+  const BASE=11578094/600;
+  const DIST={da5li:{paid:.55,oct:.04,nov:.18,dec:.17,jan:.06},wajhat:{paid:.75,oct:.01,nov:.08,dec:.12,jan:.04},k104:{paid:.35,oct:.09,nov:.35,dec:.21,jan:0}};
+  const ACTIVE=[
+    {code:'P-003',name:'117A',area:535,type:'da5li'},{code:'P-004',name:'59A',area:541,type:'da5li'},
+    {code:'P-005',name:'33I',area:438.05,type:'da5li'},{code:'P-006',name:'98A',area:486,type:'wajhat'},
+    {code:'P-014',name:'52L',area:737,type:'wajhat'},{code:'P-015',name:'58C',area:954.51,type:'da5li'},
+    {code:'P-016',name:'226J',area:735.86,type:'wajhat'},{code:'P-017',name:'160J',area:737,type:'wajhat'},
+    {code:'P-021',name:'122K',area:604,type:'da5li'},{code:'P-034',name:'145A',area:600,type:'da5li'},
+    {code:'P-035',name:'53A',area:796.55,type:'da5li'},{code:'P-125',name:'104K',area:673.35,type:'k104'},
+  ];
+  const _SPCT={'جارى اعمال الهيكل':33,'جارى تشطيب الوجهات':62,'جارى التشطيب الداخلي':77,'تم الانتهاء من الاعمال':93,'جارى تركيب الأبواب':93,'جارى اللاندسكيب':95,'جارى تركيب العدادات':97,'جارى صب الجراج':95};
+  const rows=ACTIVE.map((p,i)=>{
+    const liveProj=PROJECTS.find(x=>x.code===p.code);
+    const liveStatus=liveProj?liveProj.status:'—';
+    const d=DIST[p.type];
+    const paidPct=(liveProj&&_SPCT[liveProj.status]!==undefined)?_SPCT[liveProj.status]/100:d.paid;
+    const distSum=d.oct+d.nov+d.dec+d.jan;
+    const scale=distSum>0?Math.max(0,1-paidPct)/distSum:1;
+    const total=Math.round(BASE*p.area);
+    const paid=Math.round(total*paidPct);
+    const oct=Math.round(total*d.oct*scale);
+    const nov=Math.round(total*d.nov*scale);
+    const dec=Math.round(total*d.dec*scale);
+    const jan=Math.round(total*d.jan*scale);
+    return[i+1,p.code,p.name,p.area,liveStatus,total,paid,total-paid,oct,nov,dec,jan];
+  });
+  const header=['#','الكود','الاسم','م²','الموقف الحالي','الإجمالي (جم)','المصروف (جم)','المتبقي (جم)','أكتوبر (جم)','نوفمبر (جم)','ديسمبر (جم)','يناير (جم)'];
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  ws['!cols']=[{wch:4},{wch:8},{wch:8},{wch:8},{wch:22},{wch:16},{wch:16},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'الاحتياجات المالية');
+  XLSX.writeFile(wb,'الاحتياجات_المالية_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
 function calcWorkingDays(startStr){
@@ -2591,6 +2639,20 @@ function renderDeliveries(){
     logDiv.innerHTML='<div style="overflow-x:auto"><table class="project-table"><thead><tr><th>#</th><th>التاريخ</th><th>المشروع</th><th>البند</th><th>الخامة</th><th>الكمية</th><th>المورد</th><th>الفاتورة</th><th>ملاحظة</th><th>المسجّل</th>'+extraTh+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
 }
+function exportDeliveriesExcel(){
+  if(!_DELIVERIES||!_DELIVERIES.length){alert('لا توجد توريدات للتصدير');return;}
+  const header=['#','التاريخ','المشروع','اسم المشروع','البند','الخامة','الكمية','الوحدة','المورد','الفاتورة','ملاحظة','المسجّل'];
+  const rows=_DELIVERIES.map((d,i)=>[
+    i+1,d.date||'',d.project||'',ACTIVE_NAMES[d.project]||'',
+    d.item||'',d.material||'',d.qty||0,d.unit||'',
+    d.supplier||'—',d.invoice||'—',d.note||'',d.user||''
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  ws['!cols']=[{wch:4},{wch:12},{wch:8},{wch:14},{wch:14},{wch:16},{wch:8},{wch:8},{wch:16},{wch:14},{wch:20},{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'التوريدات');
+  XLSX.writeFile(wb,'التوريدات_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
 // ============ / DELIVERIES ============
 
 // ============ ENHANCED DEVIATIONS SYSTEM (Firebase-backed) ============
@@ -2702,6 +2764,7 @@ function uploadDeviationsExcel(){
 
 function renderDeviations(){
   _initDeviationsListener();
+  _initDevNotesListener();
   const role=window._CURRENT_ROLE||'viewer';const _brd=_getBaseRole(role);
   const canEdit=(_brd==='admin'||_brd==='editor'||_brd==='engineer');
   const canDel=(_brd==='admin'||_brd==='editor');
@@ -2804,6 +2867,11 @@ function renderDeviations(){
   CONC.forEach((c,i)=>{
     const s=sm[c.n];
     const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+    const key=c.n.replace(/\//g,'_').replace(/\s/g,'_');
+    const noteData=_DEV_NOTES[key]||{};
+    const statusVal=(noteData.status||'').replace(/"/g,'&quot;');
+    const noteVal=(noteData.note||'').replace(/"/g,'&quot;');
+    const nameSafe=c.n.replace(/'/g,"\\'");
     srows+='<tr style="'+bg+'">'+
       '<td style="padding:8px 10px;font-weight:700">'+c.n+'</td>'+
       '<td style="padding:8px 10px;color:var(--muted);font-size:.75rem">'+c.e+'</td>'+
@@ -2811,6 +2879,8 @@ function renderDeviations(){
       '<td style="padding:8px 10px;color:var(--muted);font-size:.72rem">'+c.pl.toLocaleString()+' / '+c.ac.toLocaleString()+'</td>'+
       (s?'<td style="padding:8px 10px;min-width:150px"><div style="display:flex;align-items:center;gap:6px"><span style="color:'+wc(s.p)+';font-weight:700;font-size:.85rem">'+(s.p>0?'+':'')+s.p.toFixed(2)+'%</span><span style="font-size:.68rem;color:'+wc(s.p)+'">'+wl(s.p)+'</span></div>'+bar(s.p)+'</td><td style="padding:8px 10px;color:var(--muted);font-size:.75rem">'+s.e+'</td>'
       :'<td colspan="2" style="padding:8px 10px;color:var(--muted);font-size:.75rem;text-align:center">—</td>')+
+      '<td style="padding:6px 8px;min-width:110px"><input type="text" value="'+statusVal+'" placeholder="الموقف..." onblur="saveDevNote(\''+nameSafe+'\',\'status\',this.value)" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:Cairo,sans-serif;font-size:.74rem;width:100%;outline:none;padding:2px 4px"></td>'+
+      '<td style="padding:6px 8px;min-width:120px"><input type="text" value="'+noteVal+'" placeholder="ملاحظات..." onblur="saveDevNote(\''+nameSafe+'\',\'note\',this.value)" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--muted);font-family:Cairo,sans-serif;font-size:.74rem;width:100%;outline:none;padding:2px 4px"></td>'+
     '</tr>';
   });
   let erows='';
@@ -2937,10 +3007,31 @@ function renderDeviations(){
     // STATIC SECTION — original concrete & steel deviations
     '<div class="section-title" style="margin-top:20px">📉 هالك الخرسانة والحديد <span style="font-size:.7rem;color:var(--muted);font-weight:400">آخر تحديث: ٢٢ أكتوبر ٢٠٢٦</span></div>'+
     staticKpi+
-    '<div class="chart-card" style="margin-bottom:14px"><div class="chart-title">📊 انحرافات الخرسانة والحديد — لكل قطعة</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th style="padding:8px 10px;text-align:right">القطعة</th><th style="padding:8px 10px;text-align:right">مهندس الخرسانة</th><th style="padding:8px 10px;text-align:right">% هالك الخرسانة</th><th style="padding:8px 10px;text-align:right">مخطط / منفذ م³</th><th style="padding:8px 10px;text-align:right">% هالك الحديد</th><th style="padding:8px 10px;text-align:right">مهندس الحديد</th></tr></thead><tbody>'+srows+'</tbody></table></div></div>'+
+    '<div class="chart-card" style="margin-bottom:14px"><div class="chart-title">📊 انحرافات الخرسانة والحديد — لكل قطعة</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th style="padding:8px 10px;text-align:right">القطعة</th><th style="padding:8px 10px;text-align:right">مهندس الخرسانة</th><th style="padding:8px 10px;text-align:right">% هالك الخرسانة</th><th style="padding:8px 10px;text-align:right">مخطط / منفذ م³</th><th style="padding:8px 10px;text-align:right">% هالك الحديد</th><th style="padding:8px 10px;text-align:right">مهندس الحديد</th><th style="padding:8px 10px;text-align:right;color:var(--yellow)">الموقف / السبب</th><th style="padding:8px 10px;text-align:right;color:var(--muted)">ملاحظات</th></tr></thead><tbody>'+srows+'</tbody></table></div></div>'+
     '<div class="chart-card"><div class="chart-title">👷 أداء المهندسين — مقارنة الهالك</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th style="padding:8px 10px;text-align:right">المهندس</th><th style="padding:8px 10px;text-align:right">هالك الخرسانة %</th><th style="padding:8px 10px;text-align:right">هالك الحديد %</th><th style="padding:8px 10px;text-align:right">المتوسط %</th><th style="padding:8px 10px;text-align:right">التقييم</th></tr></thead><tbody>'+erows+'</tbody></table></div></div>';
 }
 // ============ / ENHANCED DEVIATIONS ============
+
+// ============ DEVIATIONS STATIC NOTES (Firebase-backed) ============
+let _DEV_NOTES={};
+let _fbDevNotesInit=false;
+function _initDevNotesListener(){
+  if(_fbDevNotesInit)return;_fbDevNotesInit=true;
+  _DB.ref('dev_static_notes').on('value',function(snap){
+    _fbOk();
+    _DEV_NOTES=snap.val()||{};
+    const tab=document.getElementById('tab-deviations');
+    if(tab&&!tab.classList.contains('hidden'))renderDeviations();
+  },function(err){_fbErr('dev_static_notes',err);});
+}
+function saveDevNote(name,field,val){
+  const key=name.replace(/\//g,'_').replace(/\s/g,'_');
+  if(!_DEV_NOTES[key])_DEV_NOTES[key]={};
+  _DEV_NOTES[key][field]=val;
+  const upd={};upd[field]=val;
+  _DB.ref('dev_static_notes/'+key).update(upd).then(()=>_fbOk()).catch(e=>_fbErr('dev_notes',e));
+}
+// ============ / DEVIATIONS STATIC NOTES ============
 
 // ============ WAREHOUSE SYSTEM (Firebase-backed) ============
 let _WAREHOUSE_DATA=[];
@@ -4333,6 +4424,7 @@ function startApp(){
 
   <div class="section-title" style="margin-top:16px;flex-wrap:wrap;gap:8px">
     <span>📋 سجل الاستلامات التفصيلي</span>
+    <button onclick="exportDeliveriesExcel()" style="background:rgba(34,197,94,.12);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:5px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير Excel</button>
     <span style="display:inline-flex;gap:8px;margin-right:10px">
       <select id="delivFilterProj" onchange="renderDeliveries()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none">
         <option value="">كل المشاريع</option>
