@@ -4078,6 +4078,7 @@ function renderStdBoq(){
         '</div>'+
         '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع الحصر من Excel <input type="file" id="stdBoqExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadStdBoqExcel()"></label>'+
+          '<button onclick="downloadStdBoqTemplate()" style="background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📋 تنزيل قالب Excel</button>'+
           '<span style="font-size:.68rem;color:var(--muted);flex:1">الأعمدة المطلوبة: <b style="color:var(--accent2)">المشروع | البند | الوحدة | الكمية المعيارية | كميات الأعمال | سعر الوحدة | ملاحظات</b></span>'+
         '</div>'
       :'')+
@@ -4092,6 +4093,55 @@ function renderStdBoq(){
         '</div>'
         :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد بنود حصر مسجّلة بعد.'+(canEdit?' أضف بنوداً من النموذج أعلاه.':'')+'</div>')+
     '</div>';
+}
+function downloadStdBoqTemplate(){
+  const wb=XLSX.utils.book_new();
+  const header=['المشروع','البند','الوحدة','الكمية المعيارية','كميات الأعمال','سعر الوحدة (جم)','ملاحظات'];
+
+  // Sheet 1: Template pre-filled with existing data or skeleton rows
+  let dataRows=[];
+  if(_STD_BOQ_DATA&&_STD_BOQ_DATA.length){
+    // Export existing data so user can update it
+    _STD_BOQ_DATA.forEach(d=>{
+      dataRows.push([d.project,d.item,d.unit||'',d.stdQty||0,d.stdQtyWork||0,d.unitPrice||0,d.notes||'']);
+    });
+  } else if(_STD_ITEMS_DATA&&_STD_ITEMS_DATA.length){
+    // Pre-fill skeleton: each project × each standard item
+    ACTIVE_CODES.forEach(code=>{
+      _STD_ITEMS_DATA.forEach(it=>{
+        dataRows.push([code,it.item,it.unit||'م²',0,0,0,'']);
+      });
+    });
+  } else {
+    // Minimal skeleton: one blank row per project
+    ACTIVE_CODES.forEach(code=>{
+      dataRows.push([code,'','' ,0,0,0,'']);
+    });
+  }
+
+  const ws=XLSX.utils.aoa_to_sheet([header,...dataRows]);
+  ws['!cols']=[{wch:10},{wch:28},{wch:8},{wch:18},{wch:18},{wch:16},{wch:22}];
+  XLSX.utils.book_append_sheet(wb,ws,'قالب الحصر');
+
+  // Sheet 2: valid project codes reference
+  const ws2=XLSX.utils.aoa_to_sheet([
+    ['كود المشروع','اسم المشروع'],
+    ...ACTIVE_CODES.map(c=>[c,ACTIVE_NAMES[c]||''])
+  ]);
+  ws2['!cols']=[{wch:14},{wch:22}];
+  XLSX.utils.book_append_sheet(wb,ws2,'أكواد المشاريع');
+
+  // Sheet 3: standard items reference (if any)
+  if(_STD_ITEMS_DATA&&_STD_ITEMS_DATA.length){
+    const ws3=XLSX.utils.aoa_to_sheet([
+      ['البند','الوحدة','الوصف'],
+      ..._STD_ITEMS_DATA.map(d=>[d.item,d.unit||'',d.description||''])
+    ]);
+    ws3['!cols']=[{wch:30},{wch:10},{wch:22}];
+    XLSX.utils.book_append_sheet(wb,ws3,'البنود المعيارية');
+  }
+
+  XLSX.writeFile(wb,'قالب_الحصر_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 // ============ / STANDARD BOQ ============
 
