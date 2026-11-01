@@ -3147,9 +3147,10 @@ function renderWarehouse(){
     // Transactions log
     '<div class="section-title" style="margin-top:12px;flex-wrap:wrap;gap:8px">'+
       '<span>📋 سجل حركات المخزن</span>'+
-      '<span style="display:inline-flex;gap:8px;margin-right:10px">'+
+      '<span style="display:inline-flex;gap:8px;margin-right:10px;align-items:center">'+
         '<select id="whFilterType" onchange="renderWarehouse()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل الحركات</option><option value="توريد">📥 توريد</option><option value="صرف">📤 صرف</option></select>'+
         '<input id="whFilterItem" oninput="renderWarehouse()" placeholder="🔍 فلتر صنف..." style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none;width:180px">'+
+        '<button onclick="exportWarehouseExcel()" style="background:rgba(34,197,94,.12);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:5px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير Excel</button>'+
       '</span>'+
     '</div>'+
     (filtered.length?
@@ -3157,6 +3158,27 @@ function renderWarehouse(){
       '<th>#</th><th>التاريخ</th><th>النوع</th><th>الصنف</th><th>الكمية</th><th>المشروع</th><th>المورد/الجهة</th><th>ملاحظة</th><th>المسجّل</th>'+delTh+
     '</tr></thead><tbody>'+txRows+'</tbody></table></div></div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد حركات بالفلتر الحالي.</div>');
+}
+function exportWarehouseExcel(){
+  if(!_WAREHOUSE_DATA.length){alert('لا توجد بيانات للتصدير');return;}
+  const header=['#','التاريخ','النوع','الصنف','الكمية','الوحدة','المشروع','المورد/الجهة','ملاحظة','المسجّل'];
+  const rows=_WAREHOUSE_DATA.map((d,i)=>[
+    i+1,
+    d.dateISO||d.date||'',
+    d.type||'',
+    d.item||'',
+    d.qty||0,
+    d.unit||'',
+    d.project||'',
+    d.supplier||'',
+    d.note||'',
+    d.user||''
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  ws['!cols']=[{wch:4},{wch:12},{wch:8},{wch:20},{wch:8},{wch:8},{wch:14},{wch:16},{wch:20},{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'حركات المخزن');
+  XLSX.writeFile(wb,'المخزن_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 // ============ / WAREHOUSE SYSTEM ============
 
@@ -3390,9 +3412,10 @@ function renderInvoices(){
 
     '<div class="section-title" style="margin-top:12px;flex-wrap:wrap;gap:8px">'+
       '<span>📋 سجل المستخلصات</span>'+
-      '<span style="display:inline-flex;gap:8px;margin-right:10px">'+
+      '<span style="display:inline-flex;gap:8px;margin-right:10px;align-items:center">'+
         '<select id="invFilterProj" onchange="renderInvoices()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل المشاريع</option>'+projOpts+'</select>'+
         '<select id="invFilterStatus" onchange="renderInvoices()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل الحالات</option><option value="قيد المراجعة">⏳ قيد المراجعة</option><option value="معتمد">✅ معتمد</option><option value="مرفوض">❌ مرفوض</option></select>'+
+        '<button onclick="exportInvoicesExcel()" style="background:rgba(34,197,94,.12);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:5px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير Excel</button>'+
       '</span>'+
     '</div>'+
     (filtered.length?
@@ -3400,6 +3423,19 @@ function renderInvoices(){
       '<th>#</th><th>التاريخ</th><th>المشروع</th><th>اسم البند</th><th>الوحدة</th><th>سعر الوحدة</th><th>الكمية</th><th>نسبة التنفيذ</th><th>إجمالي التنفيذ</th><th>الحالة</th><th>المسجّل</th><th>تعديل</th>'+delTh+
     '</tr></thead><tbody>'+rows+'</tbody></table></div></div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد مستخلصات مسجّلة بعد.</div>');
+}
+function exportInvoicesExcel(){
+  if(!_INVOICES_DATA.length){alert('لا توجد مستخلصات للتصدير');return;}
+  const header=['#','التاريخ','المشروع','البند','الوحدة','سعر الوحدة (جم)','الكمية المنفذة','نسبة التنفيذ %','إجمالي التنفيذ (جم)','الحالة','المسجّل'];
+  const rows=_INVOICES_DATA.map((d,i)=>{
+    const total=Math.round((d.unitPrice||0)*(d.execQty||0)*(d.execPct||0)/100);
+    return[i+1,d.dateISO||d.date||'',d.project||'',d.item||'',d.unit||'',d.unitPrice||0,d.execQty||0,d.execPct||0,total,d.status||'',d.user||''];
+  });
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  ws['!cols']=[{wch:4},{wch:12},{wch:14},{wch:22},{wch:8},{wch:14},{wch:10},{wch:10},{wch:16},{wch:14},{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'المستخلصات');
+  XLSX.writeFile(wb,'المستخلصات_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 // ============ / INVOICES ============
 
