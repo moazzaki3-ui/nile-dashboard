@@ -4018,36 +4018,47 @@ function uploadStdBoqExcel(){
       for(let i=0;i<rawRows.length;i++){
         if(rawRows[i].some(c=>c&&c.toString().includes('المشروع'))){headerRow=i;break;}
       }
-      console.log('[BOQ] total rows:',rawRows.length,'headerRow:',headerRow,'nameToCode keys:',Object.keys(nameToCode).slice(0,8));
+
+      // Build column index map from header row
+      const hRow=headerRow>=0?rawRows[headerRow]:[];
+      const colIdx={};
+      hRow.forEach((h,i)=>{
+        if(!h)return;
+        const s=h.toString();
+        if(s.includes('المشروع'))colIdx.proj=i;
+        else if(s.includes('البند'))colIdx.item=i;
+        else if(s.includes('الوحدة'))colIdx.unit=i;
+        else if(s.includes('الكمية المعيارية')||s.includes('كميات خامات'))colIdx.qty=i;
+        else if(s.includes('كميات أعمال')||s.includes('كميات الأعمال'))colIdx.qtyWork=i;
+        else if(s.includes('سعر الوحدة'))colIdx.price=i;
+        else if(s.includes('ملاحظات'))colIdx.notes=i;
+      });
+      // Fallback if no header detected (A=proj, B=item, C=unit, D=qty, E=work, F=price, G=notes)
+      const iProj=colIdx.proj!==undefined?colIdx.proj:0;
+      const iItem=colIdx.item!==undefined?colIdx.item:1;
+      const iUnit=colIdx.unit!==undefined?colIdx.unit:2;
+      const iQty=colIdx.qty!==undefined?colIdx.qty:3;
+      const iPrice=colIdx.price!==undefined?colIdx.price:5;
+      const iNotes=colIdx.notes!==undefined?colIdx.notes:6;
+
       const dataRows=headerRow>=0?rawRows.slice(headerRow+1):rawRows;
-      console.log('[BOQ] dataRows count:',dataRows.length,'first:',dataRows[0]);
 
       const parsed=[];
       const errors=[];
-      let curProj='',curBand='';
+      let curProj='';
 
       dataRows.forEach((row,i)=>{
-        // Carry-forward: project in col B (index 1), band in col C (index 2)
-        const rawProj=(row[1]||'').toString().trim();
-        const rawBand=(row[2]||'').toString().trim();
-        const subItem=(row[3]||'').toString().trim();
-        const subType=(row[4]||'').toString().trim();
-        const unit=(row[5]||'').toString().trim();
-        const rawQty=row[6];
-        const unitPrice=parseFloat(row[7])||0;
-        const notes=(row[8]||'').toString().trim();
+        const rawProj=(row[iProj]||'').toString().trim();
+        const rawItem=(row[iItem]||'').toString().trim();
+        const unit=(row[iUnit]||'').toString().trim();
+        const rawQty=row[iQty];
+        const unitPrice=parseFloat(row[iPrice])||0;
+        const notes=(row[iNotes]||'').toString().trim();
 
         if(rawProj) curProj=rawProj;
-        if(rawBand) curBand=rawBand;
-        // Skip rows with no actual sub-item (carry-forward-only header rows)
-        if(!subItem) return;
+        // Skip rows with no item or no project
+        if(!rawItem) return;
         if(!curProj) return;
-
-        // Build full item name from band + sub-item + sub-type
-        let item=curBand?curBand+' - '+subItem:subItem;
-        if(subType) item+=' - '+subType;
-        item=item.replace(/\s+/g,' ').trim();
-        if(!item) return;
 
         // Parse qty (handle formula strings like '=30.42', numbers, empty)
         let stdQty=0;
@@ -4055,7 +4066,7 @@ function uploadStdBoqExcel(){
           stdQty=parseFloat(rawQty.toString().replace(/^=/,'').replace(/,/g,'.'))||0;
         }
 
-        // Lookup project code by name (normalize: strip spaces, lowercase)
+        // Lookup project code by name OR direct code match (normalize: strip spaces, lowercase)
         const normProj=curProj.replace(/\s+/g,'').toLowerCase();
         const code=nameToCode[normProj];
         if(!code){
@@ -4063,7 +4074,7 @@ function uploadStdBoqExcel(){
           return;
         }
 
-        parsed.push({code,projName:curProj,item,unit:unit||'',stdQty,unitPrice:parseFloat(unitPrice)||0,notes:notes||''});
+        parsed.push({code,projName:curProj,item:rawItem,unit:unit||'',stdQty,unitPrice:parseFloat(unitPrice)||0,notes:notes||''});
       });
 
       if(!parsed.length){
@@ -4242,7 +4253,7 @@ function renderStdBoq(){
           '<button id="stdBoqConfirmBtn" onclick="confirmStdBoqSave()" style="display:none;background:rgba(34,197,94,.18);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:6px 16px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap;font-weight:700;align-items:center;gap:6px">💾 حفظ الحصر</button>'+
           '<button onclick="exportStdBoqExcel()" style="background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير كل المشاريع Excel</button>'+
           '<button onclick="downloadStdBoqTemplate()" style="background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📋 تنزيل قالب Excel</button>'+
-          '<span style="font-size:.68rem;color:var(--muted);flex:1">Excel: اسم المشروع (B) | البند (C) | التفاصيل (D,E) | الوحدة (F) | الكمية (G) | السعر (H)</span>'+
+          '<span style="font-size:.68rem;color:var(--muted);flex:1">Excel: المشروع (A) | البند (B) | الوحدة (C) | الكمية المعيارية (D) | كميات الأعمال (E) | السعر (F) | ملاحظات (G)</span>'+
         '</div>'
       :'')+
 
