@@ -3970,7 +3970,9 @@ function uploadStdBoqExcel(){
       for(let i=0;i<rawRows.length;i++){
         if(rawRows[i].some(c=>c&&c.toString().includes('المشروع'))){headerRow=i;break;}
       }
+      console.log('[BOQ] total rows:',rawRows.length,'headerRow:',headerRow,'nameToCode keys:',Object.keys(nameToCode).slice(0,8));
       const dataRows=headerRow>=0?rawRows.slice(headerRow+1):rawRows;
+      console.log('[BOQ] dataRows count:',dataRows.length,'first:',dataRows[0]);
 
       const parsed=[];
       const errors=[];
@@ -3989,27 +3991,31 @@ function uploadStdBoqExcel(){
 
         if(rawProj) curProj=rawProj;
         if(rawBand) curBand=rawBand;
-        if(!curProj||!curBand) return;
+        // Skip rows with no actual sub-item (carry-forward-only header rows)
+        if(!subItem) return;
+        if(!curProj) return;
 
         // Build full item name from band + sub-item + sub-type
-        let item=curBand;
-        if(subItem) item+=' - '+subItem;
+        let item=curBand?curBand+' - '+subItem:subItem;
         if(subType) item+=' - '+subType;
         item=item.replace(/\s+/g,' ').trim();
         if(!item) return;
 
-        // Parse qty (handle formula strings like '=30.42')
+        // Parse qty (handle formula strings like '=30.42', numbers, empty)
         let stdQty=0;
         if(rawQty!==''&&rawQty!==null&&rawQty!==undefined){
-          stdQty=parseFloat(rawQty.toString().replace(/^=/,''))||0;
+          stdQty=parseFloat(rawQty.toString().replace(/^=/,'').replace(/,/g,'.'))||0;
         }
 
-        // Lookup project code by name
+        // Lookup project code by name (normalize: strip spaces, lowercase)
         const normProj=curProj.replace(/\s+/g,'').toLowerCase();
         const code=nameToCode[normProj];
-        if(!code){errors.push('مشروع "'+curProj+'" غير موجود');return;}
+        if(!code){
+          if(!errors.find(e=>e.includes(curProj))) errors.push('مشروع "'+curProj+'" غير موجود في القائمة');
+          return;
+        }
 
-        parsed.push({code,projName:curProj,item,unit,stdQty,unitPrice,notes});
+        parsed.push({code,projName:curProj,item,unit:unit||'',stdQty,unitPrice:parseFloat(unitPrice)||0,notes:notes||''});
       });
 
       if(!parsed.length){
