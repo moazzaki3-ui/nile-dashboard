@@ -3850,15 +3850,43 @@ function autoFillInvFromStd(){
 
 function _syncStdBoqToBOQ(project,item,stdQty,unit){
   let changed=false;
+  let found=false;
   _BOQ_DATA.forEach(d=>{
     if(d.project===project&&d.item===item){
+      found=true;
       d.boqQty=stdQty;if(unit&&!d.unit)d.unit=unit;
       const used=d.used!=null?d.used:(d.supply-d.balance+d.prevBalance+d.transfer);
       d.deviation=stdQty!==0?stdQty-used:0;d.devPct=stdQty!==0?((stdQty-used)/stdQty*100):0;
       d.lastUpdate=new Date().toISOString();changed=true;
     }
   });
+  // إنشاء سجل جديد في الأرصدة لو البند مش موجود
+  if(!found&&stdQty>0){
+    const sess=window._CURRENT_SESSION||{};
+    _BOQ_DATA.push({
+      id:Date.now()+Math.floor(Math.random()*9999),
+      project:project,item:item,unit:unit||'',
+      supply:0,balance:0,prevBalance:0,transfer:0,transferProject:'',used:0,
+      boqQty:stdQty,deviation:stdQty,devPct:100,
+      date:new Date().toLocaleDateString('ar-EG'),
+      user:sess.name||sess.username||'من الحصر المعياري',
+      lastUpdate:new Date().toISOString(),
+      updatedBy:sess.name||sess.username||'من الحصر المعياري'
+    });
+    changed=true;
+  }
   if(changed){_saveBoqData();}
+}
+
+function updateStdBoqWork(id,val){
+  const d=_STD_BOQ_DATA.find(x=>x.id===id);
+  if(!d)return;
+  d.stdQtyWork=parseFloat(val)||0;
+  d.lastUpdate=new Date().toISOString();
+  const sess=window._CURRENT_SESSION||{};
+  d.updatedBy=sess.name||sess.username||'—';
+  _saveStdBoq();
+  _syncStdBoqToInvoices(d.project,d.item,d.stdQtyWork,d.unit);
 }
 
 function _syncStdBoqToInvoices(project,item,stdQtyWork,unit){
@@ -4135,7 +4163,7 @@ function renderStdBoq(){
       '<td style="padding:7px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.66rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
       '<td style="padding:7px 10px;font-weight:700">'+d.item+'</td>'+
       '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--green)">'+((d.stdQty||0).toLocaleString())+' <span style="font-size:.7rem;color:var(--muted)">'+(d.unit||'')+'</span></td>'+
-      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--accent2)">'+((d.stdQtyWork||0)>0?(d.stdQtyWork||0).toLocaleString()+'<span style="font-size:.7rem;color:var(--muted)"> '+(d.unit||'')+'</span>':'<span style="color:var(--muted);font-size:.75rem">—</span>')+'</td>'+
+      '<td style="padding:4px 6px;text-align:center">'+(canEdit?'<div style="display:flex;align-items:center;justify-content:center;gap:4px"><input type="number" value="'+(d.stdQtyWork||0)+'" min="0" step="0.01" onchange="updateStdBoqWork('+d.id+',this.value)" style="width:75px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.35);color:var(--accent2);border-radius:6px;padding:3px 6px;text-align:center;font-family:Cairo,sans-serif;font-size:.8rem;outline:none;font-weight:700"><span style="font-size:.7rem;color:var(--muted)">'+(d.unit||'')+'</span></div>':((d.stdQtyWork||0)>0?(d.stdQtyWork||0).toLocaleString()+'<span style="font-size:.7rem;color:var(--muted)"> '+(d.unit||'')+'</span>':'<span style="color:var(--muted);font-size:.75rem">—</span>'))+'</td>'+
       '<td style="padding:7px 10px;text-align:center;color:var(--muted)">'+((d.unitPrice||0).toLocaleString())+' جم</td>'+
       '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--yellow)">'+total.toLocaleString()+' جم</td>'+
       '<td style="padding:7px 10px;font-size:.72rem;color:var(--muted)">'+(d.notes||'—')+'</td>'+
