@@ -2871,7 +2871,7 @@ function renderDeviations(){
     const noteData=_DEV_NOTES[key]||{};
     const statusVal=(noteData.status||'').replace(/"/g,'&quot;');
     const noteVal=(noteData.note||'').replace(/"/g,'&quot;');
-    const nameSafe=c.n.replace(/'/g,"\\'");
+    const nameAttr=c.n.replace(/"/g,'&quot;');
     srows+='<tr style="'+bg+'">'+
       '<td style="padding:8px 10px;font-weight:700">'+c.n+'</td>'+
       '<td style="padding:8px 10px;color:var(--muted);font-size:.75rem">'+c.e+'</td>'+
@@ -2879,8 +2879,8 @@ function renderDeviations(){
       '<td style="padding:8px 10px;color:var(--muted);font-size:.72rem">'+c.pl.toLocaleString()+' / '+c.ac.toLocaleString()+'</td>'+
       (s?'<td style="padding:8px 10px;min-width:150px"><div style="display:flex;align-items:center;gap:6px"><span style="color:'+wc(s.p)+';font-weight:700;font-size:.85rem">'+(s.p>0?'+':'')+s.p.toFixed(2)+'%</span><span style="font-size:.68rem;color:'+wc(s.p)+'">'+wl(s.p)+'</span></div>'+bar(s.p)+'</td><td style="padding:8px 10px;color:var(--muted);font-size:.75rem">'+s.e+'</td>'
       :'<td colspan="2" style="padding:8px 10px;color:var(--muted);font-size:.75rem;text-align:center">—</td>')+
-      '<td style="padding:6px 8px;min-width:110px"><input type="text" value="'+statusVal+'" placeholder="الموقف..." onblur="saveDevNote(\''+nameSafe+'\',\'status\',this.value)" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:Cairo,sans-serif;font-size:.74rem;width:100%;outline:none;padding:2px 4px"></td>'+
-      '<td style="padding:6px 8px;min-width:120px"><input type="text" value="'+noteVal+'" placeholder="ملاحظات..." onblur="saveDevNote(\''+nameSafe+'\',\'note\',this.value)" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--muted);font-family:Cairo,sans-serif;font-size:.74rem;width:100%;outline:none;padding:2px 4px"></td>'+
+      '<td style="padding:6px 8px;min-width:110px"><input type="text" value="'+statusVal+'" placeholder="الموقف..." data-n="'+nameAttr+'" data-f="status" onblur="saveDevNote(this.dataset.n,this.dataset.f,this.value)" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:Cairo,sans-serif;font-size:.74rem;width:100%;outline:none;padding:2px 4px"></td>'+
+      '<td style="padding:6px 8px;min-width:120px"><input type="text" value="'+noteVal+'" placeholder="ملاحظات..." data-n="'+nameAttr+'" data-f="note" onblur="saveDevNote(this.dataset.n,this.dataset.f,this.value)" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--muted);font-family:Cairo,sans-serif;font-size:.74rem;width:100%;outline:none;padding:2px 4px"></td>'+
     '</tr>';
   });
   let erows='';
