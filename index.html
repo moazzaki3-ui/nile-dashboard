@@ -3937,59 +3937,158 @@ function deleteStdBoqEntry(id){
 }
 function cancelDelStdBoq(id){const row=document.getElementById('stdBoqRow_'+id);if(row){row.dataset.confirm='';row.style.background='';}renderStdBoq();}
 
+// ---- Pending BOQ upload state (two-step: parse → preview → confirm) ----
+let _pendingBoqRows=null; // [{code,item,unit,stdQty,unitPrice,notes}]
+let _pendingBoqFile='';
+
 function uploadStdBoqExcel(){
   const file=(document.getElementById('stdBoqExcelFile')||{}).files[0];
   if(!file)return;
+  _pendingBoqFile=file.name;
   const n=document.getElementById('stdBoqNotice');
-  function _sn(msg,col){if(n){n.style.display='block';n.textContent=msg;n.style.color=col;n.style.background='rgba(0,0,0,.15)';setTimeout(()=>n.style.display='none',7000);}}
+  function _sn(msg,col,persist){if(n){n.style.display='block';n.textContent=msg;n.style.color=col;n.style.background='rgba(0,0,0,.15)';if(!persist)setTimeout(()=>n.style.display='none',9000);}}
   const reader=new FileReader();
   reader.onload=function(e){
     try{
       const wb=XLSX.read(e.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-      if(!rows.length){_sn('⚠ الملف فارغ أو لا يحتوي على بيانات','var(--orange)');return;}
-      let added=0,updated=0;const errors=[];
-      const sess=window._CURRENT_SESSION||{};
-      const now=new Date();
-      const dateStr=now.toLocaleDateString('ar-EG');
-      rows.forEach((row,i)=>{
-        const project=(row['المشروع']||row['مشروع']||row['project']||'').toString().trim();
-        const item=(row['البند']||row['اسم البند']||row['item']||'').toString().trim();
-        const unit=(row['الوحدة']||row['وحدة']||row['unit']||'').toString().trim();
-        const stdQty=parseFloat(row['الكمية المعيارية']||row['كميات خامات (توريد)']||row['كميات خامات']||row['الكمية']||row['stdQty']||0)||0;
-        const stdQtyWork=parseFloat(row['كميات الأعمال']||row['كميات أعمال (تنفيذ)']||row['كميات تنفيذ']||row['stdQtyWork']||0)||0;
-        const unitPrice=parseFloat(row['سعر الوحدة (جم)']||row['سعر الوحدة']||row['السعر']||row['unitPrice']||0)||0;
-        const notes=(row['ملاحظات']||row['notes']||'').toString().trim();
-        if(!project||!item){errors.push('صف '+(i+2)+': المشروع والبند مطلوبان');return;}
-        if(!ACTIVE_CODES.includes(project)){errors.push('صف '+(i+2)+': كود "'+project+'" غير موجود في المشاريع');return;}
-        // Auto-add to master items list if not there
-        if(!_STD_ITEMS_DATA.find(d=>d.item===item)){
-          _STD_ITEMS_DATA.push({id:Date.now()*100+Math.floor(Math.random()*99),item:item,unit:unit,description:'من رفع Excel',user:sess.name||sess.username||'—',date:dateStr});
-        }
-        // Upsert std_boq entry
-        const existing=_STD_BOQ_DATA.find(d=>d.project===project&&d.item===item);
-        if(existing){
-          existing.stdQty=stdQty;existing.stdQtyWork=stdQtyWork;existing.unit=unit||existing.unit;existing.unitPrice=unitPrice;existing.notes=notes;existing.lastUpdate=now.toISOString();existing.updatedBy=sess.name||sess.username||'—';updated++;
-        }else{
-          _STD_BOQ_DATA.push({id:Date.now()*100+Math.floor(Math.random()*99)+i,project:project,item:item,unit:unit,stdQty:stdQty,stdQtyWork:stdQtyWork,unitPrice:unitPrice,notes:notes,date:dateStr,user:sess.name||sess.username||'—',lastUpdate:now.toISOString()});added++;
-        }
-        _syncStdBoqToBOQ(project,item,stdQty,unit);
-        _syncStdBoqToInvoices(project,item,stdQtyWork,unit);
+      // Read as raw array to handle carry-forward (merged-cell) structure
+      const rawRows=XLSX.utils.sheet_to_json(ws,{defval:'',header:1});
+      if(!rawRows.length){_sn('⚠ الملف فارغ','var(--orange)');return;}
+
+      // Build name→code map for ALL projects (normalize: remove spaces, lowercase)
+      const nameToCode={};
+      PROJECTS.forEach(p=>{
+        const norm=p.name.replace(/\s+/g,'').toLowerCase();
+        nameToCode[norm]=p.code;
+        // also store with code as fallback
+        nameToCode[p.code.toLowerCase()]=p.code;
       });
-      _saveStdItems();_saveStdBoq();
-      if(errors.length&&!added&&!updated){
-        _sn('⚠ لم يُحفظ أي بند — '+errors.length+' صف مرفوض. تأكد من الكود (P-003...) والبند.','var(--red)');
-        console.warn('StdBOQ upload errors:',errors);
-        alert('أسباب الرفض:\n'+errors.slice(0,5).join('\n')+(errors.length>5?'\n...':''));
-      }else{
-        const errTxt=errors.length?' | ⚠ '+errors.length+' صف مرفوض':'';
-        _sn('✅ تم رفع الحصر كعقد: '+added+' بند جديد، '+updated+' بند محدَّث'+errTxt, errors.length?'var(--orange)':'var(--green)');
+
+      // Auto-detect header row (look for 'المشروع')
+      let headerRow=-1;
+      for(let i=0;i<rawRows.length;i++){
+        if(rawRows[i].some(c=>c&&c.toString().includes('المشروع'))){headerRow=i;break;}
       }
-      renderStdBoq();
+      const dataRows=headerRow>=0?rawRows.slice(headerRow+1):rawRows;
+
+      const parsed=[];
+      const errors=[];
+      let curProj='',curBand='';
+
+      dataRows.forEach((row,i)=>{
+        // Carry-forward: project in col B (index 1), band in col C (index 2)
+        const rawProj=(row[1]||'').toString().trim();
+        const rawBand=(row[2]||'').toString().trim();
+        const subItem=(row[3]||'').toString().trim();
+        const subType=(row[4]||'').toString().trim();
+        const unit=(row[5]||'').toString().trim();
+        const rawQty=row[6];
+        const unitPrice=parseFloat(row[7])||0;
+        const notes=(row[8]||'').toString().trim();
+
+        if(rawProj) curProj=rawProj;
+        if(rawBand) curBand=rawBand;
+        if(!curProj||!curBand) return;
+
+        // Build full item name from band + sub-item + sub-type
+        let item=curBand;
+        if(subItem) item+=' - '+subItem;
+        if(subType) item+=' - '+subType;
+        item=item.replace(/\s+/g,' ').trim();
+        if(!item) return;
+
+        // Parse qty (handle formula strings like '=30.42')
+        let stdQty=0;
+        if(rawQty!==''&&rawQty!==null&&rawQty!==undefined){
+          stdQty=parseFloat(rawQty.toString().replace(/^=/,''))||0;
+        }
+
+        // Lookup project code by name
+        const normProj=curProj.replace(/\s+/g,'').toLowerCase();
+        const code=nameToCode[normProj];
+        if(!code){errors.push('مشروع "'+curProj+'" غير موجود');return;}
+
+        parsed.push({code,projName:curProj,item,unit,stdQty,unitPrice,notes});
+      });
+
+      if(!parsed.length){
+        const errMsg=errors.length?errors.slice(0,3).join(' | '):'لا توجد بيانات صالحة';
+        _sn('⚠ لم يُقرأ أي بند — '+errMsg,'var(--red)');
+        return;
+      }
+
+      // Store for confirmation step
+      _pendingBoqRows=parsed;
+
+      // Update confirm button visibility
+      const btn=document.getElementById('stdBoqConfirmBtn');
+      if(btn){btn.style.display='inline-flex';btn.textContent='💾 حفظ الحصر ('+parsed.length+' بند)';}
+
+      const warnTxt=errors.length?' | ⚠ '+errors.length+' صف لم يُتعرف على مشروعه':'';
+      _sn('📂 تم قراءة '+parsed.length+' بند من "'+_pendingBoqFile+'" — اضغط "حفظ الحصر" للتأكيد'+warnTxt,'var(--accent2)',true);
+
     }catch(ex){_sn('❌ خطأ في قراءة الملف: '+ex.message,'var(--red)');}
   };
   reader.readAsArrayBuffer(file);
+}
+
+function confirmStdBoqSave(){
+  if(!_pendingBoqRows||!_pendingBoqRows.length){return;}
+  const n=document.getElementById('stdBoqNotice');
+  function _sn(msg,col){if(n){n.style.display='block';n.textContent=msg;n.style.color=col;n.style.background='rgba(0,0,0,.15)';setTimeout(()=>n.style.display='none',9000);}}
+  const sess=window._CURRENT_SESSION||{};
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('ar-EG');
+  let added=0,updated=0;
+
+  _pendingBoqRows.forEach((r,i)=>{
+    // Auto-add to master items list if not there
+    if(!_STD_ITEMS_DATA.find(d=>d.item===r.item)){
+      _STD_ITEMS_DATA.push({id:Date.now()*1000+i,item:r.item,unit:r.unit,description:'من رفع Excel',user:sess.name||sess.username||'—',date:dateStr});
+    }
+    // Upsert — only set stdQty from Excel; stdQtyWork is manual-only
+    const existing=_STD_BOQ_DATA.find(d=>d.project===r.code&&d.item===r.item);
+    if(existing){
+      existing.stdQty=r.stdQty;
+      existing.unit=r.unit||existing.unit;
+      existing.unitPrice=r.unitPrice;
+      existing.notes=r.notes||existing.notes;
+      existing.lastUpdate=now.toISOString();
+      existing.updatedBy=sess.name||sess.username||'—';
+      updated++;
+    }else{
+      _STD_BOQ_DATA.push({id:Date.now()*1000+i,project:r.code,item:r.item,unit:r.unit,stdQty:r.stdQty,stdQtyWork:0,unitPrice:r.unitPrice,notes:r.notes,date:dateStr,user:sess.name||sess.username||'—',lastUpdate:now.toISOString()});
+      added++;
+    }
+    _syncStdBoqToBOQ(r.code,r.item,r.stdQty,r.unit);
+  });
+
+  _saveStdItems();_saveStdBoq();
+  _pendingBoqRows=null;
+  // Hide confirm button
+  const btn=document.getElementById('stdBoqConfirmBtn');
+  if(btn) btn.style.display='none';
+  // Reset file input
+  const fi=document.getElementById('stdBoqExcelFile');
+  if(fi) fi.value='';
+  _sn('✅ تم حفظ الحصر المعياري: '+added+' بند جديد، '+updated+' بند محدَّث (كميات الأعمال المنفذة تُدخل يدوياً)','var(--green)');
+  renderStdBoq();
+}
+
+function exportStdBoqExcel(){
+  if(!_STD_BOQ_DATA||!_STD_BOQ_DATA.length){alert('لا توجد بيانات حصر للتصدير');return;}
+  const header=['#','كود المشروع','اسم المشروع','البند','الوحدة','كمية الحصر المعياري','كميات الأعمال المنفذة','سعر الوحدة (جم)','الإجمالي (جم)','ملاحظات'];
+  const rows=_STD_BOQ_DATA.map((d,i)=>{
+    const name=ACTIVE_NAMES[d.project]||(PROJECTS.find(p=>p.code===d.project)||{}).name||d.project;
+    const total=((d.stdQty||0)*(d.unitPrice||0));
+    return[i+1,d.project,name,d.item,d.unit||'',d.stdQty||0,d.stdQtyWork||0,d.unitPrice||0,total,d.notes||''];
+  });
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  ws['!cols']=[{wch:4},{wch:10},{wch:16},{wch:32},{wch:8},{wch:16},{wch:18},{wch:14},{wch:14},{wch:20}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'الحصر المعياري');
+  XLSX.writeFile(wb,'الحصر_المعياري_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
 function renderStdBoq(){
@@ -4083,8 +4182,10 @@ function renderStdBoq(){
         '</div>'+
         '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع الحصر من Excel <input type="file" id="stdBoqExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadStdBoqExcel()"></label>'+
+          '<button id="stdBoqConfirmBtn" onclick="confirmStdBoqSave()" style="display:none;background:rgba(34,197,94,.18);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:6px 16px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap;font-weight:700;align-items:center;gap:6px">💾 حفظ الحصر</button>'+
+          '<button onclick="exportStdBoqExcel()" style="background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير كل المشاريع Excel</button>'+
           '<button onclick="downloadStdBoqTemplate()" style="background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📋 تنزيل قالب Excel</button>'+
-          '<span style="font-size:.68rem;color:var(--muted);flex:1">الأعمدة المطلوبة: <b style="color:var(--accent2)">المشروع | البند | الوحدة | الكمية المعيارية | كميات الأعمال | سعر الوحدة | ملاحظات</b></span>'+
+          '<span style="font-size:.68rem;color:var(--muted);flex:1">Excel: اسم المشروع (B) | البند (C) | التفاصيل (D,E) | الوحدة (F) | الكمية (G) | السعر (H)</span>'+
         '</div>'
       :'')+
 
