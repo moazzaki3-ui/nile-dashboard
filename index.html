@@ -1940,6 +1940,7 @@ ${canAdd?`
       <th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">المورد</th>
       <th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">تاريخ الطلب</th>
       <th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">تاريخ التوريد</th>
+      <th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:600;white-space:nowrap">الأيام المنقضية</th>
       <th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:600;white-space:nowrap">الحالة</th>
       <th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600">ملاحظات</th>
       <th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">المسجل</th>
@@ -1947,7 +1948,7 @@ ${canAdd?`
     </tr>
   </thead>
   <tbody>
-    ${filtered.length===0?`<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--muted)">لا توجد طلبات شراء</td></tr>`
+    ${filtered.length===0?`<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted)">لا توجد طلبات شراء</td></tr>`
     :filtered.map((o,i)=>{
       const late=_poIsLate(o);
       const rowBg=late?'background:rgba(239,68,68,.09);':'';
@@ -1965,6 +1966,7 @@ ${canAdd?`
         <td style="padding:8px 10px;color:var(--muted);white-space:nowrap">${o.supplier||'–'}</td>
         <td style="padding:8px 10px;color:var(--muted);white-space:nowrap">${o.requestDate||'–'}</td>
         <td style="padding:8px 10px;color:${o.deliveryDate?'var(--green)':'var(--muted)'};white-space:nowrap">${o.deliveryDate||'–'}</td>
+        <td style="padding:8px 10px;text-align:center;white-space:nowrap">${(function(){if(!o.deliveryDate)return '<span style="color:var(--muted)">–</span>';var d=new Date(o.deliveryDate);if(isNaN(d.getTime()))return '<span style="color:var(--muted)">–</span>';var days=Math.floor((Date.now()-d.getTime())/86400000);var col=days<=7?'var(--green)':days<=30?'var(--yellow)':days<=90?'var(--orange)':'var(--red)';return '<span style="color:'+col+';font-weight:700">'+days+'</span><span style="color:var(--muted);font-size:.75rem"> يوم</span>';})()}</td>
         <td style="padding:8px 10px;text-align:center">${statusSel}</td>
         <td style="padding:8px 10px;color:var(--muted);font-size:.75rem">${o.notes||''}</td>
         <td style="padding:8px 10px;color:var(--muted);font-size:.72rem;white-space:nowrap">${o.requestedBy&&o.requestedBy!=='import'?o.requestedBy:'–'}</td>
