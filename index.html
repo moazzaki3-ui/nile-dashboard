@@ -228,6 +228,8 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
   </div>
   <div class="section-title">📍 الأحياء والكمبوندات</div>
   <div class="loc-map" id="locMap"></div>
+  <div class="section-title" id="portDevSec" style="display:none">📉 انحرافات المواد — من تقارير المتابعة</div>
+  <div id="portDeviations" style="display:flex;flex-wrap:wrap;gap:12px;padding:0 4px 16px"></div>
 </div>
 
 <div id="tab-projects" class="content hidden">
@@ -3682,7 +3684,7 @@ function uploadBoqExcel(){
 }
 
 function renderBalances(){
-  _initBoqListener();_initFupBoqListener();
+  _initBoqListener();_initFupBoqListener();_initFupDevExtraListener();
   const role=window._CURRENT_ROLE||'viewer';const _brb=_getBaseRole(role);
   const canEdit=(_brb==='admin'||_brb==='editor'||_brb==='engineer'||_brb==='supervisor'||_brb==='foreman'||_brb==='storekeeper');
   const canDel=(_brb==='admin'||_brb==='editor');
@@ -3793,9 +3795,11 @@ function _initFupBoqListener(){
     try{localStorage.setItem(_FUP_BOQ_KEY,JSON.stringify(_FUP_BOQ_DATA));}catch(e){}
     const tab=document.getElementById('tab-balances');
     if(tab&&!tab.classList.contains('hidden'))renderBalances();
+    renderPortDeviations();
   },function(err){
     _fbErr('follow_up_boq',err);
     try{_FUP_BOQ_DATA=JSON.parse(localStorage.getItem(_FUP_BOQ_KEY)||'[]');}catch(e){}
+    renderPortDeviations();
   });
 }
 
@@ -4031,6 +4035,77 @@ function renderFollowUpBoq(){
   return html;
 }
 // ============ / FOLLOW-UP BOQ ============
+
+// ============ DEVIATIONS SUMMARY (انحرافات المواد في المحفظة) ============
+let _FUP_DEV_EXTRA={};
+let _fbFupDevExtraInit=false;
+
+function _initFupDevExtraListener(){
+  if(_fbFupDevExtraInit)return;_fbFupDevExtraInit=true;
+  _DB.ref('fup_dev_extra').on('value',function(snap){
+    _fbOk();_FUP_DEV_EXTRA=snap.val()||{};
+    renderPortDeviations();
+  },function(err){_fbErr('fup_dev_extra',err);});
+}
+
+function saveFupDevExtra(proj,field,val){
+  var v=parseFloat(val)||0;
+  if(!_FUP_DEV_EXTRA[proj])_FUP_DEV_EXTRA[proj]={};
+  _FUP_DEV_EXTRA[proj][field]=v;
+  var upd={};upd[proj+'/'+field]=v;
+  _DB.ref('fup_dev_extra').update(upd).then(function(){_fbOk();}).catch(function(e){_fbErr('fup_dev_extra',e);});
+  renderPortDeviations();
+}
+
+function renderPortDeviations(){
+  var el=document.getElementById('portDeviations');
+  var sec=document.getElementById('portDevSec');
+  if(!el)return;
+  if(!_FUP_BOQ_DATA.length){el.innerHTML='';if(sec)sec.style.display='none';return;}
+  if(sec)sec.style.display='';
+  var fmt=function(v,d){return(v>=0?'+':'')+v.toFixed(d||1);};
+  var vc=function(v){return v>=0?'var(--green)':v>-3?'var(--yellow)':'var(--red)';};
+  var cards=_FUP_BOQ_DATA.map(function(rec){
+    var items=rec.items||[];var proj=rec.project;
+    var tCStd=items.reduce(function(s,it){return s+it.concStd;},0);
+    var tCAct=items.reduce(function(s,it){return s+it.concAct;},0);
+    var concP=tCStd>0?(tCStd-tCAct)/tCStd*100:0;
+    var tSSt=items.reduce(function(s,it){return s+it.steelStd;},0);
+    var tSAct=items.reduce(function(s,it){return s+it.steelAct;},0);
+    var steelP=tSSt>0?(tSSt-tSAct)/tSSt*100:0;
+    var ex=_FUP_DEV_EXTRA[proj]||{};
+    var masonryP=ex.masonry!=null?ex.masonry:0;
+    var plasterP=ex.plaster!=null?ex.plaster:0;
+    var allAvg=(concP+steelP+masonryP+plasterP)/4;
+    return '<div onclick="showTab(\'balances\')" title="اضغط لعرض التفاصيل الكاملة" style="cursor:pointer;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;min-width:195px;flex:1;max-width:255px;transition:all .2s;direction:rtl" onmouseover="this.style.borderColor=\'var(--accent2)\';this.style.background=\'rgba(99,102,241,.07)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.background=\'var(--card)\'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+        +'<span style="font-weight:800;color:var(--accent2);font-size:.88rem">📋 '+proj+'</span>'
+        +'<span style="font-size:.68rem;color:'+vc(allAvg)+';background:rgba('+(allAvg>=0?'34,197,94':'239,68,68')+',.12);padding:2px 7px;border-radius:20px;font-weight:700">متوسط '+fmt(allAvg,1)+'%</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">'
+        +'<div style="background:var(--panel);border-radius:9px;padding:8px;text-align:center;border-top:2px solid '+vc(concP)+'">'
+          +'<div style="font-size:1.05rem;font-weight:800;color:'+vc(concP)+'">'+fmt(concP,1)+'%</div>'
+          +'<div style="font-size:.62rem;color:var(--muted)">🪨 خرسانة</div>'
+        +'</div>'
+        +'<div style="background:var(--panel);border-radius:9px;padding:8px;text-align:center;border-top:2px solid '+vc(steelP)+'">'
+          +'<div style="font-size:1.05rem;font-weight:800;color:'+vc(steelP)+'">'+fmt(steelP,1)+'%</div>'
+          +'<div style="font-size:.62rem;color:var(--muted)">🔩 حديد</div>'
+        +'</div>'
+        +'<div style="background:var(--panel);border-radius:9px;padding:6px;text-align:center;border-top:2px solid '+vc(masonryP)+'" onclick="event.stopPropagation()">'
+          +'<input type="number" step="0.1" value="'+masonryP+'" onchange="saveFupDevExtra(\''+proj+'\',\'masonry\',this.value)" style="width:55px;background:transparent;border:none;color:'+vc(masonryP)+';font-size:.95rem;font-weight:800;text-align:center;font-family:Cairo,sans-serif;outline:none;direction:ltr" />'
+          +'<div style="font-size:.62rem;color:var(--muted)">🧱 مباني %</div>'
+        +'</div>'
+        +'<div style="background:var(--panel);border-radius:9px;padding:6px;text-align:center;border-top:2px solid '+vc(plasterP)+'" onclick="event.stopPropagation()">'
+          +'<input type="number" step="0.1" value="'+plasterP+'" onchange="saveFupDevExtra(\''+proj+'\',\'plaster\',this.value)" style="width:55px;background:transparent;border:none;color:'+vc(plasterP)+';font-size:.95rem;font-weight:800;text-align:center;font-family:Cairo,sans-serif;outline:none;direction:ltr" />'
+          +'<div style="font-size:.62rem;color:var(--muted)">🪟 بياض %</div>'
+        +'</div>'
+      +'</div>'
+      +'<div style="font-size:.6rem;color:var(--muted);margin-top:7px;text-align:center">↗ اضغط للتفاصيل الكاملة</div>'
+    +'</div>';
+  }).join('');
+  el.innerHTML=cards;
+}
+// ============ / DEVIATIONS SUMMARY ============
 
 // ============ STANDARD BOQ (الحصر المعياري) ============
 let _STD_ITEMS_DATA=[];
@@ -4807,7 +4882,7 @@ function startApp(){
   _initDeviationsListener();
   _initWarehouseListener();
   _initInvoicesListener();
-  _initBoqListener();_initFupBoqListener();
+  _initBoqListener();_initFupBoqListener();_initFupDevExtraListener();
   _initStdItemsListener();
   _initStdBoqListener();
   _initTabPermListener();
