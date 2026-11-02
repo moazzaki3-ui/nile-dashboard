@@ -4547,6 +4547,8 @@ let _pendingBoqRows=null; // [{code,item,unit,stdQty,unitPrice,notes}]
 let _pendingBoqFile='';
 
 function uploadStdBoqExcel(){
+  const uploadTypeVal=(document.getElementById('stdBoqUploadType')||{}).value||'supply';
+  if(uploadTypeVal==='study'){parseStudyBoqExcel();return;}
   const file=(document.getElementById('stdBoqExcelFile')||{}).files[0];
   if(!file)return;
   _pendingBoqFile=file.name;
@@ -4655,6 +4657,142 @@ function uploadStdBoqExcel(){
   reader.readAsArrayBuffer(file);
 }
 
+function parseStudyBoqExcel(){
+  const file=(document.getElementById('stdBoqExcelFile')||{}).files[0];
+  if(!file)return;
+  _pendingBoqFile=file.name;
+  const n=document.getElementById('stdBoqNotice');
+  function _sn(msg,col,persist){if(n){n.style.display='block';n.textContent=msg;n.style.color=col;n.style.background='rgba(0,0,0,.15)';if(!persist)setTimeout(()=>n.style.display='none',9000);}}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      // Build name→code map for all projects
+      const nameToCode={};
+      PROJECTS.forEach(p=>{
+        nameToCode[p.name.replace(/\s+/g,'').toLowerCase()]=p.code;
+        nameToCode[p.code.toLowerCase()]=p.code;
+      });
+      const matchCode=txt=>{
+        const t=(txt||'').toString().trim().replace(/\s+/g,'').toLowerCase();
+        if(!t||t.length<2)return null;
+        if(nameToCode[t])return nameToCode[t];
+        for(const[k,v]of Object.entries(nameToCode)){if(k&&t&&k.length>1&&t.length>1&&(k.includes(t)||t.includes(k)))return v;}
+        return null;
+      };
+      // Skip utility sheets
+      const skipParts=['اسعار','sheet','جدول','معدلات','قطعه رقم','ملخص'];
+      const boqSheets=wb.SheetNames.filter(nm=>{
+        const nl=nm.replace(/\s/g,'').toLowerCase();
+        return !skipParts.some(s=>nl.includes(s));
+      });
+      if(!boqSheets.length){_sn('⚠ لم تُوجد شيتات حصر في الملف','var(--red)');return;}
+      const parsed=[];
+      let globalCode='';
+      boqSheets.forEach(sheetName=>{
+        const ws=wb.Sheets[sheetName];
+        if(!ws)return;
+        const rawRows=XLSX.utils.sheet_to_json(ws,{defval:'',header:1});
+        if(rawRows.length<4)return;
+        // Auto-detect project code from first few rows (cells 1+ of rows 0-3)
+        let sheetCode=globalCode;
+        if(!sheetCode){
+          outer:for(let r=0;r<Math.min(rawRows.length,4);r++){
+            const row=rawRows[r]||[];
+            for(let c=1;c<row.length;c++){
+              const v=(row[c]||'').toString().trim();
+              if(v&&v.length>=3&&v.length<=12){const m=matchCode(v);if(m){sheetCode=globalCode=m;break outer;}}
+            }
+          }
+        }
+        if(!sheetCode)return;
+        // Detect section row: contains both 'الخامات' and 'مصنعيات'
+        let sectionRowIdx=-1;
+        for(let r=0;r<Math.min(rawRows.length,8);r++){
+          const joined=(rawRows[r]||[]).map(v=>(v||'').toString()).join('|');
+          if(joined.includes('الخامات')&&joined.includes('مصنعيات')){sectionRowIdx=r;break;}
+        }
+        // Find item/qty/unit columns from the row that has 'البند'
+        let itemCol=0,qtyCol=1,unitCol=2;
+        for(let r=0;r<Math.min(rawRows.length,8);r++){
+          const row=rawRows[r]||[];
+          if(row.some(v=>(v||'').toString().includes('البند'))){
+            row.forEach((v,c)=>{
+              const s=(v||'').toString();
+              if(s.includes('البند'))itemCol=c;
+              else if(s==='الكمية')qtyCol=c;
+              else if(s==='الوحدة')unitCol=c;
+            });
+            break;
+          }
+        }
+        let supplyTotalCol=-1,contractorTotalCol=-1;
+        const isSplit=sectionRowIdx>=0;
+        if(isSplit){
+          // Scan section row + sub-row to find اجمالي columns per section
+          const secRow=rawRows[sectionRowIdx]||[];
+          const subRow=rawRows[sectionRowIdx+1]||[];
+          let curSec='';
+          for(let c=0;c<Math.max(secRow.length,subRow.length);c++){
+            const sec=(secRow[c]||'').toString().trim();
+            const sub=(subRow[c]||'').toString().trim();
+            if(sec){
+              if(sec.includes('الخامات'))curSec='خامات';
+              else if(sec.includes('مصنعيات'))curSec='مصنعيات';
+              else if(sec.includes('نثريات'))curSec='نثريات';
+              else if(sec.includes('التكلفة'))curSec='تكلفة';
+            }
+            if((sub.includes('اجمالي')||sub.includes('اجمالى')||sub.includes('إجمالي'))&&sub.length<12){
+              if(curSec==='خامات'&&supplyTotalCol<0)supplyTotalCol=c;
+              else if(curSec==='مصنعيات'&&contractorTotalCol<0)contractorTotalCol=c;
+            }
+          }
+        }else{
+          // Non-split sheet: find التكلفة/الاجمالى column → treat all as supply
+          for(let r=0;r<Math.min(rawRows.length,8);r++){
+            (rawRows[r]||[]).forEach((v,c)=>{
+              const s=(v||'').toString();
+              if(c>2&&(s.includes('التكلفة')||s.includes('الاجمالى')||s.includes('الاجمالي'))&&supplyTotalCol<0)supplyTotalCol=c;
+            });
+          }
+        }
+        // Data starts 2 rows after the section/header row
+        const dataStartRow=Math.max(sectionRowIdx,0)+2;
+        (rawRows.slice(dataStartRow)).forEach(row=>{
+          const itemRaw=(row[itemCol]||'').toString().trim();
+          if(!itemRaw||itemRaw.length<2)return;
+          if(/^[\d\.]+$/.test(itemRaw))return;
+          if(itemRaw.includes('اجمالي')||itemRaw.includes('إجمالي')||itemRaw.includes('مجموع')||itemRaw.includes('جملة'))return;
+          if(itemRaw==='البند'||itemRaw==='م'||itemRaw==='رقم')return;
+          const qty=parseFloat((row[qtyCol]||0).toString().replace(/[^\d.]/g,''))||0;
+          if(qty<=0)return;
+          const unit=(row[unitCol]||'').toString().trim();
+          // Short prefix from sheet name (strip مقايسة, limit to 10 chars)
+          const prefix=sheetName.replace(/مقايسة/g,'').replace(/\s+/g,' ').trim().substring(0,10);
+          const fullItem=(prefix?prefix+'—':'')+itemRaw.substring(0,35);
+          if(isSplit){
+            const sAmt=supplyTotalCol>=0?parseFloat((row[supplyTotalCol]||0).toString().replace(/[^\d.]/g,''))||0:0;
+            const cAmt=contractorTotalCol>=0?parseFloat((row[contractorTotalCol]||0).toString().replace(/[^\d.]/g,''))||0:0;
+            if(sAmt>0)parsed.push({code:sheetCode,item:fullItem,unit,stdQty:qty,unitPrice:Math.round(sAmt/qty*100)/100,notes:'خامات — '+sheetName,type:'supply'});
+            if(cAmt>0)parsed.push({code:sheetCode,item:fullItem,unit,stdQty:qty,unitPrice:Math.round(cAmt/qty*100)/100,notes:'مصنعيات — '+sheetName,type:'contractor'});
+          }else if(supplyTotalCol>=0){
+            const total=parseFloat((row[supplyTotalCol]||0).toString().replace(/[^\d.]/g,''))||0;
+            if(total>0)parsed.push({code:sheetCode,item:fullItem,unit,stdQty:qty,unitPrice:Math.round(total/qty*100)/100,notes:'توريد — '+sheetName,type:'supply'});
+          }
+        });
+      });
+      if(!parsed.length){_sn('⚠ لم يُقرأ أي بند من الدراسة — تحقق من تنسيق الشيتات','var(--red)');return;}
+      _pendingBoqRows=parsed;
+      const sCount=parsed.filter(r=>r.type==='supply').length;
+      const cCount=parsed.filter(r=>r.type==='contractor').length;
+      const btn=document.getElementById('stdBoqConfirmBtn');
+      if(btn){btn.style.display='inline-flex';btn.textContent='💾 حفظ الدراسة ('+sCount+' توريدات + '+cCount+' مقاولين)';}
+      _sn('📊 دراسة "'+_pendingBoqFile+'" — '+sCount+' بند توريدات، '+cCount+' بند مقاولين — اضغط حفظ للتأكيد','var(--accent2)',true);
+    }catch(ex){_sn('❌ خطأ في قراءة دراسة المشروع: '+ex.message,'var(--red)');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function confirmStdBoqSave(){
   if(!_pendingBoqRows||!_pendingBoqRows.length){return;}
   const n=document.getElementById('stdBoqNotice');
@@ -4662,17 +4800,23 @@ function confirmStdBoqSave(){
   const sess=window._CURRENT_SESSION||{};
   const now=new Date();
   const dateStr=now.toLocaleDateString('ar-EG');
+  const globalUploadType=(document.getElementById('stdBoqUploadType')||{}).value||'supply';
   let added=0,updated=0;
 
   _pendingBoqRows.forEach((r,i)=>{
+    // Per-row type (from دراسة parser) overrides global select
+    const rowType=r.type||globalUploadType;
+    const isContractor=rowType==='contractor';
     // Auto-add to master items list if not there
     if(!_STD_ITEMS_DATA.find(d=>d.item===r.item)){
       _STD_ITEMS_DATA.push({id:Date.now()*1000+i,item:r.item,unit:r.unit,description:'من رفع Excel',user:sess.name||sess.username||'—',date:dateStr});
     }
-    // Upsert — only set stdQty from Excel; stdQtyWork is manual-only
+    const stdQty=isContractor?0:r.stdQty;
+    const stdQtyWork=isContractor?r.stdQty:0;
     const existing=_STD_BOQ_DATA.find(d=>d.project===r.code&&d.item===r.item);
     if(existing){
-      existing.stdQty=r.stdQty;
+      existing.type=rowType;
+      if(isContractor){existing.stdQtyWork=r.stdQty;}else{existing.stdQty=r.stdQty;}
       existing.unit=r.unit||existing.unit;
       existing.unitPrice=r.unitPrice;
       existing.notes=r.notes||existing.notes;
@@ -4680,10 +4824,11 @@ function confirmStdBoqSave(){
       existing.updatedBy=sess.name||sess.username||'—';
       updated++;
     }else{
-      _STD_BOQ_DATA.push({id:Date.now()*1000+i,project:r.code,item:r.item,unit:r.unit,stdQty:r.stdQty,stdQtyWork:0,unitPrice:r.unitPrice,notes:r.notes,date:dateStr,user:sess.name||sess.username||'—',lastUpdate:now.toISOString()});
+      _STD_BOQ_DATA.push({id:Date.now()*1000+i,project:r.code,item:r.item,unit:r.unit,type:rowType,stdQty:stdQty,stdQtyWork:stdQtyWork,unitPrice:r.unitPrice,notes:r.notes,date:dateStr,user:sess.name||sess.username||'—',lastUpdate:now.toISOString()});
       added++;
     }
-    _syncStdBoqToBOQ(r.code,r.item,r.stdQty,r.unit);
+    if(isContractor)_syncStdBoqToInvoices(r.code,r.item,r.stdQty,r.unit);
+    else _syncStdBoqToBOQ(r.code,r.item,r.stdQty,r.unit);
   });
 
   _saveStdItems();_saveStdBoq();
@@ -4817,6 +4962,11 @@ function renderStdBoq(){
           '<div class="form-group"><label style="color:transparent">.</label><button class="form-btn form-btn-green" onclick="addStdBoqEntry()">🔒 حفظ الحصر</button></div>'+
         '</div>'+
         '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+          '<select id="stdBoqUploadType" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none">'+
+            '<option value="supply">📦 توريدات</option>'+
+            '<option value="contractor">🔧 مقاول</option>'+
+            '<option value="study">📋 دراسة مشروع (تلقائي)</option>'+
+          '</select>'+
           '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع الحصر من Excel <input type="file" id="stdBoqExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadStdBoqExcel()"></label>'+
           '<button id="stdBoqConfirmBtn" onclick="confirmStdBoqSave()" style="display:none;background:rgba(34,197,94,.18);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:6px 16px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap;font-weight:700;align-items:center;gap:6px">💾 حفظ الحصر</button>'+
           '<button onclick="exportStdBoqExcel()" style="background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير كل المشاريع Excel</button>'+
