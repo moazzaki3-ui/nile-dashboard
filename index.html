@@ -3682,7 +3682,7 @@ function uploadBoqExcel(){
 }
 
 function renderBalances(){
-  _initBoqListener();
+  _initBoqListener();_initFupBoqListener();
   const role=window._CURRENT_ROLE||'viewer';const _brb=_getBaseRole(role);
   const canEdit=(_brb==='admin'||_brb==='editor'||_brb==='engineer'||_brb==='supervisor'||_brb==='foreman'||_brb==='storekeeper');
   const canDel=(_brb==='admin'||_brb==='editor');
@@ -3726,6 +3726,7 @@ function renderBalances(){
   const delTh=canDel?'<th>حذف</th>':'';
 
   document.getElementById('tab-balances').innerHTML=
+    renderFollowUpBoq()+
     '<div class="section-title">📊 الأرصدة والحصر — المستخدم والانحراف</div>'+
     '<div class="kpi-grid" style="margin-bottom:16px">'+
       '<div class="kpi blue"><div class="kpi-val">'+totalItems+'</div><div class="kpi-lbl">إجمالي البنود</div></div>'+
@@ -3754,7 +3755,8 @@ function renderBalances(){
       '</div>'+
       '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
         '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع من Excel <input type="file" id="boqExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadBoqExcel()"></label>'+
-        '<span style="font-size:.68rem;color:var(--muted)">الأعمدة: المشروع، البند، التوريد، الرصيد، الرصيد السابق، التحويل، الحصر المعياري، الوحدة</span>'+
+        '<label style="font-size:.78rem;color:var(--accent2);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.35);border-radius:8px;padding:6px 14px">📋 رفع تقرير المتابعة <input type="file" id="boqFollowUpFile" accept=".xlsx,.xls" style="display:none" onchange="uploadFollowUpExcel()"></label>'+
+        '<span style="font-size:.67rem;color:var(--muted)">📥 Excel بسيط: المشروع، البند، التوريد، الرصيد… &nbsp;|&nbsp; 📋 تقرير المتابعة: شيت اسمه كود المشروع، Standard/Actual في عمود F</span>'+
       '</div>'+
     '</div>':'')+
 
@@ -3771,6 +3773,210 @@ function renderBalances(){
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد بنود مسجّلة بعد. '+(canEdit?'أضف البنود يدوياً أو ارفع من Excel.':'')+'</div>');
 }
 // ============ / BALANCES & BOQ ============
+
+// ============ FOLLOW-UP BOQ (تقرير المتابعة الهيكلي) ============
+let _FUP_BOQ_DATA=[];
+let _fbFupBoqInit=false;
+const _FUP_BOQ_KEY='nile_fup_boq';
+
+function _saveFupBoqData(){
+  const obj={};_FUP_BOQ_DATA.forEach(d=>{obj['fu'+d.id]=d;});
+  _DB.ref('follow_up_boq').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('follow_up_boq',e));
+  try{localStorage.setItem(_FUP_BOQ_KEY,JSON.stringify(_FUP_BOQ_DATA));}catch(e){}
+}
+
+function _initFupBoqListener(){
+  if(_fbFupBoqInit)return;_fbFupBoqInit=true;
+  _DB.ref('follow_up_boq').on('value',function(snap){
+    _fbOk();const v=snap.val();
+    _FUP_BOQ_DATA=v?Object.values(v):[];
+    try{localStorage.setItem(_FUP_BOQ_KEY,JSON.stringify(_FUP_BOQ_DATA));}catch(e){}
+    const tab=document.getElementById('tab-balances');
+    if(tab&&!tab.classList.contains('hidden'))renderBalances();
+  },function(err){
+    _fbErr('follow_up_boq',err);
+    try{_FUP_BOQ_DATA=JSON.parse(localStorage.getItem(_FUP_BOQ_KEY)||'[]');}catch(e){}
+  });
+}
+
+function uploadFollowUpExcel(){
+  const input=document.getElementById('boqFollowUpFile');
+  if(!input||!input.files.length)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const sheetName=wb.SheetNames[0];
+      const projCode=sheetName.trim();
+      const ws=wb.Sheets[sheetName];
+      const rawRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      const items=[];
+      let ci=null;
+      const pN=function(v){
+        if(v===null||v===undefined||v==='')return 0;
+        var s=v.toString().trim().replace(/[,،]/g,'');
+        if(s.charAt(0)==='=')return 0;
+        return parseFloat(s)||0;
+      };
+      for(let i=0;i<rawRows.length;i++){
+        const r=rawRows[i];if(!r)continue;
+        const a=r[0],b=r[1],f=(r[5]||'').toString().trim();
+        // New item block: col A is integer 1-100, col B is a non-trivial string
+        if(a!==null&&a!==''&&!isNaN(+a)&&+a>0&&+a<=100&&Math.floor(+a)===+a&&b&&typeof b==='string'&&b.trim().length>2){
+          if(ci)items.push(ci);
+          ci={no:+a,name:b.trim(),date:'',unit:'م³',
+            concStd:0,concAct:0,
+            st8Std:0,st10Std:0,st12Std:0,st16Std:0,st18Std:0,st22Std:0,st25Std:0,
+            st8Act:0,st10Act:0,st12Act:0,st16Act:0,st18Act:0,st22Act:0,st25Act:0,
+            totalCost:0};
+          if(r[2])try{ci.date=new Date(r[2]).toLocaleDateString('ar-EG');}catch(x){}
+          if(r[3])ci.unit=r[3].toString().trim()||'م³';
+        }
+        if(!ci)continue;
+        if(f==='Standard'||f==='Standard '){
+          ci.concStd=pN(r[4]);
+          ci.st8Std=pN(r[7]);ci.st10Std=pN(r[8]);ci.st12Std=pN(r[9]);
+          ci.st16Std=pN(r[10]);ci.st18Std=pN(r[11]);ci.st22Std=pN(r[12]);ci.st25Std=pN(r[13]);
+        }else if(f==='Actual'){
+          ci.concAct=pN(r[4]);
+          ci.st8Act=pN(r[7]);ci.st10Act=pN(r[8]);ci.st12Act=pN(r[9]);
+          ci.st16Act=pN(r[10]);ci.st18Act=pN(r[11]);ci.st22Act=pN(r[12]);ci.st25Act=pN(r[13]);
+        }else if((b||'').toString().trim()==='Total Cost'||f==='Total Cost'||f==='Total Cost '){
+          ci.totalCost=pN(r[24]);
+          items.push(ci);ci=null;
+        }
+      }
+      if(ci)items.push(ci);
+      // Derived
+      items.forEach(function(it){
+        it.steelStd=(it.st8Std+it.st10Std+it.st12Std+it.st16Std+it.st18Std+it.st22Std+it.st25Std)*it.concStd/1000;
+        it.steelAct=(it.st8Act+it.st10Act+it.st12Act+it.st16Act+it.st18Act+it.st22Act+it.st25Act)*it.concAct/1000;
+        it.concVarQty=it.concStd-it.concAct;
+        it.concVarPct=it.concStd>0?(it.concStd-it.concAct)/it.concStd*100:0;
+        it.steelVarQty=it.steelStd-it.steelAct;
+        it.steelVarPct=it.steelStd>0?(it.steelStd-it.steelAct)/it.steelStd*100:0;
+      });
+      if(!items.length){
+        const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ لم يتم العثور على بنود — تأكد من تنسيق الشيت (اسم الشيت = كود المشروع، Standard/Actual في العمود F)';setTimeout(function(){n.style.display='none';},5000);}
+        input.value='';return;
+      }
+      const record={id:Date.now(),project:projCode,uploadedAt:new Date().toISOString(),items:items};
+      const idx=_FUP_BOQ_DATA.findIndex(function(d){return d.project===projCode;});
+      if(idx>=0){_FUP_BOQ_DATA[idx]=record;}else{_FUP_BOQ_DATA.push(record);}
+      _saveFupBoqData();renderBalances();
+      const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم رفع تقرير المتابعة — مشروع '+projCode+' | '+items.length+' قطعة';setTimeout(function(){n.style.display='none';},4000);}
+    }catch(ex){
+      const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ: '+ex.message;setTimeout(function(){n.style.display='none';},5000);}
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(input.files[0]);
+}
+
+function deleteFupBoq(proj){
+  _FUP_BOQ_DATA=_FUP_BOQ_DATA.filter(function(d){return d.project!==proj;});
+  _saveFupBoqData();renderBalances();
+}
+
+function renderFollowUpBoq(){
+  if(!_FUP_BOQ_DATA.length)return '';
+  const fmt=function(v,d){return(v>=0?'+':'')+v.toFixed(d||1);};
+  const vc=function(v){return v>=0?'var(--green)':v>-3?'var(--yellow)':'var(--red)';};
+  let html='';
+  _FUP_BOQ_DATA.forEach(function(rec){
+    const items=rec.items||[];if(!items.length)return;
+    const proj=rec.project;
+    const totCStd=items.reduce(function(s,it){return s+it.concStd;},0);
+    const totCAct=items.reduce(function(s,it){return s+it.concAct;},0);
+    const totCVar=totCStd-totCAct;
+    const totCVarPct=totCStd>0?totCVar/totCStd*100:0;
+    const totSSt=items.reduce(function(s,it){return s+it.steelStd;},0);
+    const totSAct=items.reduce(function(s,it){return s+it.steelAct;},0);
+    const totCost=items.reduce(function(s,it){return s+it.totalCost;},0);
+    const sorted=items.slice().sort(function(a,b){return b.concVarPct-a.concVarPct;});
+    const bestIt=sorted[0];
+    const worstIt=sorted[sorted.length-1];
+    // SVG chart
+    const chartW=500,labelW=155,barZone=chartW-labelW-55;
+    const midX=labelW+barZone/2;
+    const chartH=items.length*28+46;
+    const maxAbs=Math.max.apply(null,items.map(function(it){return Math.abs(it.concVarPct);}));
+    const mA=maxAbs<0.1?1:maxAbs;
+    const svgBars=items.map(function(it,idx){
+      const y=idx*28+22;
+      const pct=it.concVarPct;
+      const w=Math.max(Math.abs(pct)/mA*(barZone/2-4),2);
+      const x=pct>=0?midX:midX-w;
+      const col=pct>=0?'#22c55e':pct>-3?'#eab308':'#ef4444';
+      const sn=it.name.length>22?it.name.substring(0,21)+'…':it.name;
+      return '<text x="'+(labelW-5)+'" y="'+(y+11)+'" text-anchor="end" font-size="9" fill="#94a3b8" font-family="Cairo,sans-serif">'+sn+'</text>'+
+        '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="16" fill="'+col+'" opacity=".85" rx="2"/>'+
+        '<text x="'+(pct>=0?midX+w+4:midX-w-4)+'" y="'+(y+11)+'" text-anchor="'+(pct>=0?'start':'end')+'" font-size="9" fill="'+col+'" font-weight="bold" font-family="Cairo,sans-serif">'+fmt(pct,1)+'%</text>'+
+        '<line x1="'+midX+'" y1="'+y+'" x2="'+midX+'" y2="'+(y+16)+'" stroke="rgba(255,255,255,.12)" stroke-width="1"/>';
+    }).join('');
+    const tRows=items.map(function(it,i){
+      const bg=i%2?'background:rgba(255,255,255,.025)':'';
+      const cv=it.concVarPct,sv=it.steelVarPct;
+      return '<tr style="'+bg+'">'+
+        '<td style="padding:5px 8px;font-size:.7rem;color:var(--muted);text-align:center">'+it.no+'</td>'+
+        '<td style="padding:5px 8px;font-weight:600;font-size:.75rem">'+it.name+'</td>'+
+        '<td style="padding:5px 8px;text-align:center;font-size:.75rem">'+it.concStd.toFixed(1)+'</td>'+
+        '<td style="padding:5px 8px;text-align:center;font-size:.75rem">'+it.concAct.toFixed(1)+'</td>'+
+        '<td style="padding:5px 8px;text-align:center;font-weight:700;font-size:.75rem;color:'+vc(cv)+'">'+fmt(it.concVarQty,1)+' م³</td>'+
+        '<td style="padding:5px 8px;text-align:center;font-weight:700;font-size:.75rem;color:'+vc(cv)+'">'+fmt(cv,1)+'%</td>'+
+        '<td style="padding:5px 8px;text-align:center;font-size:.73rem;color:'+vc(sv)+'">'+fmt(sv,1)+'%</td>'+
+        '<td style="padding:5px 8px;text-align:center;font-size:.73rem;color:#a78bfa">'+(it.totalCost>0?(it.totalCost/1000).toFixed(0)+'K':'—')+'</td>'+
+      '</tr>';
+    }).join('');
+    const steelVarPctTot=totSSt>0?(totSSt-totSAct)/totSSt*100:0;
+    html+=
+      '<div style="margin-bottom:20px;border:1px solid var(--border);border-radius:12px;overflow:hidden">'+
+      '<div style="background:rgba(99,102,241,.12);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'+
+        '<span style="font-weight:700;color:var(--accent2);font-size:.9rem">📋 تقرير المتابعة — <b style="color:#e2e8f0">'+proj+'</b> <span style="font-size:.68rem;color:var(--muted);font-weight:400">| مرفوع '+new Date(rec.uploadedAt).toLocaleDateString('ar-EG')+'</span></span>'+
+        '<button onclick="deleteFupBoq(\''+proj+'\')" style="font-size:.72rem;background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:3px 12px;cursor:pointer;font-family:Cairo,sans-serif">🗑 حذف</button>'+
+      '</div>'+
+      '<div style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border)">'+
+        '<div style="flex:1;min-width:110px;background:var(--card);border-radius:10px;padding:10px 12px;text-align:center"><div style="font-size:1.3rem;font-weight:800;color:var(--accent2)">'+items.length+'</div><div style="font-size:.68rem;color:var(--muted)">📦 إجمالي القطع</div></div>'+
+        '<div style="flex:1;min-width:110px;background:var(--card);border-radius:10px;padding:10px 12px;text-align:center"><div style="font-size:1.15rem;font-weight:800;color:var(--blue)">'+totCStd.toFixed(0)+'</div><div style="font-size:.68rem;color:var(--muted)">م³ مخططة</div></div>'+
+        '<div style="flex:1;min-width:110px;background:var(--card);border-radius:10px;padding:10px 12px;text-align:center"><div style="font-size:1.15rem;font-weight:800;color:var(--accent2)">'+totCAct.toFixed(0)+'</div><div style="font-size:.68rem;color:var(--muted)">م³ منفذة</div></div>'+
+        '<div style="flex:1;min-width:120px;background:var(--card);border-radius:10px;padding:10px 12px;text-align:center;border:1px solid rgba('+(totCVarPct>=0?'34,197,94':'239,68,68')+',.2)"><div style="font-size:1.15rem;font-weight:800;color:'+vc(totCVarPct)+'">'+fmt(totCVarPct,1)+'%</div><div style="font-size:.68rem;color:var(--muted)">'+(totCVar>=0?'✅ توفير':'⚠ هالك')+' خرسانة</div></div>'+
+        (bestIt?'<div style="flex:1;min-width:135px;background:var(--card);border-radius:10px;padding:10px 12px;text-align:center;border:1px solid rgba(34,197,94,.2)"><div style="font-size:.8rem;font-weight:800;color:var(--green);line-height:1.3">'+bestIt.name+'</div><div style="font-size:.68rem;color:var(--muted)">🏆 أفضل قطعة ('+fmt(bestIt.concVarPct,1)+'%)</div></div>':'')+
+        (worstIt&&worstIt!==bestIt?'<div style="flex:1;min-width:135px;background:var(--card);border-radius:10px;padding:10px 12px;text-align:center;border:1px solid rgba(239,68,68,.18)"><div style="font-size:.8rem;font-weight:800;color:var(--red);line-height:1.3">'+worstIt.name+'</div><div style="font-size:.68rem;color:var(--muted)">⚠ أعلى هالك ('+fmt(worstIt.concVarPct,1)+'%)</div></div>':'')+
+        (totCost>0?'<div style="flex:1;min-width:110px;background:var(--card);border-radius:10px;padding:10px 12px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:#a78bfa">'+(totCost/1000000).toFixed(2)+'M</div><div style="font-size:.68rem;color:var(--muted)">💰 إجمالي ج.م</div></div>':'')+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:0">'+
+        '<div style="flex:0 0 auto;min-width:260px;padding:12px 14px;border-left:1px solid var(--border)">'+
+          '<div style="font-size:.73rem;color:var(--accent2);font-weight:700;margin-bottom:6px">📊 انحراف الخرسانة % — لكل قطعة</div>'+
+          '<div style="font-size:.6rem;color:var(--muted);margin-bottom:5px"><span style="color:var(--green)">■</span> توفير &nbsp; <span style="color:#eab308">■</span> مقبول ≤3% &nbsp; <span style="color:var(--red)">■</span> هالك</div>'+
+          '<svg width="100%" viewBox="0 0 '+chartW+' '+chartH+'" style="display:block;direction:ltr;max-width:500px">'+
+            '<line x1="'+midX+'" y1="12" x2="'+midX+'" y2="'+(chartH-12)+'" stroke="rgba(255,255,255,.1)" stroke-width="1" stroke-dasharray="4,3"/>'+
+            '<text x="'+midX+'" y="'+(chartH-1)+'" text-anchor="middle" font-size="8" fill="#475569" font-family="Cairo">0%</text>'+
+            svgBars+
+          '</svg>'+
+        '</div>'+
+        '<div style="flex:1;min-width:280px;overflow-x:auto;padding:10px 8px">'+
+          '<table class="project-table" style="width:100%;font-size:.75rem">'+
+            '<thead><tr style="color:var(--muted);font-size:.67rem">'+
+              '<th>#</th><th>القطعة</th><th>مخططة م³</th><th>منفذة م³</th><th>انحراف م³</th><th>انحراف%</th><th>حديد%</th><th>تكلفة</th>'+
+            '</tr></thead>'+
+            '<tbody>'+tRows+'</tbody>'+
+            '<tfoot><tr style="font-weight:800;background:rgba(99,102,241,.07);border-top:2px solid var(--border)">'+
+              '<td colspan="2" style="padding:7px 10px;color:var(--accent2);font-size:.75rem">الإجمالي</td>'+
+              '<td style="text-align:center;padding:5px 8px;font-size:.75rem">'+totCStd.toFixed(0)+'</td>'+
+              '<td style="text-align:center;padding:5px 8px;font-size:.75rem">'+totCAct.toFixed(0)+'</td>'+
+              '<td style="text-align:center;padding:5px 8px;font-size:.75rem;color:'+vc(totCVarPct)+'">'+fmt(totCVar,0)+' م³</td>'+
+              '<td style="text-align:center;padding:5px 8px;font-size:.75rem;color:'+vc(totCVarPct)+'">'+fmt(totCVarPct,1)+'%</td>'+
+              '<td style="text-align:center;padding:5px 8px;font-size:.75rem;color:'+vc(steelVarPctTot)+'">'+fmt(steelVarPctTot,1)+'%</td>'+
+              '<td style="text-align:center;padding:5px 8px;font-size:.75rem;color:#a78bfa">'+(totCost>0?(totCost/1000000).toFixed(2)+'M':'—')+'</td>'+
+            '</tr></tfoot>'+
+          '</table>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  });
+  return html;
+}
+// ============ / FOLLOW-UP BOQ ============
 
 // ============ STANDARD BOQ (الحصر المعياري) ============
 let _STD_ITEMS_DATA=[];
@@ -4547,7 +4753,7 @@ function startApp(){
   _initDeviationsListener();
   _initWarehouseListener();
   _initInvoicesListener();
-  _initBoqListener();
+  _initBoqListener();_initFupBoqListener();
   _initStdItemsListener();
   _initStdBoqListener();
   _initTabPermListener();
