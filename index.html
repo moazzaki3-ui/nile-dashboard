@@ -3810,65 +3810,73 @@ function uploadFollowUpExcel(){
   reader.onload=function(e){
     try{
       const wb=XLSX.read(e.target.result,{type:'array'});
-      const sheetName=wb.SheetNames[0];
-      const projCode=sheetName.trim();
-      const ws=wb.Sheets[sheetName];
-      const rawRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-      const items=[];
-      let ci=null;
       const pN=function(v){
         if(v===null||v===undefined||v==='')return 0;
         var s=v.toString().trim().replace(/[,،]/g,'');
         if(s.charAt(0)==='=')return 0;
         return parseFloat(s)||0;
       };
-      for(let i=0;i<rawRows.length;i++){
-        const r=rawRows[i];if(!r)continue;
-        const a=r[0],b=r[1],f=(r[5]||'').toString().trim();
-        // New item block: col A is integer 1-100, col B is a non-trivial string
-        if(a!==null&&a!==''&&!isNaN(+a)&&+a>0&&+a<=100&&Math.floor(+a)===+a&&b&&typeof b==='string'&&b.trim().length>2){
-          if(ci)items.push(ci);
-          ci={no:+a,name:b.trim(),date:'',unit:'م³',
-            concStd:0,concAct:0,
-            st8Std:0,st10Std:0,st12Std:0,st16Std:0,st18Std:0,st22Std:0,st25Std:0,
-            st8Act:0,st10Act:0,st12Act:0,st16Act:0,st18Act:0,st22Act:0,st25Act:0,
-            totalCost:0};
-          if(r[2])try{ci.date=new Date(r[2]).toLocaleDateString('ar-EG');}catch(x){}
-          if(r[3])ci.unit=r[3].toString().trim()||'م³';
+      const parseSheet=function(ws){
+        const rawRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+        const items=[];
+        var ci=null;
+        for(var i=0;i<rawRows.length;i++){
+          const r=rawRows[i];if(!r)continue;
+          const a=r[0],b=r[1],f=(r[5]||'').toString().trim();
+          if(a!==null&&a!==''&&!isNaN(+a)&&+a>0&&+a<=100&&Math.floor(+a)===+a&&b&&typeof b==='string'&&b.trim().length>2){
+            if(ci)items.push(ci);
+            ci={no:+a,name:b.trim(),date:'',unit:'م³',
+              concStd:0,concAct:0,
+              st8Std:0,st10Std:0,st12Std:0,st16Std:0,st18Std:0,st22Std:0,st25Std:0,
+              st8Act:0,st10Act:0,st12Act:0,st16Act:0,st18Act:0,st22Act:0,st25Act:0,
+              totalCost:0};
+            if(r[2])try{ci.date=new Date(r[2]).toLocaleDateString('ar-EG');}catch(x){}
+            if(r[3])ci.unit=r[3].toString().trim()||'م³';
+          }
+          if(!ci)continue;
+          if(f.toLowerCase()==='standard'){
+            ci.concStd=pN(r[4]);
+            ci.st8Std=pN(r[7]);ci.st10Std=pN(r[8]);ci.st12Std=pN(r[9]);
+            ci.st16Std=pN(r[10]);ci.st18Std=pN(r[11]);ci.st22Std=pN(r[12]);ci.st25Std=pN(r[13]);
+          }else if(f.toLowerCase()==='actual'){
+            ci.concAct=pN(r[4]);
+            ci.st8Act=pN(r[7]);ci.st10Act=pN(r[8]);ci.st12Act=pN(r[9]);
+            ci.st16Act=pN(r[10]);ci.st18Act=pN(r[11]);ci.st22Act=pN(r[12]);ci.st25Act=pN(r[13]);
+          }else if((b||'').toString().trim()==='Total Cost'||f==='Total Cost'||f==='Total Cost '){
+            ci.totalCost=pN(r[24]);
+            items.push(ci);ci=null;
+          }
         }
-        if(!ci)continue;
-        if(f.toLowerCase()==='standard'){
-          ci.concStd=pN(r[4]);
-          ci.st8Std=pN(r[7]);ci.st10Std=pN(r[8]);ci.st12Std=pN(r[9]);
-          ci.st16Std=pN(r[10]);ci.st18Std=pN(r[11]);ci.st22Std=pN(r[12]);ci.st25Std=pN(r[13]);
-        }else if(f.toLowerCase()==='actual'){
-          ci.concAct=pN(r[4]);
-          ci.st8Act=pN(r[7]);ci.st10Act=pN(r[8]);ci.st12Act=pN(r[9]);
-          ci.st16Act=pN(r[10]);ci.st18Act=pN(r[11]);ci.st22Act=pN(r[12]);ci.st25Act=pN(r[13]);
-        }else if((b||'').toString().trim()==='Total Cost'||f==='Total Cost'||f==='Total Cost '){
-          ci.totalCost=pN(r[24]);
-          items.push(ci);ci=null;
-        }
-      }
-      if(ci)items.push(ci);
-      // Derived
-      items.forEach(function(it){
-        it.steelStd=(it.st8Std+it.st10Std+it.st12Std+it.st16Std+it.st18Std+it.st22Std+it.st25Std)*it.concStd/1000;
-        it.steelAct=(it.st8Act+it.st10Act+it.st12Act+it.st16Act+it.st18Act+it.st22Act+it.st25Act)*it.concAct/1000;
-        it.concVarQty=it.concStd-it.concAct;
-        it.concVarPct=it.concStd>0?(it.concStd-it.concAct)/it.concStd*100:0;
-        it.steelVarQty=it.steelStd-it.steelAct;
-        it.steelVarPct=it.steelStd>0?(it.steelStd-it.steelAct)/it.steelStd*100:0;
+        if(ci)items.push(ci);
+        items.forEach(function(it){
+          it.steelStd=(it.st8Std+it.st10Std+it.st12Std+it.st16Std+it.st18Std+it.st22Std+it.st25Std)*it.concStd/1000;
+          it.steelAct=(it.st8Act+it.st10Act+it.st12Act+it.st16Act+it.st18Act+it.st22Act+it.st25Act)*it.concAct/1000;
+          it.concVarQty=it.concStd-it.concAct;
+          it.concVarPct=it.concStd>0?(it.concStd-it.concAct)/it.concStd*100:0;
+          it.steelVarQty=it.steelStd-it.steelAct;
+          it.steelVarPct=it.steelStd>0?(it.steelStd-it.steelAct)/it.steelStd*100:0;
+        });
+        return items;
+      };
+      var parsed=0,totalItems=0,parsedCodes=[];
+      var now=Date.now();
+      wb.SheetNames.forEach(function(sheetName,si){
+        var projCode=sheetName.trim();
+        if(!projCode)return;
+        var ws=wb.Sheets[sheetName];
+        var items=parseSheet(ws);
+        if(!items.length)return;
+        var record={id:now+si,project:projCode,uploadedAt:new Date().toISOString(),items:items};
+        var idx=_FUP_BOQ_DATA.findIndex(function(d){return d.project===projCode;});
+        if(idx>=0){_FUP_BOQ_DATA[idx]=record;}else{_FUP_BOQ_DATA.push(record);}
+        parsed++;totalItems+=items.length;parsedCodes.push(projCode);
       });
-      if(!items.length){
+      if(!parsed){
         const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ لم يتم العثور على بنود — تأكد من تنسيق الشيت (اسم الشيت = كود المشروع، Standard/Actual في العمود F)';setTimeout(function(){n.style.display='none';},5000);}
         input.value='';return;
       }
-      const record={id:Date.now(),project:projCode,uploadedAt:new Date().toISOString(),items:items};
-      const idx=_FUP_BOQ_DATA.findIndex(function(d){return d.project===projCode;});
-      if(idx>=0){_FUP_BOQ_DATA[idx]=record;}else{_FUP_BOQ_DATA.push(record);}
-      _saveFupBoqData();renderBalances();
-      const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم رفع تقرير المتابعة — مشروع '+projCode+' | '+items.length+' قطعة';setTimeout(function(){n.style.display='none';},4000);}
+      _saveFupBoqData();renderBalances();renderPortDeviations();
+      const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم رفع تقرير المتابعة — '+parsed+' مشروع ('+parsedCodes.join('، ')+') | '+totalItems+' قطعة';setTimeout(function(){n.style.display='none';},6000);}
     }catch(ex){
       const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ: '+ex.message;setTimeout(function(){n.style.display='none';},5000);}
     }
