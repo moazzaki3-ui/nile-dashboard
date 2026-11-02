@@ -803,6 +803,11 @@ function ring(pct,sz=56){
 }
 
 function _pv(code,f){const ph=_PROJECT_PHASES_DATA[code];return ph&&ph[f]!==undefined?ph[f]:(PROJECTS.find(x=>x.code===code)||{})[f];}
+// Hoisted declarations — used in renderKPIs() before their main init block
+let _FUP_BOQ_DATA=[];
+let _fbFupBoqInit=false;
+let _FUP_DEV_EXTRA={};
+let _fbFupDevExtraInit=false;
 
 function renderKPIs(){
   const total=PROJECTS.length,done=PROJECTS.filter(p=>_DONE_STATUSES.includes(p.status)).length;
@@ -3789,8 +3794,7 @@ function renderBalances(){
 // ============ / BALANCES & BOQ ============
 
 // ============ FOLLOW-UP BOQ (تقرير المتابعة الهيكلي) ============
-let _FUP_BOQ_DATA=[];
-let _fbFupBoqInit=false;
+// _FUP_BOQ_DATA and _fbFupBoqInit declared earlier (hoisted)
 const _FUP_BOQ_KEY='nile_fup_boq';
 
 function _saveFupBoqData(){
@@ -4057,8 +4061,7 @@ function renderFollowUpBoq(){
 // ============ / FOLLOW-UP BOQ ============
 
 // ============ DEVIATIONS SUMMARY (انحرافات المواد في المحفظة) ============
-let _FUP_DEV_EXTRA={};
-let _fbFupDevExtraInit=false;
+// _FUP_DEV_EXTRA and _fbFupDevExtraInit declared earlier (hoisted)
 
 function _initFupDevExtraListener(){
   if(_fbFupDevExtraInit)return;_fbFupDevExtraInit=true;
