@@ -1919,11 +1919,11 @@ ${canAdd?`
   <div class="form-row" style="flex-wrap:wrap;gap:10px;margin-top:10px">
     <div class="form-group" style="min-width:130px;flex:0 0 140px">
       <label>تاريخ الطلب</label>
-      <input type="date" id="poReqDate" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
+      <input type="date" id="poReqDate" dir="ltr" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
     </div>
     <div class="form-group" style="min-width:130px;flex:0 0 140px">
       <label>تاريخ التوريد</label>
-      <input type="date" id="poDelivDate" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
+      <input type="date" id="poDelivDate" dir="ltr" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
     </div>
     <div class="form-group" style="min-width:130px;flex:0 0 160px">
       <label>الحالة</label>
@@ -4878,7 +4878,7 @@ function _drawSchedProjects(){
       <td style="padding:6px 10px;font-weight:700;font-size:.8rem">${p.name}</td>
       <td style="padding:6px 8px;color:var(--muted);font-size:.72rem">${p.code}</td>
       <td style="padding:6px 8px;font-size:.72rem;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.status||''}">${p.status||'—'}</td>
-      <td style="padding:6px 6px"><input type="date" value="${sd}" onchange="saveProjectDate('${p.code}',this.value)" style="background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:.72rem;font-family:inherit;width:130px"></td>
+      <td style="padding:6px 6px"><input type="date" value="${sd}" dir="ltr" onchange="saveProjectDate('${p.code}',this.value)" style="background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:.72rem;font-family:inherit;width:130px"></td>
       <td style="padding:6px 8px;color:var(--muted);text-align:center;font-size:.78rem">${elapsed!==null?elapsed+'d':'—'}</td>
       <td style="padding:6px 8px;color:#a78bfa;text-align:center;font-weight:700;font-size:.78rem">${expPct!==null?expPct+'%':'—'}</td>
       <td style="padding:6px 8px;color:var(--accent2);text-align:center;font-weight:700;font-size:.78rem">${actPct!==null?actPct+'%':'—'}</td>
@@ -5327,7 +5327,7 @@ function startApp(){
         </div>
         <div class="form-group" style="min-width:130px">
           <label>تاريخ البدء <span style="color:var(--muted);font-weight:400;font-size:.7rem">(يحسب الأيام)</span></label>
-          <input type="date" id="formTrackStart" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
+          <input type="date" id="formTrackStart" dir="ltr" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box">
         </div>
         <div class="form-group" style="min-width:100px">
           <label>المخطط % <span style="color:var(--muted);font-weight:400;font-size:.7rem">(اختياري)</span></label>
