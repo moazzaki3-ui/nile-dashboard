@@ -3833,11 +3833,11 @@ function uploadFollowUpExcel(){
           if(r[3])ci.unit=r[3].toString().trim()||'م³';
         }
         if(!ci)continue;
-        if(f==='Standard'||f==='Standard '){
+        if(f.toLowerCase()==='standard'){
           ci.concStd=pN(r[4]);
           ci.st8Std=pN(r[7]);ci.st10Std=pN(r[8]);ci.st12Std=pN(r[9]);
           ci.st16Std=pN(r[10]);ci.st18Std=pN(r[11]);ci.st22Std=pN(r[12]);ci.st25Std=pN(r[13]);
-        }else if(f==='Actual'){
+        }else if(f.toLowerCase()==='actual'){
           ci.concAct=pN(r[4]);
           ci.st8Act=pN(r[7]);ci.st10Act=pN(r[8]);ci.st12Act=pN(r[9]);
           ci.st16Act=pN(r[10]);ci.st18Act=pN(r[11]);ci.st22Act=pN(r[12]);ci.st25Act=pN(r[13]);
@@ -3914,6 +3914,12 @@ function renderFollowUpBoq(){
         '<text x="'+(pct>=0?midX+w+4:midX-w-4)+'" y="'+(y+11)+'" text-anchor="'+(pct>=0?'start':'end')+'" font-size="9" fill="'+col+'" font-weight="bold" font-family="Cairo,sans-serif">'+fmt(pct,1)+'%</text>'+
         '<line x1="'+midX+'" y1="'+y+'" x2="'+midX+'" y2="'+(y+16)+'" stroke="rgba(255,255,255,.12)" stroke-width="1"/>';
     }).join('');
+    const diams=[8,10,12,16,18,22,25];
+    const stVar=function(it,d){
+      var std=it['st'+d+'Std']*it.concStd/1000;
+      var act=it['st'+d+'Act']*it.concAct/1000;
+      return std>0.001?{pct:(std-act)/std*100,std:std,act:act}:null;
+    };
     const tRows=items.map(function(it,i){
       const bg=i%2?'background:rgba(255,255,255,.025)':'';
       const cv=it.concVarPct,sv=it.steelVarPct;
@@ -3927,6 +3933,31 @@ function renderFollowUpBoq(){
         '<td style="padding:5px 8px;text-align:center;font-size:.73rem;color:'+vc(sv)+'">'+fmt(sv,1)+'%</td>'+
         '<td style="padding:5px 8px;text-align:center;font-size:.73rem;color:#a78bfa">'+(it.totalCost>0?(it.totalCost/1000).toFixed(0)+'K':'—')+'</td>'+
       '</tr>';
+    }).join('');
+    // Steel per-diameter rows
+    const stRows=items.map(function(it,i){
+      const bg=i%2?'background:rgba(255,255,255,.025)':'';
+      const cv=it.concVarPct;
+      const cells=diams.map(function(d){
+        const v=stVar(it,d);
+        if(!v)return '<td style="padding:4px 6px;text-align:center;font-size:.68rem;color:var(--muted)">—</td>';
+        return '<td style="padding:4px 6px;text-align:center;font-weight:700;font-size:.7rem;color:'+vc(v.pct)+'">'+fmt(v.pct,1)+'%</td>';
+      }).join('');
+      return '<tr style="'+bg+'">'+
+        '<td style="padding:4px 8px;font-size:.68rem;color:var(--muted);text-align:center">'+it.no+'</td>'+
+        '<td style="padding:4px 8px;font-weight:600;font-size:.7rem">'+it.name+'</td>'+
+        '<td style="padding:4px 8px;text-align:center;font-size:.7rem;color:'+vc(cv)+'">'+fmt(cv,1)+'%</td>'+
+        cells+
+        '<td style="padding:4px 8px;text-align:center;font-weight:700;font-size:.7rem;color:'+vc(it.steelVarPct)+'">'+fmt(it.steelVarPct,1)+'%</td>'+
+      '</tr>';
+    }).join('');
+    // Steel totals per diameter
+    const stTotCells=diams.map(function(d){
+      var tStd=items.reduce(function(s,it){return s+it['st'+d+'Std']*it.concStd/1000;},0);
+      var tAct=items.reduce(function(s,it){return s+it['st'+d+'Act']*it.concAct/1000;},0);
+      if(tStd<0.001)return '<td style="padding:5px 6px;text-align:center;font-size:.7rem;color:var(--muted)">—</td>';
+      var pct=(tStd-tAct)/tStd*100;
+      return '<td style="padding:5px 6px;text-align:center;font-weight:800;font-size:.7rem;color:'+vc(pct)+'">'+fmt(pct,1)+'%</td>';
     }).join('');
     const steelVarPctTot=totSSt>0?(totSSt-totSAct)/totSSt*100:0;
     html+=
@@ -3970,6 +4001,29 @@ function renderFollowUpBoq(){
               '<td style="text-align:center;padding:5px 8px;font-size:.75rem;color:#a78bfa">'+(totCost>0?(totCost/1000000).toFixed(2)+'M':'—')+'</td>'+
             '</tr></tfoot>'+
           '</table>'+
+        '</div>'+
+      '</div>'+
+      '<div style="padding:10px 14px;border-top:1px solid var(--border)">'+
+        '<div style="font-size:.73rem;color:var(--accent2);font-weight:700;margin-bottom:6px">🔩 هالك الحديد بالقطر % — لكل قطعة</div>'+
+        '<div style="overflow-x:auto">'+
+        '<table class="project-table" style="width:100%;font-size:.7rem;white-space:nowrap">'+
+          '<thead><tr style="color:var(--muted);font-size:.65rem">'+
+            '<th>#</th><th style="min-width:100px">القطعة</th><th>خرسانة%</th>'+
+            '<th>⌀8</th><th>⌀10</th><th>⌀12</th><th>⌀16</th><th>⌀18</th><th>⌀22</th><th>⌀25</th>'+
+            '<th>إجمالي حديد%</th>'+
+          '</tr></thead>'+
+          '<tbody>'+stRows+'</tbody>'+
+          '<tfoot><tr style="font-weight:800;background:rgba(99,102,241,.07);border-top:2px solid var(--border)">'+
+            '<td colspan="2" style="padding:6px 10px;color:var(--accent2);font-size:.7rem">الإجمالي</td>'+
+            '<td style="text-align:center;padding:5px 6px;font-weight:800;font-size:.7rem;color:'+vc(totCVarPct)+'">'+fmt(totCVarPct,1)+'%</td>'+
+            stTotCells+
+            '<td style="text-align:center;padding:5px 6px;font-weight:800;font-size:.7rem;color:'+vc(steelVarPctTot)+'">'+fmt(steelVarPctTot,1)+'%</td>'+
+          '</tr></tfoot>'+
+        '</table>'+
+        '</div>'+
+        '<div style="font-size:.6rem;color:var(--muted);margin-top:5px">'+
+          '<span style="color:var(--green)">■</span> توفير &nbsp; <span style="color:#eab308">■</span> هالك ≤3% &nbsp; <span style="color:var(--red)">■</span> هالك عالي &nbsp; '+
+          '<span style="color:var(--muted)">— = القطر غير مستخدم في هذه القطعة</span>'+
         '</div>'+
       '</div>'+
     '</div>';
