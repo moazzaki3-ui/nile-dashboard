@@ -442,7 +442,7 @@ function _checkCreds(u,p){
   if(dy)return{username:dy.username,role:dy.role||'viewer',fullname:dy.fullname||dy.username};
   return null;
 }
-const _ROLE_LABEL={admin:'📊 Projects Manager',chairman:'👑 Chairman',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',sitemanager:'🏗 مدير الموقع',foreman:'🦺 مشرفين',storekeeper:'📦 أمين مخزن',viewer:'👁 مشاهد'};
+const _ROLE_LABEL={admin:'📊 Projects Manager',chairman:'👑 Chairman',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',sitemanager:'🏗 مدير الموقع',foreman:'🦺 مشرفين',storekeeper:'📦 أمين مخزن',finance:'💰 مدير مالي',customerservice:'📞 خدمة عملاء',procurement:'🛒 مشتريات',viewer:'👁 مشاهد'};
 let _CUSTOM_ROLE_LABELS={};
 function _getRoleLabel(r){return (_EXTRA_ROLES[r]&&_EXTRA_ROLES[r].label)||_CUSTOM_ROLE_LABELS[r]||_ROLE_LABEL[r]||r;}
 function _initRoleLabelsListener(){
@@ -524,7 +524,7 @@ function applyPermissions(role){
   const formData=document.getElementById('formDataSection');
   // admin & editor & supervisor can add updates; viewer cannot
   const _br=_getBaseRole(role);
-  const canAdd=(_br==='admin'||_br==='chairman'||_br==='editor'||_br==='engineer'||_br==='supervisor'||_br==='sitemanager'||_br==='foreman'||_br==='storekeeper');
+  const canAdd=(_br==='admin'||_br==='chairman'||_br==='editor'||_br==='engineer'||_br==='supervisor'||_br==='sitemanager'||_br==='foreman'||_br==='storekeeper'||_br==='procurement');
   if(chatIn)chatIn.style.display=canAdd?'':'none';
   if(formUpd)formUpd.style.display=canAdd?'':'none';
   // only admin & editor can export/import/reset data
@@ -641,7 +641,7 @@ function renderAdminPanel(){
     html='<table class="user-table"><thead><tr><th>اسم المستخدم</th><th>الاسم الكامل</th><th>الصلاحية</th><th>تاريخ الإضافة</th><th>إجراءات</th></tr></thead><tbody>';
     users.forEach(u=>{
       const rl=u.role||'viewer';
-      const rlColors={admin:'#6366f1',chairman:'#a855f7',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',viewer:'#64748b'};
+      const rlColors={admin:'#6366f1',chairman:'#a855f7',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',finance:'#10b981',customerservice:'#f43f5e',procurement:'#8b5cf6',viewer:'#64748b'};
       const rlBadge='<span style="background:'+rlColors[rl]+'22;color:'+rlColors[rl]+';border:1px solid '+rlColors[rl]+'44;border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700">'+_getRoleLabel(rl)+'</span>';
       const roleOpts=Object.entries(_ROLE_LABEL).map(([v])=>'<option value="'+v+'"'+(rl===v?' selected':'')+'>'+ _getRoleLabel(v)+'</option>').join('');
       html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td>'
@@ -1731,7 +1731,7 @@ function _poStatusColor(s){
 
 function savePurchaseOrder(){
   const role=window._CURRENT_ROLE||'viewer';
-  const _br0=_getBaseRole(role);const canAdd=_br0==='admin'||_br0==='chairman'||_br0==='editor'||_br0==='engineer'||_br0==='supervisor'||_br0==='sitemanager'||_br0==='foreman'||_br0==='storekeeper';
+  const _br0=_getBaseRole(role);const canAdd=_br0==='admin'||_br0==='chairman'||_br0==='editor'||_br0==='engineer'||_br0==='supervisor'||_br0==='sitemanager'||_br0==='foreman'||_br0==='storekeeper'||_br0==='procurement';
   if(!canAdd)return;
   const proj=(document.getElementById('poProject')||{}).value||'';
   const item=(document.getElementById('poItem')||{}).value||'';
@@ -5131,6 +5131,9 @@ function startApp(){
           <option value="viewer">👁 مشاهد</option>
           <option value="storekeeper">📦 أمين مخزن</option>
           <option value="foreman">🦺 مشرفين</option>
+          <option value="finance">💰 مدير مالي</option>
+          <option value="customerservice">📞 خدمة عملاء</option>
+          <option value="procurement">🛒 مشتريات</option>
           <option value="supervisor">👷 Site Engineer</option>
           <option value="sitemanager">🏗 مدير الموقع</option>
           <option value="engineer">📐 Technical Office Eng.</option>
@@ -5188,6 +5191,18 @@ function startApp(){
         <input type="text" id="rl_input_storekeeper" placeholder="📦 أمين مخزن" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
       </div>
       <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">💰 مدير مالي (الافتراضي)</label>
+        <input type="text" id="rl_input_finance" placeholder="💰 مدير مالي" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">📞 خدمة عملاء (الافتراضي)</label>
+        <input type="text" id="rl_input_customerservice" placeholder="📞 خدمة عملاء" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.72rem;color:var(--muted)">🛒 مشتريات (الافتراضي)</label>
+        <input type="text" id="rl_input_procurement" placeholder="🛒 مشتريات" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
         <label style="font-size:.72rem;color:var(--muted)">👁 مشاهد (الافتراضي)</label>
         <input type="text" id="rl_input_viewer" placeholder="👁 مشاهد" style="background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;width:100%;box-sizing:border-box">
       </div>
@@ -5214,6 +5229,9 @@ function startApp(){
           <option value="sitemanager">🏗 مدير الموقع</option>
           <option value="foreman">🦺 مشرفين</option>
           <option value="storekeeper">📦 أمين مخزن</option>
+          <option value="finance">💰 مدير مالي</option>
+          <option value="customerservice">📞 خدمة عملاء</option>
+          <option value="procurement">🛒 مشتريات</option>
           <option value="engineer">📐 Technical Office Eng.</option>
           <option value="editor">🏗️ Technical Office Manager</option>
           <option value="chairman">👑 Chairman</option>
