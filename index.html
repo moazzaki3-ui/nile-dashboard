@@ -829,6 +829,18 @@ function renderKPIs(){
     <div class="kpi green" onclick="filterByKpi('عداد','تم تركيب عداد')"><div class="kpi-val">${cntMeters}</div><div class="kpi-lbl">⚡ تم تركيب عداد</div><div class="kpi-sub">${done>0?Math.round(cntMeters/done*100):0}% من المنتهية</div></div>
     <div class="kpi" style="border-right-color:#22d3ee" onclick="filterByKpi('باب','تم تركيب الباب')"><div class="kpi-val" style="color:#22d3ee">${cntDoor}</div><div class="kpi-lbl">🚪 تم تركيب الباب</div><div class="kpi-sub">${done>0?Math.round(cntDoor/done*100):0}% من المنتهية</div></div>
     <div class="kpi" style="border-right-color:var(--accent)" onclick="filterByKpi('جراج','تم صب الجراج')"><div class="kpi-val" style="color:var(--accent)">${cntGarage}</div><div class="kpi-lbl">🏗 تم صب الجراج</div><div class="kpi-sub">${done>0?Math.round(cntGarage/done*100):0}% من المنتهية</div></div>
+    ${(function(){
+      if(!_FUP_BOQ_DATA||!_FUP_BOQ_DATA.length)return '';
+      var cpcts=_FUP_BOQ_DATA.map(function(rec){var it=rec.items||[];var s=it.reduce(function(a,x){return a+x.concStd;},0);var a=it.reduce(function(a,x){return a+x.concAct;},0);return s>0?(s-a)/s*100:null;}).filter(function(v){return v!==null;});
+      var spcts=_FUP_BOQ_DATA.map(function(rec){var it=rec.items||[];var s=it.reduce(function(a,x){return a+x.steelStd;},0);var a=it.reduce(function(a,x){return a+x.steelAct;},0);return s>0?(s-a)/s*100:null;}).filter(function(v){return v!==null;});
+      var cp=cpcts.length?cpcts.reduce(function(a,v){return a+v;},0)/cpcts.length:null;
+      var sp=spcts.length?spcts.reduce(function(a,v){return a+v;},0)/spcts.length:null;
+      var cc=cp!==null?(cp>=0?'var(--green)':cp>-3?'var(--yellow)':'var(--red)'):'var(--muted)';
+      var sc=sp!==null?(sp>=0?'var(--green)':sp>-3?'var(--yellow)':'var(--red)'):'var(--muted)';
+      var n=_FUP_BOQ_DATA.length;
+      return (cp!==null?'<div class="kpi" style="border-right-color:'+cc+';cursor:pointer" onclick="showTab(\'balances\')"><div class="kpi-val" style="color:'+cc+'">'+(cp>=0?'+':'')+cp.toFixed(1)+'%</div><div class="kpi-lbl">🧱 انحراف الخرسانة</div><div class="kpi-sub">'+n+' مشروع — متوسط عام</div></div>':'')+
+             (sp!==null?'<div class="kpi" style="border-right-color:'+sc+';cursor:pointer" onclick="showTab(\'balances\')"><div class="kpi-val" style="color:'+sc+'">'+(sp>=0?'+':'')+sp.toFixed(1)+'%</div><div class="kpi-lbl">🔩 انحراف الحديد</div><div class="kpi-sub">'+n+' مشروع — متوسط عام</div></div>':'');
+    })()}
   `;
 }
 function renderStatusChart(){
@@ -3795,11 +3807,11 @@ function _initFupBoqListener(){
     try{localStorage.setItem(_FUP_BOQ_KEY,JSON.stringify(_FUP_BOQ_DATA));}catch(e){}
     const tab=document.getElementById('tab-balances');
     if(tab&&!tab.classList.contains('hidden'))renderBalances();
-    renderPortDeviations();
+    renderPortDeviations();renderKPIs();
   },function(err){
     _fbErr('follow_up_boq',err);
     try{_FUP_BOQ_DATA=JSON.parse(localStorage.getItem(_FUP_BOQ_KEY)||'[]');}catch(e){}
-    renderPortDeviations();
+    renderPortDeviations();renderKPIs();
   });
 }
 
@@ -3875,7 +3887,7 @@ function uploadFollowUpExcel(){
         const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ لم يتم العثور على بنود — تأكد من تنسيق الشيت (اسم الشيت = كود المشروع، Standard/Actual في العمود F)';setTimeout(function(){n.style.display='none';},5000);}
         input.value='';return;
       }
-      _saveFupBoqData();renderBalances();renderPortDeviations();
+      _saveFupBoqData();renderBalances();renderPortDeviations();renderKPIs();
       const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم رفع تقرير المتابعة — '+parsed+' مشروع ('+parsedCodes.join('، ')+') | '+totalItems+' قطعة';setTimeout(function(){n.style.display='none';},6000);}
     }catch(ex){
       const n=document.getElementById('boqNotice');if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ: '+ex.message;setTimeout(function(){n.style.display='none';},5000);}
