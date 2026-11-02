@@ -4322,8 +4322,8 @@ function cancelDelStdItem(id){const row=document.getElementById('stdItemRow_'+id
 function addStdBoqEntry(){
   const project=(document.getElementById('stdBoqProject')||{}).value||'';
   const item=((document.getElementById('stdBoqItem')||{}).value||'').trim();
-  const stdQty=parseFloat((document.getElementById('stdBoqQty')||{}).value)||0;
-  const stdQtyWork=parseFloat((document.getElementById('stdBoqQtyWork')||{}).value)||0;
+  const type=(document.getElementById('stdBoqType')||{}).value||'supply';
+  const qty=parseFloat((document.getElementById('stdBoqQty')||{}).value)||0;
   const unit=(document.getElementById('stdBoqUnit')||{}).value||'';
   const unitPrice=parseFloat((document.getElementById('stdBoqPrice')||{}).value)||0;
   const notes=((document.getElementById('stdBoqNotes')||{}).value||'').trim();
@@ -4331,19 +4331,24 @@ function addStdBoqEntry(){
   function _sn(msg,col){if(n){n.style.display='block';n.textContent=msg;n.style.color=col;n.style.background='rgba(0,0,0,.15)';setTimeout(()=>n.style.display='none',3000);}}
   if(!project||!item){_sn('⚠ المشروع والبند مطلوبان','var(--red)');return;}
   const sess=window._CURRENT_SESSION||{};
+  const stdQty=type==='supply'?qty:0;
+  const stdQtyWork=type==='contractor'?qty:0;
   const existing=_STD_BOQ_DATA.find(d=>d.project===project&&d.item===item);
   if(existing){
-    existing.stdQty=stdQty;existing.stdQtyWork=stdQtyWork;existing.unit=unit;existing.unitPrice=unitPrice;existing.notes=notes;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'—';
+    existing.type=type;existing.stdQty=stdQty;existing.stdQtyWork=stdQtyWork;existing.unit=unit;existing.unitPrice=unitPrice;existing.notes=notes;existing.lastUpdate=new Date().toISOString();existing.updatedBy=sess.name||sess.username||'—';
   }else{
-    _STD_BOQ_DATA.push({id:Date.now(),project:project,item:item,unit:unit,stdQty:stdQty,stdQtyWork:stdQtyWork,unitPrice:unitPrice,notes:notes,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',lastUpdate:new Date().toISOString()});
+    _STD_BOQ_DATA.push({id:Date.now(),project:project,item:item,unit:unit,type:type,stdQty:stdQty,stdQtyWork:stdQtyWork,unitPrice:unitPrice,notes:notes,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',lastUpdate:new Date().toISOString()});
   }
-  _saveStdBoq();_syncStdBoqToBOQ(project,item,stdQty,unit);_syncStdBoqToInvoices(project,item,stdQtyWork,unit);
+  _saveStdBoq();
+  // Route sync based on type: contractor→invoices only, supply→BOQ/deviations only
+  if(type==='contractor') _syncStdBoqToInvoices(project,item,stdQtyWork,unit);
+  else _syncStdBoqToBOQ(project,item,stdQty,unit);
   if(document.getElementById('stdBoqQty'))document.getElementById('stdBoqQty').value='';
-  if(document.getElementById('stdBoqQtyWork'))document.getElementById('stdBoqQtyWork').value='';
   if(document.getElementById('stdBoqPrice'))document.getElementById('stdBoqPrice').value='';
   if(document.getElementById('stdBoqNotes'))document.getElementById('stdBoqNotes').value='';
-  _sn(existing?'✅ تم تحديث الحصر المعياري':'✅ تمت إضافة الحصر المعياري','var(--green)');renderStdBoq();
+  _sn(existing?'✅ تم تحديث البند — '+(_typeLabel(type)):'✅ تمت إضافة البند — '+(_typeLabel(type)),'var(--green)');renderStdBoq();
 }
+function _typeLabel(t){return t==='contractor'?'🔧 مقاولين (سيظهر في المستخلصات)':'📦 توريدات (يقاس على الانحراف في الأرصدة والحصر)';}
 
 function deleteStdBoqEntry(id){
   const row=document.getElementById('stdBoqRow_'+id);if(!row)return;
@@ -4557,17 +4562,20 @@ function renderStdBoq(){
   // --- Section 2: std_boq per project ---
   const filterProj=(document.getElementById('stdBoqFilterProj')||{}).value||'';
   const filteredStd=filterProj?_STD_BOQ_DATA.filter(d=>d.project===filterProj):_STD_BOQ_DATA;
-  const totalCost=filteredStd.reduce((s,d)=>s+(d.stdQty||0)*(d.unitPrice||0),0);
+  const totalCost=filteredStd.reduce((s,d)=>{const t=d.type||(d.stdQtyWork>0&&d.stdQty===0?'contractor':'supply');const q=t==='contractor'?(d.stdQtyWork||0):(d.stdQty||0);return s+q*(d.unitPrice||0);},0);
   const totalProjs=new Set(_STD_BOQ_DATA.map(d=>d.project)).size;
   let stdRows='';
   filteredStd.forEach((d,i)=>{
-    const total=(d.stdQty||0)*(d.unitPrice||0);
+    const dType=d.type||(d.stdQtyWork>0&&d.stdQty===0?'contractor':'supply');
+    const dQty=dType==='contractor'?(d.stdQtyWork||0):(d.stdQty||0);
+    const total=dQty*(d.unitPrice||0);
+    const typeBadge=dType==='contractor'?'<span style="background:rgba(249,115,22,.15);color:#f97316;border:1px solid rgba(249,115,22,.3);border-radius:12px;padding:2px 8px;font-size:.68rem;font-weight:700;white-space:nowrap">🔧 مقاولين</span>':'<span style="background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25);border-radius:12px;padding:2px 8px;font-size:.68rem;font-weight:700;white-space:nowrap">📦 توريدات</span>';
     stdRows+='<tr id="stdBoqRow_'+d.id+'" style="'+(i%2===0?'':'background:rgba(255,255,255,.025)')+'">'+
       '<td style="padding:7px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
       '<td style="padding:7px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.66rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
       '<td style="padding:7px 10px;font-weight:700">'+d.item+'</td>'+
-      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--green)">'+((d.stdQty||0).toLocaleString())+' <span style="font-size:.7rem;color:var(--muted)">'+(d.unit||'')+'</span></td>'+
-      '<td style="padding:4px 6px;text-align:center">'+(canEdit?'<div style="display:flex;align-items:center;justify-content:center;gap:4px"><input type="number" value="'+(d.stdQtyWork||0)+'" min="0" step="0.01" onchange="updateStdBoqWork('+d.id+',this.value)" style="width:75px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.35);color:var(--accent2);border-radius:6px;padding:3px 6px;text-align:center;font-family:Cairo,sans-serif;font-size:.8rem;outline:none;font-weight:700"><span style="font-size:.7rem;color:var(--muted)">'+(d.unit||'')+'</span></div>':((d.stdQtyWork||0)>0?(d.stdQtyWork||0).toLocaleString()+'<span style="font-size:.7rem;color:var(--muted)"> '+(d.unit||'')+'</span>':'<span style="color:var(--muted);font-size:.75rem">—</span>'))+'</td>'+
+      '<td style="padding:7px 10px;text-align:center">'+typeBadge+'</td>'+
+      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+(dType==='contractor'?'var(--orange)':'var(--green)')+'">'+dQty.toLocaleString()+' <span style="font-size:.7rem;color:var(--muted)">'+(d.unit||'')+'</span></td>'+
       '<td style="padding:7px 10px;text-align:center;color:var(--muted)">'+((d.unitPrice||0).toLocaleString())+' جم</td>'+
       '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--yellow)">'+total.toLocaleString()+' جم</td>'+
       '<td style="padding:7px 10px;font-size:.72rem;color:var(--muted)">'+(d.notes||'—')+'</td>'+
@@ -4576,14 +4584,22 @@ function renderStdBoq(){
     '</tr>';
   });
 
+  const cntContractor=_STD_BOQ_DATA.filter(d=>(d.type||'supply')==='contractor').length;
+  const cntSupply=_STD_BOQ_DATA.filter(d=>(d.type||'supply')==='supply').length;
+
   document.getElementById('tab-stdboq').innerHTML=
-    '<div class="section-title">📏 الحصر المعياري — عقد شامل جميع الأعمال</div>'+
+    '<div class="section-title">📋 عقود المشاريع — الحصر المعياري <span style="font-size:.72rem;font-weight:400;color:var(--muted)">كل مشروع له عقده الخاص</span></div>'+
+    '<div style="font-size:.76rem;color:var(--muted);margin-bottom:12px;padding:8px 12px;background:rgba(99,102,241,.08);border-radius:8px;display:flex;gap:18px;flex-wrap:wrap">'+
+      '<span>🔧 <b style="color:var(--accent2)">مقاولين</b> — الكمية تظهر كـ كمية معيارية في <b>المستخلصات</b></span>'+
+      '<span>📦 <b style="color:var(--green)">توريدات</b> — الكمية تُستخدم لحساب <b>الانحراف في الأرصدة والحصر</b></span>'+
+    '</div>'+
 
     '<div class="kpi-grid" style="margin-bottom:16px">'+
-      '<div class="kpi blue"><div class="kpi-val">'+_STD_ITEMS_DATA.length+'</div><div class="kpi-lbl">بنود العقد المعيارية</div></div>'+
-      '<div class="kpi green"><div class="kpi-val">'+totalProjs+'</div><div class="kpi-lbl">مشاريع لها حصر مسجّل</div></div>'+
-      '<div class="kpi" style="border-right-color:var(--yellow)"><div class="kpi-val">'+_STD_BOQ_DATA.length+'</div><div class="kpi-lbl">إجمالي بنود الحصر</div></div>'+
-      (totalCost>0?'<div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="font-size:1rem">'+totalCost.toLocaleString()+'</div><div class="kpi-lbl">إجمالي قيمة الحصر المعروض</div></div>':'')+
+      '<div class="kpi blue"><div class="kpi-val">'+_STD_ITEMS_DATA.length+'</div><div class="kpi-lbl">بنود مرجعية</div></div>'+
+      '<div class="kpi green"><div class="kpi-val">'+totalProjs+'</div><div class="kpi-lbl">مشاريع لها عقد مسجّل</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--orange)"><div class="kpi-val">'+cntContractor+'</div><div class="kpi-lbl">🔧 بنود مقاولين</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val">'+cntSupply+'</div><div class="kpi-lbl">📦 بنود توريدات</div></div>'+
+      (totalCost>0?'<div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="font-size:1rem">'+totalCost.toLocaleString()+'</div><div class="kpi-lbl">إجمالي قيمة الحصر</div></div>':'')+
     '</div>'+
 
     // === Section 1: Master Items ===
@@ -4613,8 +4629,8 @@ function renderStdBoq(){
         '<div class="form-row" style="align-items:flex-end;flex-wrap:wrap">'+
           '<div class="form-group" style="min-width:180px"><label>المشروع *</label><select id="stdBoqProject" style="'+IS+'"><option value="">-- اختر --</option>'+projOpts2+'</select></div>'+
           '<div class="form-group" style="min-width:220px"><label>البند * (من القائمة)</label><select id="stdBoqItem" style="'+IS+'"><option value="">-- اختر البند --</option>'+itemOpts+'</select></div>'+
-          '<div class="form-group" style="min-width:110px"><label>📦 كميات خامات (توريد)</label><input type="number" id="stdBoqQty" placeholder="0" step="0.01" min="0" style="'+IS+'"></div>'+
-          '<div class="form-group" style="min-width:110px"><label>⚙️ كميات أعمال (تنفيذ)</label><input type="number" id="stdBoqQtyWork" placeholder="0" step="0.01" min="0" style="'+IS+'"></div>'+
+          '<div class="form-group" style="min-width:160px"><label>نوع البند *</label><select id="stdBoqType" style="'+IS+'"><option value="supply">📦 توريدات — انحراف في الأرصدة</option><option value="contractor">🔧 مقاولين — كمية معيارية في المستخلصات</option></select></div>'+
+          '<div class="form-group" style="min-width:120px"><label>الكمية المعيارية</label><input type="number" id="stdBoqQty" placeholder="0" step="0.01" min="0" style="'+IS+'"></div>'+
           '<div class="form-group" style="min-width:100px"><label>الوحدة</label>'+unitSel.replace('<select ','<select id="stdBoqUnit" ')+'</div>'+
           '<div class="form-group" style="min-width:110px"><label>سعر الوحدة (جم)</label><input type="number" id="stdBoqPrice" placeholder="0" step="0.01" min="0" style="'+IS+'"></div>'+
           '<div class="form-group" style="min-width:150px"><label>ملاحظات</label><input type="text" id="stdBoqNotes" placeholder="اختياري" style="'+IS+'"></div>'+
@@ -4637,7 +4653,7 @@ function renderStdBoq(){
         '</span>'+
       '</div>'+
       (filteredStd.length?
-        '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th>#</th><th>المشروع</th><th>البند</th><th style="color:var(--green)">📦 خامات (توريد)</th><th style="color:var(--accent2)">⚙️ أعمال (تنفيذ)</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th><th>بواسطة</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead><tbody>'+stdRows+'</tbody></table></div>'+
+        '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th>#</th><th>المشروع</th><th>البند</th><th>النوع</th><th>الكمية المعيارية</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th><th>بواسطة</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead><tbody>'+stdRows+'</tbody></table></div>'+
         (totalCost>0?'<div style="text-align:left;padding:10px;font-size:.82rem;color:var(--yellow)">إجمالي القيمة المعيارية للعرض الحالي: <b>'+totalCost.toLocaleString()+' جم</b></div>':'')+
         '</div>'
         :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد بنود حصر مسجّلة بعد.'+(canEdit?' أضف بنوداً من النموذج أعلاه.':'')+'</div>')+
