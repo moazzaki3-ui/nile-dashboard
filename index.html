@@ -2378,7 +2378,10 @@ function updateTotal(code, pct){
   // Update UPDATES
   let upd = UPDATES.find(u => u.code === code);
   if(upd){
+    upd.pct = pct;
     upd.last_updated = todayAr();
+  } else {
+    UPDATES.push({code, status:proj?proj.status:'', pct, packages:[], last_updated:todayAr()});
   }
 
   refreshAll();
