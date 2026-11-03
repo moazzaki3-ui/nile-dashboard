@@ -2783,6 +2783,49 @@ function saveDeliveries(){
   _DB.ref('deliveries').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('deliveries',e));
   try{localStorage.setItem(_DELIV_KEY,JSON.stringify(_DELIVERIES));}catch(e){}
 }
+// ── Delivery form BOQ linkage helpers ────────────────────────────────────────
+function _refreshDelivItemOpts(){
+  const proj=document.getElementById('delivProject').value;
+  const sel=document.getElementById('delivItem');
+  const infoDiv=document.getElementById('delivBoqInfo');
+  if(!sel)return;
+  if(infoDiv)infoDiv.innerHTML='';
+  if(!proj){sel.innerHTML='<option value="">— اختر مشروعاً أولاً —</option>';return;}
+  const supplyItems=_STD_BOQ_DATA.filter(function(d){return d.project===proj&&(d.type||'supply')==='supply';});
+  if(!supplyItems.length){
+    sel.innerHTML='<option value="">— لا يوجد حصر توريد لهذا المشروع —</option>';
+    return;
+  }
+  sel.innerHTML='<option value="">— اختر بند من الحصر —</option>'+
+    supplyItems.map(function(d){
+      return '<option value="'+d.item+'" data-std="'+(d.stdQty||0)+'" data-unit="'+(d.unit||'')+'">'+
+        d.item+' (حصر: '+((d.stdQty||0)%1===0?(d.stdQty||0):(d.stdQty||0).toFixed(2))+' '+(d.unit||'')+')</option>';
+    }).join('');
+}
+function _onDelivItemChange(){
+  const proj=document.getElementById('delivProject').value;
+  const sel=document.getElementById('delivItem');
+  const infoDiv=document.getElementById('delivBoqInfo');
+  if(!infoDiv||!sel)return;
+  const item=sel.value;
+  if(!item||!proj){infoDiv.innerHTML='';return;}
+  const opt=sel.options[sel.selectedIndex];
+  const stdQty=parseFloat((opt&&opt.dataset)?opt.dataset.std:0)||0;
+  const unit=(opt&&opt.dataset)?opt.dataset.unit:'';
+  const cumDelivered=_DELIVERIES.filter(function(d){return d.project===proj&&d.item===item;})
+    .reduce(function(s,d){return s+(parseFloat(d.qty)||0);},0);
+  const remaining=stdQty-cumDelivered;
+  const overrun=remaining<0;
+  const color=overrun?'var(--red)':remaining<stdQty*0.1?'var(--yellow)':'var(--green)';
+  const fmt=function(v){return (Math.round(v*100)/100).toLocaleString('ar-EG');};
+  infoDiv.innerHTML='<div style="background:rgba(0,0,0,.15);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:.78rem;display:flex;gap:14px;flex-wrap:wrap;margin-top:5px">'+
+    '<span>📏 الحصر: <b style="color:var(--blue)">'+fmt(stdQty)+' '+unit+'</b></span>'+
+    '<span>📦 مستلم: <b style="color:var(--orange)">'+fmt(cumDelivered)+' '+unit+'</b></span>'+
+    '<span>📉 متبقي: <b style="color:'+color+'">'+fmt(Math.abs(remaining))+' '+unit+(overrun?' <small>(تجاوز)</small>':'')+'</b></span>'+
+    (overrun?'<span style="color:var(--red);font-weight:700;font-size:.75rem">⚠ تجاوز الحصر المعياري!</span>':'')+
+    '</div>';
+}
+// ─────────────────────────────────────────────────────────────────────────────
 function addDelivery(){
   const code=document.getElementById('delivProject').value;
   const item=document.getElementById('delivItem').value.trim();
@@ -2792,10 +2835,12 @@ function addDelivery(){
   const invoice=document.getElementById('delivInvoice').value.trim();
   const supplier=document.getElementById('delivSupplier').value.trim();
   const note=document.getElementById('delivNote').value.trim();
-  if(!code){alert('⚠️ اختر مشروع أولاً');return;}
-  if(!item){alert('⚠️ اختر أو ادخل البند');return;}
-  if(!material){alert('⚠️ ادخل اسم الخامة');return;}
-  if(!qty||qty<=0){alert('⚠️ ادخل كمية صحيحة');return;}
+  const _dn=document.getElementById('delivNotice');
+  function _dErr(msg){if(_dn){_dn.style.background='rgba(239,68,68,.15)';_dn.style.color='var(--red)';_dn.style.borderColor='rgba(239,68,68,.3)';_dn.textContent=msg;_dn.style.display='block';setTimeout(()=>{_dn.style.background='';_dn.style.color='';_dn.style.borderColor='';_dn.style.display='none';},3500);}}
+  if(!code){_dErr('⚠ اختر مشروع أولاً');return;}
+  if(!item){_dErr('⚠ اختر أو ادخل البند');return;}
+  if(!material){_dErr('⚠ ادخل اسم الخامة');return;}
+  if(!qty||qty<=0){_dErr('⚠ ادخل كمية صحيحة');return;}
   const sess=window._CURRENT_SESSION||{};
   const rec={id:Date.now(),date:todayAr(),dateISO:new Date().toISOString().split('T')[0],project:code,item,material,qty,unit,invoice,supplier,note,user:sess.fullname||'مستخدم'};
   _DELIVERIES.unshift(rec);
@@ -2812,7 +2857,7 @@ function addDelivery(){
 }
 function deleteDelivery(id){
   const role=window._CURRENT_ROLE||'viewer';
-  if(role!=='admin'&&role!=='editor'){alert('❌ ليس لديك صلاحية الحذف');return;}
+  if(role!=='admin'&&role!=='editor'){const nb=document.getElementById('delivNotice');if(nb){nb.style.background='rgba(239,68,68,.15)';nb.style.color='var(--red)';nb.textContent='❌ ليس لديك صلاحية الحذف';nb.style.display='block';setTimeout(()=>{nb.style.background='';nb.style.color='';nb.style.display='none';},3000);}return;}
   _DELIVERIES=_DELIVERIES.filter(d=>d.id!==id);
   saveDeliveries();
   renderDeliveries();
@@ -2856,7 +2901,14 @@ function renderDeliveries(){
           const totalQty=recs.reduce(function(s,r){return s+(parseFloat(r.qty)||0);},0);
           const unit=recs[0].unit||'';
           const qtyStr=(totalQty%1===0?totalQty:totalQty.toFixed(2))+(unit?' '+unit:'');
-          return '<tr><td><b>'+itm+'</b></td><td style="color:var(--green);font-weight:700;text-align:center">'+qtyStr+'</td><td style="font-size:.72rem">'+mats+'</td><td style="color:var(--muted);text-align:center">'+recs[0].date+'</td></tr>';
+          // Show BOQ comparison
+          const boqEntry=_STD_BOQ_DATA.find(function(d){return d.project===pk&&d.item===itm&&(d.type||'supply')==='supply';});
+          const stdQtyForItem=boqEntry?(boqEntry.stdQty||0):0;
+          const overrun=stdQtyForItem>0&&totalQty>stdQtyForItem;
+          const qtyColor=overrun?'var(--red)':'var(--green)';
+          const stdTxt=stdQtyForItem>0?' / حصر: '+stdQtyForItem.toLocaleString()+' '+unit:'';
+          const overrunBadge=overrun?'<span style="background:rgba(239,68,68,.15);color:var(--red);border-radius:4px;padding:1px 5px;font-size:.7rem;margin-left:4px">⚠ تجاوز</span>':'';
+          return '<tr><td><b>'+itm+'</b></td><td style="color:'+qtyColor+';font-weight:700;text-align:center">'+overrunBadge+qtyStr+'<span style="color:var(--muted);font-size:.72rem;font-weight:400">'+stdTxt+'</span></td><td style="font-size:.72rem">'+mats+'</td><td style="color:var(--muted);text-align:center">'+recs[0].date+'</td></tr>';
         }).join('');
         return '<div class="form-section" style="margin-bottom:10px"><div style="font-weight:800;font-size:.9rem;color:var(--accent2);margin-bottom:10px">🏗️ عمارة '+pn+'</div><table class="project-table"><thead><tr><th>البند</th><th>إجمالي الكمية</th><th>الخامات المستلمة</th><th>آخر استلام</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
       }).join('');
@@ -4949,18 +5001,20 @@ function confirmStdBoqSave(){
     }
     const stdQty=isContractor?0:r.stdQty;
     const stdQtyWork=isContractor?r.stdQty:0;
-    const existing=_STD_BOQ_DATA.find(d=>d.project===r.code&&d.item===r.item);
+    // Include type in lookup so concrete-supply and contractor entries with same item name coexist
+    const existing=_STD_BOQ_DATA.find(d=>d.project===r.code&&d.item===r.item&&(d.type||'supply')===rowType);
     if(existing){
       existing.type=rowType;
       if(isContractor){existing.stdQtyWork=r.stdQty;}else{existing.stdQty=r.stdQty;}
       existing.unit=r.unit||existing.unit;
-      existing.unitPrice=r.unitPrice;
+      // Do NOT import price from Excel — prices are entered via قائمة التكاليف only
       existing.notes=r.notes||existing.notes;
       existing.lastUpdate=now.toISOString();
       existing.updatedBy=sess.name||sess.username||'—';
       updated++;
     }else{
-      _STD_BOQ_DATA.push({id:Date.now()*1000+i,project:r.code,item:r.item,unit:r.unit,type:rowType,stdQty:stdQty,stdQtyWork:stdQtyWork,unitPrice:r.unitPrice,notes:r.notes,date:dateStr,user:sess.name||sess.username||'—',lastUpdate:now.toISOString()});
+      // unitPrice:0 — never import from Excel; prices come from قائمة التكاليف
+      _STD_BOQ_DATA.push({id:Date.now()*1000+i,project:r.code,item:r.item,unit:r.unit,type:rowType,stdQty:stdQty,stdQtyWork:stdQtyWork,unitPrice:0,notes:r.notes,date:dateStr,user:sess.name||sess.username||'—',lastUpdate:now.toISOString()});
       added++;
     }
     if(isContractor)_syncStdBoqToInvoices(r.code,r.item,r.stdQty,r.unit);
@@ -5719,7 +5773,8 @@ function renderCosts(){
   // Global KPIs
   let kpiPlanned=0,kpiActual=0;
   _STD_BOQ_DATA.forEach(function(d){kpiPlanned+=(d.stdQty||0)*_pp(priceMap[d.item]);});
-  _INVOICES_DATA.forEach(function(d){kpiActual+=(d.execQty||0)*_ap(priceMap[d.item]);});
+  // Use per-invoice unitPrice when available, else fall back to catalog actualPrice
+  _INVOICES_DATA.forEach(function(d){kpiActual+=(d.execQty||0)*(d.unitPrice||_ap(priceMap[d.item]));});
   _DELIVERIES.forEach(function(d){kpiActual+=(d.qty||0)*_ap(priceMap[d.item]);});
   const kpiVariance=kpiActual-kpiPlanned;
   const kpiVariancePct=kpiPlanned>0?(kpiVariance/kpiPlanned*100).toFixed(1):0;
@@ -5730,15 +5785,17 @@ function renderCosts(){
   // Build item map for selected project (for summary view)
   const itemMap={};
   _STD_BOQ_DATA.filter(function(d){return !projSel||d.project===projSel;}).forEach(function(d){
-    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0};
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0,invCost:0};
     itemMap[d.item].stdQty+=(d.stdQty||0);
   });
   _INVOICES_DATA.filter(function(d){return !projSel||d.project===projSel;}).forEach(function(d){
-    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0};
-    itemMap[d.item].invQty+=(d.execQty||0);
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0,invCost:0};
+    const iq=d.execQty||0;
+    itemMap[d.item].invQty+=iq;
+    if(d.unitPrice)itemMap[d.item].invCost+=iq*d.unitPrice; // track actual invoice cost per invoice
   });
   _DELIVERIES.filter(function(d){return !projSel||d.project===projSel;}).forEach(function(d){
-    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0};
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0,invCost:0};
     itemMap[d.item].delivQty+=(d.qty||0);
   });
 
@@ -5749,8 +5806,10 @@ function renderCosts(){
     r.plannedPrice=_pp(p);r.actualPrice=_ap(p);
     r.plannedCost=r.stdQty*r.plannedPrice;
     r.actualQty=(r.invQty||0)+(r.delivQty||0);
-    r.actualCost=r.actualQty*r.actualPrice;
-    r.priceVariance=(r.actualPrice-r.plannedPrice)*r.actualQty;
+    // Use per-invoice cost when available, else fall back to catalog actual price
+    const invCostActual=r.invCost>0?r.invCost:(r.invQty||0)*r.actualPrice;
+    r.actualCost=invCostActual+((r.delivQty||0)*r.actualPrice);
+    r.priceVariance=(invCostActual-(r.invQty||0)*r.plannedPrice)+((r.delivQty||0)*(r.actualPrice-r.plannedPrice));
     r.qtyVariance=(r.actualQty-r.stdQty)*r.plannedPrice;
     r.totalVariance=r.priceVariance+r.qtyVariance;
     projPlanned+=r.plannedCost;projActual+=r.actualCost;
@@ -5763,15 +5822,17 @@ function renderCosts(){
   allProjs.forEach(function(proj){
     const iMap={};
     _STD_BOQ_DATA.filter(function(d){return d.project===proj;}).forEach(function(d){
-      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0};
+      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0,invCost:0};
       iMap[d.item].stdQty+=(d.stdQty||0);
     });
     _INVOICES_DATA.filter(function(d){return d.project===proj;}).forEach(function(d){
-      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0};
-      iMap[d.item].invQty+=(d.execQty||0);
+      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0,invCost:0};
+      const iq=d.execQty||0;
+      iMap[d.item].invQty+=iq;
+      if(d.unitPrice)iMap[d.item].invCost+=iq*d.unitPrice;
     });
     _DELIVERIES.filter(function(d){return d.project===proj;}).forEach(function(d){
-      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0};
+      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0,invCost:0};
       iMap[d.item].delivQty+=(d.qty||0);
     });
     let dPlanned=0,dPriceVar=0,dQtyVar=0;
@@ -5781,7 +5842,9 @@ function renderCosts(){
       const pp=_pp(pEntry),ap=_ap(pEntry);
       const aq=(r.invQty||0)+(r.delivQty||0);
       dPlanned+=r.stdQty*pp;
-      dPriceVar+=(ap-pp)*aq;
+      // Use per-invoice cost when available for accurate price variance
+      const invCostActual=r.invCost>0?r.invCost:r.invQty*ap;
+      dPriceVar+=(invCostActual-r.invQty*pp)+(r.delivQty*(ap-pp));
       dQtyVar+=(aq-r.stdQty)*pp;
     });
     const dTotal=dPriceVar+dQtyVar;
@@ -6075,7 +6138,7 @@ function startApp(){
     <div class="form-row">
       <div class="form-group" style="min-width:200px">
         <label>المشروع *</label>
-        <select id="delivProject">
+        <select id="delivProject" onchange="_refreshDelivItemOpts()">
           <option value="">-- اختر مشروع --</option>
           <option value="P-125">P-125 — 104K</option>
           <option value="P-003">P-003 — 117A</option>
@@ -6091,25 +6154,12 @@ function startApp(){
           <option value="P-035">P-035 — 53A</option>
         </select>
       </div>
-      <div class="form-group" style="min-width:200px">
-        <label>البند *</label>
-        <input type="text" id="delivItem" list="delivItemsList" placeholder="اختر أو اكتب البند" autocomplete="off">
-        <datalist id="delivItemsList">
-          <option value="هيكل — خرسانة وحديد">
-          <option value="أعمال التشطيب الداخلي">
-          <option value="كهرباء">
-          <option value="سباكة">
-          <option value="بلاط / سيراميك">
-          <option value="جبس بورد">
-          <option value="دهانات">
-          <option value="ألمنيوم وزجاج">
-          <option value="أبواب ونجارة">
-          <option value="عزل">
-          <option value="رخام">
-          <option value="طوب وخرسانة عادية">
-          <option value="واجهات حجر">
-          <option value="أخرى">
-        </datalist>
+      <div class="form-group" style="min-width:200px;flex:1.5">
+        <label>البند * (من الحصر المعياري)</label>
+        <select id="delivItem" onchange="_onDelivItemChange()" style="background:var(--card);border:1px solid var(--border);color:var(--text,#e2e8f0);border-radius:8px;padding:8px 10px;font-family:Cairo,sans-serif;font-size:.85rem;width:100%">
+          <option value="">— اختر مشروعاً أولاً —</option>
+        </select>
+        <div id="delivBoqInfo"></div>
       </div>
       <div class="form-group" style="flex:2;min-width:220px">
         <label>اسم الخامة * (مثال: حديد تسليح 12مم — بلاط سيراميك 60×60)</label>
