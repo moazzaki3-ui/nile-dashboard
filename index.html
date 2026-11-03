@@ -373,9 +373,15 @@ function _fbOk(){
 _DB.ref('.info/connected').on('value',function(snap){
   const c=snap.val()===true;
   const dot=document.getElementById('fbStatus');
+  const lbl=document.getElementById('fbLabel');
   if(!dot)return;
-  if(c&&_FB_OK){dot.style.background='#22c55e';dot.title='متصل بالسيرفر';}
-  else if(!c){dot.style.background='#f97316';dot.title='جاري الاتصال...';}
+  if(c&&_FB_OK){
+    dot.style.background='#22c55e';dot.title='متصل بالسيرفر';
+    if(lbl){lbl.textContent='متصل';lbl.style.color='#22c55e';}
+  }else if(!c){
+    dot.style.background='#f97316';dot.title='جاري الاتصال...';
+    if(lbl){lbl.textContent='جاري الاتصال';lbl.style.color='#f97316';}
+  }
 });
 
 // ========== AUTH SYSTEM ==========
@@ -1373,6 +1379,9 @@ function renderCashFlow(){
   var _DEF_MONTHS={'P-003':8,'P-004':8,'P-005':8,'P-006':8,'P-014':8,'P-015':8,'P-016':8,'P-017':8,'P-021':8,'P-034':8,'P-035':8,'P-125':3};
   var _DEF_START={'P-003':'2025-06-01','P-004':'2025-06-01','P-005':'2025-06-01','P-006':'2025-06-01','P-014':'2025-06-01','P-015':'2025-06-01','P-016':'2025-06-01','P-017':'2025-06-01','P-021':'2025-06-01','P-034':'2025-06-01','P-035':'2025-06-01','P-125':'2025-10-12'};
   var _AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+  // Guard — wait for data to load
+  if(!Array.isArray(_COST_PRICES_DATA)||!Array.isArray(_STD_BOQ_DATA)||!Array.isArray(_INVOICES_DATA))return;
 
   // ===== 1. Calculate Budgets =====
   var priceMap={};
@@ -5443,7 +5452,7 @@ const _AHR_PHASES=[
 const _AHR_TOTAL=205;
 let _PROJECT_DATES={};
 let _fbSchInit=false;
-let _schedSubTab='summary';
+var _schedSubTab='summary';
 const _STATUS_PCT={
   'تحت الترخيص':0,'جارى الترخيص':1,
   'جارى اعمال الهيكل':33,'جارى تشطيب الوجهات':62,
