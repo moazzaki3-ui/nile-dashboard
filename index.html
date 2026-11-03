@@ -924,6 +924,13 @@ PROJECTS.forEach(p=>{
 });
 
 function showTab(t){
+  // Permission guard: block restricted tabs even when called programmatically (e.g. KPI links)
+  const _sRole=window._CURRENT_ROLE||'viewer';
+  if(_sRole!=='admin'){
+    const _sPerm=_getTabPerm();
+    const _sPr=_sPerm[t];
+    if(_sPr&&_sPr[_sRole]===false)return; // silently blocked — stay on current tab
+  }
   if(t==='chat'){populateFormDropdowns();renderChangelog();}
   if(t==='admin'){renderAdminPanel();}
   if(t==='deliveries'){renderDeliveries();}
