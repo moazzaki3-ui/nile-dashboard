@@ -5990,17 +5990,30 @@ function renderCosts(){
   function _pp(p){return p?(p.plannedPrice||p.unitPrice||0):0;}
   function _ap(p){return p?(p.actualPrice||p.plannedPrice||p.unitPrice||0):0;}
 
+  // Type map: item → 'مقاول' | 'توريد'
+  // BOQ uses 'contractor'/'supply', cost prices use 'مقاول'/'توريد'
+  const typeMap={};
+  _STD_BOQ_DATA.forEach(function(d){if(d.item)typeMap[d.item]=d.type==='contractor'?'مقاول':'توريد';});
+  _COST_PRICES_DATA.forEach(function(p){if(p.item&&p.type)typeMap[p.item]=p.type;});
+  function _itype(item){return typeMap[item]||'توريد';}
+  // For BOQ qty: contractor uses stdQtyWork, supply uses stdQty
+  function _boqQty(d){return (d.type==='contractor'?(d.stdQtyWork||0):(d.stdQty||0));}
+
   const allProjs=[...new Set([
     ..._STD_BOQ_DATA.map(function(d){return d.project;}),
-    ..._INVOICES_DATA.map(function(d){return d.project;})
+    ..._INVOICES_DATA.map(function(d){return d.project;}),
+    ..._DELIVERIES.map(function(d){return d.project;})
   ])].filter(Boolean).sort();
 
-  // Global KPIs
+  // Global KPIs — مقاول from invoices only, توريد from deliveries only
   let kpiPlanned=0,kpiActual=0;
-  _STD_BOQ_DATA.forEach(function(d){kpiPlanned+=(d.stdQty||0)*_pp(priceMap[d.item]);});
-  // Use per-invoice unitPrice when available, else fall back to catalog actualPrice
-  _INVOICES_DATA.forEach(function(d){kpiActual+=(d.execQty||0)*(d.unitPrice||_ap(priceMap[d.item]));});
-  _DELIVERIES.forEach(function(d){kpiActual+=(d.qty||0)*_ap(priceMap[d.item]);});
+  _STD_BOQ_DATA.forEach(function(d){kpiPlanned+=_boqQty(d)*_pp(priceMap[d.item]);});
+  _INVOICES_DATA.forEach(function(d){
+    if(_itype(d.item)==='مقاول')kpiActual+=(d.execQty||0)*(d.unitPrice||_ap(priceMap[d.item]));
+  });
+  _DELIVERIES.forEach(function(d){
+    if(_itype(d.item)==='توريد')kpiActual+=(d.qty||0)*_ap(priceMap[d.item]);
+  });
   const kpiVariance=kpiActual-kpiPlanned;
   const kpiVariancePct=kpiPlanned>0?(kpiVariance/kpiPlanned*100).toFixed(1):0;
 
@@ -6011,7 +6024,7 @@ function renderCosts(){
   const itemMap={};
   _STD_BOQ_DATA.filter(function(d){return !projSel||d.project===projSel;}).forEach(function(d){
     if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0,invCost:0};
-    itemMap[d.item].stdQty+=(d.stdQty||0);
+    itemMap[d.item].stdQty+=_boqQty(d); // contractor→stdQtyWork, supply→stdQty
   });
   _INVOICES_DATA.filter(function(d){return !projSel||d.project===projSel;}).forEach(function(d){
     if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0,invCost:0};
@@ -6028,35 +6041,47 @@ function renderCosts(){
   let projPlanned=0,projActual=0;
   itemRows.forEach(function(r){
     const p=priceMap[r.item];
+    const iType=_itype(r.item);
+    r.type=iType;
     r.plannedPrice=_pp(p);r.actualPrice=_ap(p);
     r.plannedCost=r.stdQty*r.plannedPrice;
-    r.actualQty=(r.invQty||0)+(r.delivQty||0);
-    // Use per-invoice cost when available, else fall back to catalog actual price
-    const invCostActual=r.invCost>0?r.invCost:(r.invQty||0)*r.actualPrice;
-    r.actualCost=invCostActual+((r.delivQty||0)*r.actualPrice);
-    r.priceVariance=(invCostActual-(r.invQty||0)*r.plannedPrice)+((r.delivQty||0)*(r.actualPrice-r.plannedPrice));
-    r.qtyVariance=(r.actualQty-r.stdQty)*r.plannedPrice;
+    if(iType==='مقاول'){
+      // Contractor: tracked via invoices only
+      r.actualQty=r.invQty||0;
+      const invCostActual=r.invCost>0?r.invCost:(r.invQty||0)*r.actualPrice;
+      r.actualCost=invCostActual;
+      r.priceVariance=invCostActual-(r.invQty||0)*r.plannedPrice;
+      r.qtyVariance=((r.invQty||0)-r.stdQty)*r.plannedPrice;
+    } else {
+      // Supply: tracked via deliveries only
+      r.actualQty=r.delivQty||0;
+      r.actualCost=(r.delivQty||0)*r.actualPrice;
+      r.priceVariance=(r.delivQty||0)*(r.actualPrice-r.plannedPrice);
+      r.qtyVariance=((r.delivQty||0)-r.stdQty)*r.plannedPrice;
+    }
     r.totalVariance=r.priceVariance+r.qtyVariance;
     projPlanned+=r.plannedCost;projActual+=r.actualCost;
   });
   const projVariance=projActual-projPlanned;
   const projVariancePct=projPlanned>0?(projVariance/projPlanned*100).toFixed(1):0;
 
-  // Deviation data per project
+  // Deviation data per project — type-aware: مقاول from invoices, توريد from deliveries
   const devData=[];
   allProjs.forEach(function(proj){
     const iMap={};
     _STD_BOQ_DATA.filter(function(d){return d.project===proj;}).forEach(function(d){
       if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0,invCost:0};
-      iMap[d.item].stdQty+=(d.stdQty||0);
+      iMap[d.item].stdQty+=_boqQty(d); // contractor→stdQtyWork, supply→stdQty
     });
     _INVOICES_DATA.filter(function(d){return d.project===proj;}).forEach(function(d){
+      if(_itype(d.item)!=='مقاول')return; // invoices only count for contractor items
       if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0,invCost:0};
       const iq=d.execQty||0;
       iMap[d.item].invQty+=iq;
       if(d.unitPrice)iMap[d.item].invCost+=iq*d.unitPrice;
     });
     _DELIVERIES.filter(function(d){return d.project===proj;}).forEach(function(d){
+      if(_itype(d.item)!=='توريد')return; // deliveries only count for supply items
       if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0,invCost:0};
       iMap[d.item].delivQty+=(d.qty||0);
     });
@@ -6065,12 +6090,18 @@ function renderCosts(){
       const r=iMap[item];
       const pEntry=priceMap[item];
       const pp=_pp(pEntry),ap=_ap(pEntry);
-      const aq=(r.invQty||0)+(r.delivQty||0);
+      const iType=_itype(item);
       dPlanned+=r.stdQty*pp;
-      // Use per-invoice cost when available for accurate price variance
-      const invCostActual=r.invCost>0?r.invCost:r.invQty*ap;
-      dPriceVar+=(invCostActual-r.invQty*pp)+(r.delivQty*(ap-pp));
-      dQtyVar+=(aq-r.stdQty)*pp;
+      if(iType==='مقاول'){
+        const aq=r.invQty||0;
+        const invCostActual=r.invCost>0?r.invCost:aq*ap;
+        dPriceVar+=(invCostActual-aq*pp);
+        dQtyVar+=(aq-r.stdQty)*pp;
+      } else {
+        const aq=r.delivQty||0;
+        dPriceVar+=aq*(ap-pp);
+        dQtyVar+=(aq-r.stdQty)*pp;
+      }
     });
     const dTotal=dPriceVar+dQtyVar;
     const dPct=dPlanned>0?(dTotal/dPlanned*100).toFixed(1):0;
