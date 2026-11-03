@@ -3923,48 +3923,101 @@ function renderBalances(){
   const filterProj=(document.getElementById('boqFilterProj')||{}).value||'';
   const filtered=_BOQ_DATA.filter(d=>(!filterProj||d.project===filterProj));
 
-  const totalItems=_BOQ_DATA.length;
-  const overBudget=_BOQ_DATA.filter(d=>(d.devPct||0)>0).length;
-  const onBudget=_BOQ_DATA.filter(d=>(d.devPct||0)<=0).length;
   const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
 
   function devColor(p){return p>=0?'var(--green)':p>-5?'var(--yellow)':'var(--red)';}
+  function _matType(name){
+    const n=name||'';
+    if(/خرسان/.test(n))return{key:'concrete',label:'🏗 خرسانة',color:'var(--blue)'};
+    if(/حديد/.test(n))return{key:'steel',label:'⚙ حديد',color:'var(--orange)'};
+    if(/بياض|لياسة|جبس/.test(n))return{key:'plaster',label:'🪣 بياض',color:'var(--yellow)'};
+    if(/مبان|طوب|بلوك/.test(n))return{key:'masonry',label:'🧱 مباني',color:'var(--green)'};
+    if(/بلاط|سيراميك|رخام/.test(n))return{key:'tiles',label:'🔲 أرضيات',color:'var(--accent2)'};
+    return{key:'other',label:'📦 أعمال أخرى',color:'var(--muted)'};
+  }
 
-  let rows='';
-  filtered.forEach((d,i)=>{
-    const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
-    const supply=d.supply||0;
-    const balance=d.balance||0;
-    const prevBalance=d.prevBalance||0;
-    const transfer=d.transfer||0;
-    const used=d.used!=null?d.used:supply-balance+prevBalance+transfer;
-    const boq=d.boqQty||0;
-    const dev=d.deviation!=null?d.deviation:(boq!==0?boq-used:0);
-    const dp=d.devPct!=null?d.devPct:(boq!==0?(boq-used)/boq*100:0);
-    rows+='<tr id="boqRow_'+d.id+'" style="'+bg+'">'+
-      '<td style="padding:8px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
-      '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.68rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||(_projName&&_projName(d.project))||'')+'</span></td>'+
-      '<td style="padding:8px 10px;font-weight:700">'+d.item+'</td>'+
-      '<td style="padding:8px 10px;text-align:center">'+supply.toLocaleString()+'</td>'+
-      '<td style="padding:8px 10px;text-align:center">'+balance.toLocaleString()+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;color:var(--blue)">'+prevBalance.toLocaleString()+'</td>'+
-      '<td style="padding:8px 10px;text-align:center">'+(transfer!==0?(transfer>0?'+':'')+transfer.toLocaleString():'0')+(d.transferProject?'<br><span style="font-size:.63rem;color:var(--accent2)">↔ '+d.transferProject+'</span>':'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:var(--accent2)">'+used.toLocaleString()+' '+(d.unit||'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;color:var(--muted)">'+boq.toLocaleString()+' '+(d.unit||'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+devColor(dp)+'">'+(dev>=0?'+':'')+dev.toLocaleString()+' '+(d.unit||'')+'</td>'+
-      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+devColor(dp)+'">'+(dp>=0?'+':'')+dp.toFixed(2)+'%</td>'+
-      '<td style="padding:8px 10px;font-size:.68rem;color:var(--muted);text-align:center">'+(d.updatedBy||d.user||'—')+'<br><span style="font-size:.63rem;color:var(--border)">'+(d.lastUpdate?new Date(d.lastUpdate).toLocaleDateString('ar-EG'):(d.date||''))+'</span></td>'+
-      (canDel?'<td class="boq-del-cell" style="text-align:center"><button onclick="deleteBoqItem('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button></td>':'')+
-    '</tr>';
+  // Merge: existing BOQ_DATA (filtered) + STD_BOQ supply items not yet tracked
+  const _boqKeySet=new Set(_BOQ_DATA.map(d=>d.project+'||'+d.item));
+  const _stdOnlyItems=_STD_BOQ_DATA.filter(d=>{
+    if((d.type||'supply')!=='supply')return false;
+    if(filterProj&&d.project!==filterProj)return false;
+    return !_boqKeySet.has(d.project+'||'+d.item);
+  }).map(d=>({id:'s_'+d.id,project:d.project,item:d.item,unit:d.unit||'',supply:0,balance:0,prevBalance:0,transfer:0,used:0,boqQty:d.stdQty||0,deviation:null,devPct:null,_stdOnly:true}));
+
+  const allItems=[...filtered,..._stdOnlyItems];
+  const totalItems=allItems.length;
+  const tracked=filtered.filter(d=>{const s=d.supply||0,b=d.balance||0,pb=d.prevBalance||0,tr=d.transfer||0;return s>0||b>0||pb>0||Math.abs(tr)>0;}).length;
+  const overBudget=filtered.filter(d=>{const s=d.supply||0,b=d.balance||0,pb=d.prevBalance||0,tr=d.transfer||0;const hasReal=s>0||b>0||pb>0||Math.abs(tr)>0;return hasReal&&(d.devPct||0)>0;}).length;
+  const onBudget=filtered.filter(d=>{const s=d.supply||0,b=d.balance||0,pb=d.prevBalance||0,tr=d.transfer||0;const hasReal=s>0||b>0||pb>0||Math.abs(tr)>0;return hasReal&&(d.devPct||0)<=0;}).length;
+
+  // Group allItems by material type
+  const _matGroups={};
+  allItems.forEach(d=>{
+    const mt=_matType(d.item);
+    if(!_matGroups[mt.key])_matGroups[mt.key]={...mt,items:[]};
+    _matGroups[mt.key].items.push(d);
   });
-  const delTh=canDel?'<th>حذف</th>':'';
+
+  // Build grouped collapsible HTML
+  let groupHtml='';
+  Object.values(_matGroups).forEach(grp=>{
+    const gKey='boqMat_'+grp.key+(filterProj?'_'+filterProj.replace(/[^a-zA-Z0-9]/g,''):'');
+    const gItems=grp.items;
+    const totalBoq=gItems.reduce((s,d)=>s+(d.boqQty||0),0);
+    const totalUsed=gItems.reduce((s,d)=>{if(d._stdOnly)return s;const sp=d.supply||0,bl=d.balance||0,pb=d.prevBalance||0,tr=d.transfer||0;const u=d.used!=null?d.used:sp-bl+pb+tr;const hasReal=sp>0||bl>0||pb>0||Math.abs(tr)>0;return hasReal?s+u:s;},0);
+    let gRows='';
+    gItems.forEach((d,i)=>{
+      const bg=i%2===0?'':'background:rgba(255,255,255,.025)';
+      const supply=d.supply||0,balance=d.balance||0,prevBalance=d.prevBalance||0,transfer=d.transfer||0;
+      const used=d.used!=null?d.used:supply-balance+prevBalance+transfer;
+      const boq=d.boqQty||0;
+      const hasReal=!d._stdOnly&&(supply>0||balance>0||prevBalance>0||Math.abs(transfer)>0);
+      const dev=hasReal&&boq!==0?(d.deviation!=null?d.deviation:boq-used):null;
+      const dp=hasReal&&boq!==0?(d.devPct!=null?d.devPct:(boq-used)/boq*100):null;
+      const devClr=dp===null?'var(--muted)':devColor(dp);
+      gRows+='<tr id="boqRow_'+d.id+'" style="'+bg+'">'+
+        '<td style="padding:6px 8px;color:var(--muted);text-align:center;font-size:.7rem">'+(i+1)+'</td>'+
+        '<td style="padding:6px 8px"><b style="color:var(--accent2);font-size:.75rem">'+d.project+'</b><br><span style="font-size:.6rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
+        '<td style="padding:6px 8px;font-weight:600;font-size:.75rem">'+d.item+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;font-size:.75rem">'+supply.toLocaleString()+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;font-size:.75rem">'+balance.toLocaleString()+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;font-size:.75rem;color:var(--blue)">'+prevBalance.toLocaleString()+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;font-size:.75rem">'+(transfer!==0?(transfer>0?'+':'')+transfer.toLocaleString():'0')+(d.transferProject?'<br><span style="font-size:.6rem;color:var(--accent2)">↔ '+d.transferProject+'</span>':'')+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;font-weight:700;color:var(--accent2);font-size:.75rem">'+(hasReal?used.toLocaleString()+' <span style="font-size:.62rem;color:var(--muted)">'+(d.unit||'')+'</span>':'<span style="color:var(--muted);font-size:.7rem">لم يُسجَّل بعد</span>')+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;font-size:.75rem;color:var(--muted)">'+boq.toLocaleString()+' <span style="font-size:.62rem">'+(d.unit||'')+'</span></td>'+
+        '<td style="padding:6px 8px;text-align:center;font-weight:700;color:'+devClr+';font-size:.75rem">'+(dev!==null?(dev>=0?'+':'')+dev.toLocaleString()+' '+(d.unit||''):'<span style="color:var(--muted)">—</span>')+'</td>'+
+        '<td style="padding:6px 8px;text-align:center;font-weight:700;color:'+devClr+';font-size:.75rem">'+(dp!==null?(dp>=0?'+':'')+dp.toFixed(2)+'%':'<span style="color:var(--muted)">—</span>')+'</td>'+
+        '<td style="padding:6px 8px;font-size:.63rem;color:var(--muted);text-align:center">'+(d._stdOnly?'<span style="color:var(--accent2);font-size:.65rem">📋 من الحصر المعياري</span>':(d.updatedBy||d.user||'—'))+'<br><span style="font-size:.6rem;color:var(--border)">'+(d.lastUpdate?new Date(d.lastUpdate).toLocaleDateString('ar-EG'):(d.date||''))+'</span></td>'+
+        (canDel&&!d._stdOnly?'<td class="boq-del-cell" style="text-align:center;padding:4px 6px"><button onclick="deleteBoqItem('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 7px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.68rem">🗑</button></td>':(canDel?'<td></td>':''))+
+      '</tr>';
+    });
+    groupHtml+=
+      '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px">'+
+        '<div onclick="toggleBoqMatGroup(\''+gKey+'\')" style="background:rgba(99,102,241,.07);padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+          '<span style="font-weight:700;color:'+grp.color+';font-size:.88rem">'+grp.label+'</span>'+
+          '<span style="font-size:.7rem;color:var(--muted);background:rgba(255,255,255,.07);border-radius:8px;padding:2px 8px">'+gItems.length+' بند</span>'+
+          (totalBoq>0?'<span style="font-size:.72rem;color:var(--muted)">الحصر: <b style="color:'+grp.color+'">'+totalBoq.toLocaleString()+'</b></span>':'')+
+          (totalUsed>0?'<span style="font-size:.72rem;color:var(--muted)">المستخدم: <b style="color:var(--accent2)">'+totalUsed.toLocaleString()+'</b></span>':'')+
+          '<span id="boqMatArr_'+gKey+'" style="margin-right:auto;color:var(--muted);font-size:.8rem">▼</span>'+
+        '</div>'+
+        '<div id="boqMatBody_'+gKey+'" style="display:none">'+
+          '<div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.75rem">'+
+            '<thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.65rem">'+
+              '<th>#</th><th>المشروع</th><th>البند</th><th>التوريد</th><th>الرصيد الحالي</th><th style="color:var(--blue)">الرصيد السابق</th><th>التحويل</th><th>المستخدم</th><th>الحصر المعياري</th><th>الانحراف</th><th>الانحراف %</th><th>بواسطة</th>'+(canDel?'<th>حذف</th>':'')+
+            '</tr></thead>'+
+            '<tbody>'+gRows+'</tbody>'+
+          '</table></div>'+
+        '</div>'+
+      '</div>';
+  });
 
   document.getElementById('tab-balances').innerHTML=
     renderFollowUpBoq()+
     '<div class="section-title">📊 الأرصدة والحصر — المستخدم والانحراف</div>'+
     '<div class="kpi-grid" style="margin-bottom:16px">'+
       '<div class="kpi blue"><div class="kpi-val">'+totalItems+'</div><div class="kpi-lbl">إجمالي البنود</div></div>'+
-      '<div class="kpi green"><div class="kpi-val" style="color:var(--green)">'+onBudget+'</div><div class="kpi-lbl">✅ ضمن الحصر أو أقل</div></div>'+
+      (tracked>0?'<div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val">'+tracked+'</div><div class="kpi-lbl">📊 بنود لها بيانات</div></div>':'')+
+      (onBudget>0?'<div class="kpi green"><div class="kpi-val" style="color:var(--green)">'+onBudget+'</div><div class="kpi-lbl">✅ ضمن الحصر</div></div>':'')+
       (overBudget>0?'<div class="kpi" style="border-right-color:var(--red)"><div class="kpi-val" style="color:var(--red)">'+overBudget+'</div><div class="kpi-lbl">⚠ تجاوز الحصر</div></div>':'')+
     '</div>'+
 
@@ -4001,10 +4054,9 @@ function renderBalances(){
         '<select id="boqFilterProj" onchange="renderBalances()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل المشاريع</option>'+projOpts+'</select>'+
       '</span>'+
     '</div>'+
-    (filtered.length?
-    '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">'+
-      '<th>#</th><th>المشروع</th><th>البند</th><th>التوريد</th><th>الرصيد الحالي</th><th style="color:var(--blue)">الرصيد السابق</th><th>التحويل</th><th>المستخدم</th><th>الحصر المعياري</th><th>الانحراف</th><th>الانحراف %</th><th>بواسطة</th>'+delTh+
-    '</tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+    (allItems.length?
+      '<div>'+groupHtml+'</div>'+
+      '<div style="font-size:.7rem;color:var(--muted);padding:4px 2px">✏ الانحراف يُحسب فقط عند تسجيل بيانات فعلية (توريد أو رصيد). بنود الحصر المعياري التي لم تُسجَّل بعد تظهر بـ —.</div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد بنود مسجّلة بعد. '+(canEdit?'أضف البنود يدوياً أو ارفع من Excel.':'')+'</div>');
 }
 // ============ / BALANCES & BOQ ============
@@ -4539,6 +4591,31 @@ function deleteStdItem(id){
   _STD_ITEMS_DATA=_STD_ITEMS_DATA.filter(d=>d.id!==id);_saveStdItems();renderStdBoq();
 }
 function cancelDelStdItem(id){const row=document.getElementById('stdItemRow_'+id);if(row){row.dataset.confirm='';row.style.background='';}renderStdBoq();}
+function toggleBoqMatGroup(key){
+  const body=document.getElementById('boqMatBody_'+key);
+  const arr=document.getElementById('boqMatArr_'+key);
+  if(!body)return;
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'';
+  if(arr)arr.textContent=isOpen?'▼':'▲';
+}
+function deleteAllStdItems(){
+  const btn=document.getElementById('delAllStdItemsBtn');
+  if(!btn)return;
+  if(btn.dataset.confirm!=='1'){
+    btn.dataset.confirm='1';
+    btn.textContent='⚠ تأكيد حذف القائمة كلها؟';
+    btn.style.background='rgba(239,68,68,.35)';
+    btn.style.color='#fff';
+    setTimeout(()=>{if(btn&&btn.dataset.confirm==='1'){btn.dataset.confirm='';btn.textContent='🗑 حذف الكل';btn.style.background='rgba(239,68,68,.15)';btn.style.color='var(--red)';}},4000);
+    return;
+  }
+  _STD_ITEMS_DATA=[];
+  _saveStdItems();
+  const n=document.getElementById('stdItemNotice');
+  if(n){n.style.display='block';n.textContent='✅ تم مسح كل بنود القائمة المعيارية';n.style.color='var(--green)';n.style.background='rgba(34,197,94,.1)';n.style.border='1px solid rgba(34,197,94,.3)';setTimeout(()=>{n.style.display='none';},4000);}
+  renderStdBoq();
+}
 
 function addStdBoqEntry(){
   const project=(document.getElementById('stdBoqProject')||{}).value||'';
@@ -5013,7 +5090,7 @@ function renderStdBoq(){
 
     // === Section 1: Master Items ===
     '<div class="form-section" style="margin-bottom:20px">'+
-      '<h3>📋 قائمة بنود العقد المعيارية</h3>'+
+      '<h3 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">📋 قائمة بنود العقد المعيارية'+(canDel&&_STD_ITEMS_DATA.length?'<button id="delAllStdItemsBtn" onclick="deleteAllStdItems()" style="background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:3px 12px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem;font-weight:700;margin-right:auto">🗑 حذف الكل</button>':'')+'</h3>'+
       '<p style="font-size:.76rem;color:var(--muted);margin-bottom:12px">هذه البنود هي مرجع العقد الشامل — تظهر تلقائياً كـ datalist في تبويب الأرصدة والحصر.</p>'+
       '<div id="stdItemNotice" style="display:none;border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:.82rem"></div>'+
       (canEdit?
