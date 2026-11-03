@@ -4770,25 +4770,34 @@ function parseStudyBoqExcel(){
           const itemRaw=(row[1]||'').toString().trim();
           if(!itemRaw||itemRaw.length<2)continue;
           const fullItem=(prefix?prefix+'—':'')+itemRaw.substring(0,35);
-          // Supply: cols 2,3,9,11
+          // Supply concrete: cols 2=unit, 3=qty, 9=concUnitPrice
           const unit_s=(row[2]||'').toString().trim()||'م3';
           const qty_s=pN(row[3]);
-          const supplyUP=pN(row[9])+pN(row[11]); // conc price + steel price per unit
-          // Contractor: cols 13,14,15
+          const concUP=pN(row[9]); // concrete unit price (formula-based, may be 0)
+          // Supply steel: cols 4=dia8, 5=dia10, 6=dia12, 7=dia16 (tons), 11=steelUnitPrice
+          const steelDias=[{d:'8مم',v:pN(row[4])},{d:'10مم',v:pN(row[5])},{d:'12مم',v:pN(row[6])},{d:'16مم',v:pN(row[7])}];
+          const steelUP=pN(row[11]); // steel price (formula-based, may be 0)
+          // Contractor: cols 13=unit, 14=qty, 15=unitPrice
           const unit_c=(row[13]||unit_s).toString().trim()||unit_s;
           const qty_c=pN(row[14]);
           const contUP=pN(row[15]);
-          if(qty_s>0)parsed.push({code:sheetCode,item:fullItem,unit:unit_s,stdQty:qty_s,unitPrice:supplyUP,notes:'توريدات — '+sheetName,type:'supply'});
+          // Push concrete supply item
+          if(qty_s>0)parsed.push({code:sheetCode,item:fullItem,unit:unit_s,stdQty:qty_s,unitPrice:concUP,notes:'خرسانة — '+sheetName,type:'supply'});
+          // Push steel supply items per diameter
+          steelDias.forEach(sd=>{if(sd.v>0)parsed.push({code:sheetCode,item:fullItem+' — حديد '+sd.d,unit:'طن',stdQty:sd.v,unitPrice:steelUP,notes:'حديد '+sd.d+' — '+sheetName,type:'supply'});});
+          // Push contractor item
           if(qty_c>0)parsed.push({code:sheetCode,item:fullItem,unit:unit_c,stdQty:qty_c,unitPrice:contUP,notes:'مصنعيات — '+sheetName,type:'contractor'});
         }
       });
       if(!parsed.length){_sn('⚠ لم يُقرأ أي بند من الحصر — تحقق من تنسيق الشيت','var(--red)');return;}
       _pendingBoqRows=parsed;
-      const sCount=parsed.filter(r=>r.type==='supply').length;
+      const concS=parsed.filter(r=>r.type==='supply'&&!r.item.includes('حديد')).length;
+      const stlS=parsed.filter(r=>r.type==='supply'&&r.item.includes('حديد')).length;
       const cCount=parsed.filter(r=>r.type==='contractor').length;
+      const sCount=concS+stlS;
       const btn=document.getElementById('stdBoqConfirmBtn');
-      if(btn){btn.style.display='inline-flex';btn.textContent='💾 حفظ الحصر ('+sCount+' توريدات + '+cCount+' مقاولين)';}
-      _sn('📊 حصر "'+_pendingBoqFile+'" — '+sCount+' بند توريدات، '+cCount+' بند مقاولين — اضغط حفظ للتأكيد','var(--accent2)',true);
+      if(btn){btn.style.display='inline-flex';btn.textContent='💾 حفظ الحصر ('+concS+' خرسانة + '+stlS+' حديد + '+cCount+' مقاولين)';}
+      _sn('📊 حصر "'+_pendingBoqFile+'" — '+concS+' خرسانة، '+stlS+' حديد (توريدات)، '+cCount+' مقاولين — اضغط حفظ للتأكيد','var(--accent2)',true);
     }catch(ex){_sn('❌ خطأ في قراءة الحصر: '+ex.message,'var(--red)');}
   };
   reader.readAsArrayBuffer(file);
