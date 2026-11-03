@@ -5911,7 +5911,7 @@ function _setCpType(btn){
 
 function addCostPrice(){
   const role=window._CURRENT_ROLE||'viewer';
-  if(role!=='admin'&&role!=='editor'){
+  if(role!=='admin'&&role!=='editor'&&role!=='engineer'){
     const n=document.getElementById('cpNotice');
     if(n){n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='❌ ليس لديك صلاحية';n.style.display='block';setTimeout(function(){n.style.display='none';},2500);}
     return;
@@ -5951,7 +5951,7 @@ function addCostPrice(){
 
 function deleteCostPrice(id){
   const role=window._CURRENT_ROLE||'viewer';
-  if(role!=='admin'&&role!=='editor'){return;}
+  if(role!=='admin'&&role!=='editor'&&role!=='engineer'){return;}
   const btn=document.querySelector('[data-cpid="'+id+'"]');
   if(btn&&btn.dataset.confirm!=='1'){
     btn.dataset.confirm='1';btn.textContent='؟ تأكيد';btn.style.background='rgba(239,68,68,.25)';
@@ -5974,7 +5974,7 @@ function showCostView(v){
 function renderCosts(){
   const tab=document.getElementById('tab-costs');if(!tab)return;
   const role=window._CURRENT_ROLE||'viewer';
-  const canEdit=role==='admin'||role==='editor';
+  const canEdit=role==='admin'||role==='editor'||role==='engineer';
 
   const viewDev=document.getElementById('cpViewDeviation');
   const viewSum=document.getElementById('cpViewSummary');
