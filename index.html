@@ -4685,10 +4685,13 @@ function autoFillInvFromStd(){
     return;
   }
   const std=getStdBoqEntry(proj,item);
-  // Always show stdQty if found
-  if(std&&(std.stdQty||0)>0){
-    if(stdQtyInp){stdQtyInp.value=std.stdQty;stdQtyInp.style.color='var(--green)';}
+  // Show stdQtyWork (كمية المقاول) as الكمية المعيارية in invoice form
+  if(std&&(std.stdQtyWork||0)>0){
+    if(stdQtyInp){stdQtyInp.value=std.stdQtyWork;stdQtyInp.style.color='var(--green)';}
     if(stdQtyLbl){stdQtyLbl.textContent='🔒';stdQtyLbl.style.color='var(--green)';}
+  } else if(std&&(std.stdQty||0)>0){
+    if(stdQtyInp){stdQtyInp.value=std.stdQty;stdQtyInp.style.color='var(--muted)';}
+    if(stdQtyLbl){stdQtyLbl.textContent='';}
   } else {
     if(stdQtyInp){stdQtyInp.value='';stdQtyInp.style.color='var(--muted)';}
     if(stdQtyLbl){stdQtyLbl.textContent='';}
