@@ -211,6 +211,7 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
   <div class="tab" onclick="showTab('balances')">📊 الأرصدة والحصر</div>
   <div class="tab" onclick="showTab('stdboq')">📏 الحصر المعياري</div>
   <div class="tab" onclick="showTab('purchases')">🛒 طلبات الشراء</div>
+  <div class="tab" onclick="showTab('costs')">💰 التكاليف</div>
   <div class="tab" onclick="showTab('schedule')">📅 Schedule</div>
   <div class="tab" onclick="showTab('cs')">📞 خدمة العملاء</div>
   <div class="tab" id="adminTab" onclick="showTab('admin')" style="display:none">⚙️ الإدارة</div>
@@ -967,10 +968,11 @@ function showTab(t){
   if(t==='balances'){renderBalances();}
   if(t==='stdboq'){renderStdBoq();}
   if(t==='purchases'){renderPurchases();}
+  if(t==='costs'){renderCosts();}
   if(t==='schedule'){renderScheduleTab();}
   if(t==='cs'){renderCS();}
   if(typeof _applySectionPerms==='function')_applySectionPerms(t);
-  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','deliveries','warehouse','invoices','balances','stdboq','purchases','schedule','cs','admin'].forEach(id=>{
+  ['portfolio','projects','updates','cashflow','financial','rates','deviations','chat','deliveries','warehouse','invoices','balances','stdboq','purchases','costs','schedule','cs','admin'].forEach(id=>{
     const el=document.getElementById('tab-'+id);if(el)el.classList.toggle('hidden',id!==t);
   });
   document.querySelectorAll('.tab').forEach(el=>{
@@ -5561,6 +5563,286 @@ ${items.length===0?'<div style="text-align:center;padding:40px;color:var(--muted
 }
 // ===== END خدمة العملاء TAB =====
 
+// ===== START التكاليف TAB =====
+var _COST_PRICES_DATA=[];
+const _COST_PRICES_KEY='nile_cost_prices';
+var _fbCostPricesInit=false;
+
+function _saveCostPrices(){
+  const obj={};_COST_PRICES_DATA.forEach(d=>{obj['cp'+d.id]=d;});
+  _DB.ref('cost_prices').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('cost_prices',e));
+  try{localStorage.setItem(_COST_PRICES_KEY,JSON.stringify(_COST_PRICES_DATA));}catch(e){}
+}
+
+function _initCostPricesListener(){
+  if(_fbCostPricesInit)return;_fbCostPricesInit=true;
+  _DB.ref('cost_prices').on('value',snap=>{
+    const v=snap.val();
+    _COST_PRICES_DATA=v?Object.values(v).sort((a,b)=>(a.item||'').localeCompare(b.item||'','ar')):[];
+    try{localStorage.setItem(_COST_PRICES_KEY,JSON.stringify(_COST_PRICES_DATA));}catch(e){}
+    const tab=document.getElementById('tab-costs');
+    if(tab&&!tab.classList.contains('hidden'))renderCosts();
+  },err=>{
+    _fbErr('cost_prices',err);
+    try{_COST_PRICES_DATA=JSON.parse(localStorage.getItem(_COST_PRICES_KEY)||'[]');}catch(e){}
+  });
+}
+
+function addCostPrice(){
+  const role=window._CURRENT_ROLE||'viewer';
+  if(role!=='admin'&&role!=='editor'){alert('❌ ليس لديك صلاحية');return;}
+  const item=(document.getElementById('cpItem')||{}).value||'';
+  const unit=(document.getElementById('cpUnit')||{}).value||'وحدة';
+  const unitPrice=parseFloat((document.getElementById('cpUnitPrice')||{}).value)||0;
+  if(!item.trim()||unitPrice<=0){
+    const n=document.getElementById('cpNotice');
+    if(n){n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ ادخل اسم البند والسعر';n.style.display='block';setTimeout(()=>n.style.display='none',2500);}
+    return;
+  }
+  const mt=typeof _matType==='function'?_matType(item):{label:'أعمال أخرى'};
+  _COST_PRICES_DATA.unshift({id:Date.now(),item:item.trim(),unit:unit.trim(),unitPrice,category:mt.label});
+  _saveCostPrices();
+  if(document.getElementById('cpItem'))document.getElementById('cpItem').value='';
+  if(document.getElementById('cpUnitPrice'))document.getElementById('cpUnitPrice').value='';
+  renderCosts();
+  const n=document.getElementById('cpNotice');
+  if(n){n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم إضافة السعر — '+item.trim();n.style.display='block';setTimeout(()=>n.style.display='none',2500);}
+}
+
+function deleteCostPrice(id){
+  const role=window._CURRENT_ROLE||'viewer';
+  if(role!=='admin'&&role!=='editor'){alert('❌ ليس لديك صلاحية');return;}
+  const btn=document.querySelector('[data-cpid="'+id+'"]');
+  if(btn&&btn.dataset.confirm!=='1'){
+    btn.dataset.confirm='1';btn.textContent='؟ تأكيد';btn.style.background='rgba(239,68,68,.25)';
+    setTimeout(()=>{if(btn){btn.dataset.confirm='';btn.textContent='🗑';btn.style.background='';}},4000);
+    return;
+  }
+  _COST_PRICES_DATA=_COST_PRICES_DATA.filter(d=>d.id!==id);
+  _saveCostPrices();renderCosts();
+}
+
+function showCostView(v){
+  const pEl=document.getElementById('cpViewPrices');const sEl=document.getElementById('cpViewSummary');
+  if(pEl)pEl.style.display=v==='Prices'?'':'none';
+  if(sEl)sEl.style.display=v==='Summary'?'':'none';
+  const bp=document.getElementById('cpBtnPrices');const bs=document.getElementById('cpBtnSummary');
+  if(bp)bp.style.background=v==='Prices'?'var(--accent)':'var(--card)';
+  if(bs)bs.style.background=v==='Summary'?'var(--accent)':'var(--card)';
+}
+
+function renderCosts(){
+  const tab=document.getElementById('tab-costs');if(!tab)return;
+  const role=window._CURRENT_ROLE||'viewer';
+  const canEdit=role==='admin'||role==='editor';
+
+  // Current view — default to Prices if no state
+  const curSum=document.getElementById('cpViewSummary');
+  const showSummary=curSum&&curSum.style.display!=='none';
+  const filterProj=(document.getElementById('cpProjFilter')||{}).value||'';
+
+  // Price map: item → {unitPrice, unit}
+  const priceMap={};
+  _COST_PRICES_DATA.forEach(p=>{priceMap[p.item]=p;});
+
+  // All projects with any data
+  const allProjs=[...new Set([
+    ..._STD_BOQ_DATA.map(d=>d.project),
+    ..._DELIVERIES.map(d=>d.project),
+    ..._INVOICES_DATA.map(d=>d.project)
+  ])].filter(Boolean).sort();
+
+  // Global KPIs
+  let kpiPlanned=0,kpiDelivery=0,kpiInvoice=0;
+  _STD_BOQ_DATA.forEach(d=>{kpiPlanned+=(d.stdQty||0)*((priceMap[d.item]||{}).unitPrice||0);});
+  _DELIVERIES.forEach(d=>{kpiDelivery+=(d.qty||0)*((priceMap[d.item]||{}).unitPrice||0);});
+  _INVOICES_DATA.forEach(d=>{kpiInvoice+=(d.total||0);});
+  const kpiActual=kpiDelivery+kpiInvoice;
+  const kpiPct=kpiPlanned>0?(kpiActual/kpiPlanned*100).toFixed(1):0;
+
+  // Selected project for summary
+  const projSel=filterProj||(allProjs[0]||'');
+
+  // Build item map for selected project
+  const itemMap={};
+  _STD_BOQ_DATA.filter(d=>!projSel||d.project===projSel).forEach(d=>{
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0};
+    itemMap[d.item].stdQty+=(d.stdQty||0);
+  });
+  _DELIVERIES.filter(d=>!projSel||d.project===projSel).forEach(d=>{
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0};
+    itemMap[d.item].delivQty=(itemMap[d.item].delivQty||0)+(d.qty||0);
+  });
+  _INVOICES_DATA.filter(d=>!projSel||d.project===projSel).forEach(d=>{
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0};
+    itemMap[d.item].invTotal=(itemMap[d.item].invTotal||0)+(d.total||0);
+    itemMap[d.item].invQty=(itemMap[d.item].invQty||0)+(d.execQty||0);
+  });
+
+  const itemRows=Object.values(itemMap);
+  let projPlanned=0,projDelivery=0,projInvoice=0;
+  itemRows.forEach(r=>{
+    const price=(priceMap[r.item]||{}).unitPrice||0;
+    r.price=price;
+    r.plannedCost=r.stdQty*price;
+    r.delivCost=(r.delivQty||0)*price;
+    r.invCost=r.invTotal||0;
+    r.actualCost=r.delivCost+r.invCost;
+    projPlanned+=r.plannedCost;
+    projDelivery+=r.delivCost;
+    projInvoice+=r.invCost;
+  });
+  const projActual=projDelivery+projInvoice;
+  const projPct=projPlanned>0?(projActual/projPlanned*100):0;
+
+  // PRICE LIST ROWS
+  const priceRows=_COST_PRICES_DATA.map((p,i)=>`
+    <tr style="${i%2===0?'':'background:rgba(255,255,255,.025)'}">
+      <td style="padding:7px 10px">${p.item}</td>
+      <td style="padding:7px;text-align:center;color:var(--muted)">${p.unit||'—'}</td>
+      <td style="padding:7px;text-align:center;color:var(--green);font-weight:600">${(p.unitPrice||0).toLocaleString()} جم</td>
+      <td style="padding:7px;text-align:center;font-size:.78rem;color:var(--muted)">${p.category||'—'}</td>
+      ${canEdit?`<td style="padding:7px;text-align:center"><button data-cpid="${p.id}" onclick="deleteCostPrice(${p.id})" style="background:rgba(239,68,68,.15);color:var(--red);border:none;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.78rem">🗑</button></td>`:''}
+    </tr>`).join('');
+
+  // SUMMARY TABLE ROWS
+  const summaryRows=itemRows.sort((a,b)=>b.plannedCost-a.plannedCost).map((r,i)=>{
+    const pct=r.plannedCost>0?(r.actualCost/r.plannedCost*100).toFixed(0):0;
+    const pctColor=Number(pct)>100?'var(--red)':Number(pct)>75?'var(--yellow)':'var(--green)';
+    const noPrice=r.price===0?'<span style="color:var(--red);font-size:.7rem">⚠ لا سعر</span>':'';
+    return `<tr style="${i%2===0?'':'background:rgba(255,255,255,.025)'}">
+      <td style="padding:6px 10px;font-size:.8rem">${r.item} ${noPrice}</td>
+      <td style="padding:6px;text-align:center;color:var(--muted);font-size:.78rem">${r.unit||'—'}</td>
+      <td style="padding:6px;text-align:center;color:var(--muted)">${r.stdQty?r.stdQty.toLocaleString():'—'}</td>
+      <td style="padding:6px;text-align:center;color:var(--accent2)">${r.price?(r.price.toLocaleString()+' جم'):'<span style="color:var(--muted)">—</span>'}</td>
+      <td style="padding:6px;text-align:center;color:var(--blue);font-weight:600">${r.plannedCost?r.plannedCost.toLocaleString()+' جم':'—'}</td>
+      <td style="padding:6px;text-align:center;color:var(--orange)">${r.delivCost?r.delivCost.toLocaleString()+' جم':'—'}</td>
+      <td style="padding:6px;text-align:center;color:var(--yellow)">${r.invCost?r.invCost.toLocaleString()+' جم':'—'}</td>
+      <td style="padding:6px;text-align:center;font-weight:700;color:${pctColor}">${pct}%</td>
+    </tr>`;
+  }).join('');
+
+  const projOpts=allProjs.map(c=>`<option value="${c}" ${c===projSel?'selected':''}>${c} — ${(ACTIVE_NAMES||{})[c]||''}</option>`).join('');
+  const AN=ACTIVE_NAMES||{};
+  const btnBase='border:none;border-radius:7px;padding:5px 14px;cursor:pointer;font-size:.85rem;color:#fff;font-family:Cairo,sans-serif';
+
+  tab.innerHTML=`<div style="padding:16px;max-width:1300px;margin:0 auto">
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:1.05rem;font-weight:700;color:var(--accent2)">💰 التكاليف</span>
+    <div style="margin-right:auto;display:flex;gap:6px">
+      <button id="cpBtnPrices" onclick="showCostView('Prices')" style="${btnBase};background:${!showSummary?'var(--accent)':'var(--card)'}">📋 قائمة الأسعار</button>
+      <button id="cpBtnSummary" onclick="showCostView('Summary')" style="${btnBase};background:${showSummary?'var(--accent)':'var(--card)'}">📊 ملخص التكاليف</button>
+    </div>
+  </div>
+
+  <!-- Global KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">
+    <div class="kpi blue"><div class="kpi-val">${(kpiPlanned/1e6).toFixed(2)}<span style="font-size:.6rem"> م جم</span></div><div class="kpi-lbl">التكاليف المخططة (كل المشاريع)</div></div>
+    <div class="kpi" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25)"><div class="kpi-val" style="color:var(--orange)">${(kpiDelivery/1e6).toFixed(2)}<span style="font-size:.6rem"> م جم</span></div><div class="kpi-lbl">تكلفة التوريدات الفعلية</div></div>
+    <div class="kpi yellow"><div class="kpi-val">${(kpiInvoice/1e6).toFixed(2)}<span style="font-size:.6rem"> م جم</span></div><div class="kpi-lbl">إجمالي المستخلصات</div></div>
+    <div class="kpi" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25)"><div class="kpi-val" style="color:var(--accent2)">${kpiPct}%</div><div class="kpi-lbl">نسبة الصرف الإجمالية</div></div>
+  </div>
+
+  <!-- PRICE LIST VIEW -->
+  <div id="cpViewPrices" style="display:${showSummary?'none':''}">
+    ${canEdit?`<div class="chart-card" style="margin-bottom:12px">
+      <div style="font-size:.9rem;font-weight:600;margin-bottom:10px;color:var(--accent2)">➕ إضافة سعر بند</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:4px;flex:2;min-width:160px">
+          <label style="font-size:.75rem;color:var(--muted)">اسم البند</label>
+          <input id="cpItem" placeholder="مثال: خرسانة مسلحة" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem;direction:rtl">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:80px">
+          <label style="font-size:.75rem;color:var(--muted)">الوحدة</label>
+          <select id="cpUnit" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">
+            <option>م3</option><option>طن</option><option>م2</option><option>م.ط</option><option>عدد</option><option>كجم</option><option>وحدة</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:130px">
+          <label style="font-size:.75rem;color:var(--muted)">سعر الوحدة (جم)</label>
+          <input id="cpUnitPrice" type="number" min="0" placeholder="0" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">
+        </div>
+        <button onclick="addCostPrice()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:Cairo,sans-serif;font-weight:600;white-space:nowrap">💾 إضافة</button>
+      </div>
+      <div id="cpNotice" style="display:none;margin-top:8px;border-radius:7px;padding:8px 12px;font-size:.83rem;border:1px solid transparent"></div>
+    </div>`:''}
+    <div class="chart-card">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📋 قائمة الأسعار — ${_COST_PRICES_DATA.length} بند مسجل</div>
+      ${_COST_PRICES_DATA.length?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="background:rgba(99,102,241,.12);color:var(--accent2)">
+          <th style="padding:8px 10px;text-align:right">اسم البند</th>
+          <th style="padding:8px;text-align:center">الوحدة</th>
+          <th style="padding:8px;text-align:center">سعر الوحدة</th>
+          <th style="padding:8px;text-align:center">التصنيف</th>
+          ${canEdit?'<th style="padding:8px;text-align:center">حذف</th>':''}
+        </tr></thead>
+        <tbody>${priceRows}</tbody>
+      </table></div>`:'<div style="color:var(--muted);font-size:.82rem;padding:24px 0;text-align:center">لا توجد أسعار بعد — أضف أسعار البنود من النموذج أعلاه لتفعيل حساب التكاليف</div>'}
+    </div>
+  </div>
+
+  <!-- COST SUMMARY VIEW -->
+  <div id="cpViewSummary" style="display:${showSummary?'':'none'}">
+    <div class="chart-card" style="margin-bottom:10px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <span style="font-size:.85rem;color:var(--muted)">عرض تكاليف:</span>
+        <select id="cpProjFilter" onchange="renderCosts()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">
+          <option value="">— كل المشاريع —</option>
+          ${projOpts}
+        </select>
+        ${projSel?`<span style="font-size:.82rem;color:var(--muted)">${AN[projSel]||''}</span>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">
+        <div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:1.1rem;font-weight:700;color:var(--blue)">${(projPlanned/1e6).toFixed(2)}<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>
+          <div style="font-size:.7rem;color:var(--muted)">التكلفة المخططة</div>
+        </div>
+        <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:1.1rem;font-weight:700;color:var(--orange)">${(projDelivery/1e6).toFixed(2)}<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>
+          <div style="font-size:.7rem;color:var(--muted)">تكلفة التوريدات</div>
+        </div>
+        <div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:1.1rem;font-weight:700;color:var(--yellow)">${(projInvoice/1e6).toFixed(2)}<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>
+          <div style="font-size:.7rem;color:var(--muted)">إجمالي المستخلصات</div>
+        </div>
+        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:1.1rem;font-weight:700;color:var(--accent2)">${projPct.toFixed(1)}%</div>
+          <div style="font-size:.7rem;color:var(--muted)">نسبة الصرف</div>
+        </div>
+        <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:1.1rem;font-weight:700;color:var(--green)">${((projPlanned-projActual)/1e6).toFixed(2)}<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>
+          <div style="font-size:.7rem;color:var(--muted)">المتبقي</div>
+        </div>
+      </div>
+    </div>
+    ${itemRows.length?`<div class="chart-card">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📊 تفصيل التكاليف — ${itemRows.length} بند</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">
+        <thead><tr style="background:rgba(99,102,241,.12);color:var(--accent2)">
+          <th style="padding:7px 10px;text-align:right">البند</th>
+          <th style="padding:7px;text-align:center">الوحدة</th>
+          <th style="padding:7px;text-align:center">ك.معيارية</th>
+          <th style="padding:7px;text-align:center">سعر/وحدة</th>
+          <th style="padding:7px;text-align:center;color:var(--blue)">التكلفة المخططة</th>
+          <th style="padding:7px;text-align:center;color:var(--orange)">تكلفة التوريدات</th>
+          <th style="padding:7px;text-align:center;color:var(--yellow)">تكلفة المستخلصات</th>
+          <th style="padding:7px;text-align:center">نسبة الصرف</th>
+        </tr></thead>
+        <tbody>${summaryRows}</tbody>
+        <tfoot><tr style="background:rgba(99,102,241,.08);font-weight:700">
+          <td colspan="4" style="padding:8px 10px;color:var(--accent2)">الإجمالي</td>
+          <td style="padding:8px;text-align:center;color:var(--blue)">${projPlanned.toLocaleString()} جم</td>
+          <td style="padding:8px;text-align:center;color:var(--orange)">${projDelivery.toLocaleString()} جم</td>
+          <td style="padding:8px;text-align:center;color:var(--yellow)">${projInvoice.toLocaleString()} جم</td>
+          <td style="padding:8px;text-align:center;color:var(--accent2)">${projPct.toFixed(1)}%</td>
+        </tfoot>
+      </table></div>
+    </div>`:'<div class="chart-card" style="color:var(--muted);text-align:center;padding:30px;font-size:.85rem">لا توجد بيانات حصر أو مستخلصات لهذا المشروع</div>'}
+  </div>
+</div>`;
+}
+// ===== END التكاليف TAB =====
+
 function startApp(){
   _initUsersListener();
   loadFromStorage();
@@ -5574,6 +5856,7 @@ function startApp(){
   _initTabPermListener();
   _initProjectPhasesListener();
   _initPurchasesListener();
+  _initCostPricesListener();
   _initScheduleListener();
   _initCsListener();
   _initRoleLabelsListener();
@@ -5715,6 +5998,7 @@ function startApp(){
 
 <!-- PURCHASES TAB -->
 <div id="tab-purchases" class="content hidden"></div>
+<div id="tab-costs" class="content hidden"></div>
 
 <!-- SCHEDULE TAB -->
 <div id="tab-schedule" class="content hidden">
