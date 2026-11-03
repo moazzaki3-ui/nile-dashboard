@@ -4583,6 +4583,47 @@ function deleteStdBoqEntry(id){
 }
 function cancelDelStdBoq(id){const row=document.getElementById('stdBoqRow_'+id);if(row){row.dataset.confirm='';row.style.background='';}renderStdBoq();}
 
+function toggleStdBoqProject(code){
+  const sc=code.replace(/[^a-zA-Z0-9]/g,'');
+  const body=document.getElementById('stdBoqProjBody_'+sc);
+  const arr=document.getElementById('stdBoqProjArr_'+sc);
+  if(!body)return;
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'';
+  if(arr)arr.textContent=isOpen?'▼':'▲';
+}
+
+function deleteStdBoqProject(code){
+  const sc=code.replace(/[^a-zA-Z0-9]/g,'');
+  const btn=document.getElementById('stdBoqDelProjBtn_'+sc);
+  if(btn&&btn.dataset.confirm!=='1'){
+    btn.dataset.confirm='1';
+    btn.textContent='⚠ تأكيد الحذف الكامل؟';
+    btn.style.background='rgba(239,68,68,.35)';
+    btn.style.color='#fff';
+    setTimeout(()=>{
+      if(btn&&btn.dataset.confirm==='1'){
+        btn.dataset.confirm='';
+        btn.textContent='🗑 حذف الكل';
+        btn.style.background='rgba(239,68,68,.15)';
+        btn.style.color='var(--red)';
+      }
+    },4000);
+    return;
+  }
+  _STD_BOQ_DATA=_STD_BOQ_DATA.filter(d=>d.project!==code);
+  _saveStdBoq();
+  _BOQ_DATA=_BOQ_DATA.filter(d=>d.project!==code);
+  _saveBoqData();
+  _INVOICES_DATA=_INVOICES_DATA.filter(d=>d.project!==code);
+  _saveInvoicesData();
+  const n=document.getElementById('stdBoqNotice');
+  if(n){n.style.display='block';n.textContent='✅ تم حذف كل بيانات الحصر للمشروع '+code;n.style.color='var(--green)';n.style.background='rgba(34,197,94,.1)';n.style.border='1px solid rgba(34,197,94,.3)';setTimeout(()=>{n.style.display='none';},4500);}
+  renderStdBoq();
+  if(typeof renderBalances==='function')renderBalances();
+  if(typeof renderInvoices==='function')renderInvoices();
+}
+
 // ---- Pending BOQ upload state (two-step: parse → preview → confirm) ----
 let _pendingBoqRows=null; // [{code,item,unit,stdQty,unitPrice,notes}]
 let _pendingBoqFile='';
@@ -4896,31 +4937,62 @@ function renderStdBoq(){
     '</tr>';
   });
 
-  // --- Section 2: std_boq per project ---
+  // --- Section 2: std_boq per project (grouped cards) ---
   const filterProj=(document.getElementById('stdBoqFilterProj')||{}).value||'';
   const filteredStd=filterProj?_STD_BOQ_DATA.filter(d=>d.project===filterProj):_STD_BOQ_DATA;
   const totalCost=filteredStd.reduce((s,d)=>{const t=d.type||(d.stdQtyWork>0&&d.stdQty===0?'contractor':'supply');const q=t==='contractor'?(d.stdQtyWork||0):(d.stdQty||0);return s+q*(d.unitPrice||0);},0);
   const totalProjs=new Set(_STD_BOQ_DATA.map(d=>d.project)).size;
-  let stdRows='';
-  filteredStd.forEach((d,i)=>{
-    const dType=d.type||(d.stdQtyWork>0&&d.stdQty===0?'contractor':'supply');
-    const dQty=dType==='contractor'?(d.stdQtyWork||0):(d.stdQty||0);
-    const total=dQty*(d.unitPrice||0);
-    const typeBadge=dType==='contractor'?'<span style="background:rgba(249,115,22,.15);color:#f97316;border:1px solid rgba(249,115,22,.3);border-radius:12px;padding:2px 8px;font-size:.68rem;font-weight:700;white-space:nowrap">🔧 مقاولين</span>':'<span style="background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25);border-radius:12px;padding:2px 8px;font-size:.68rem;font-weight:700;white-space:nowrap">📦 توريدات</span>';
-    stdRows+='<tr id="stdBoqRow_'+d.id+'" style="'+(i%2===0?'':'background:rgba(255,255,255,.025)')+'">'+
-      '<td style="padding:7px 10px;color:var(--muted);text-align:center;font-size:.75rem">'+(i+1)+'</td>'+
-      '<td style="padding:7px 10px"><b style="color:var(--accent2)">'+d.project+'</b><br><span style="font-size:.66rem;color:var(--muted)">'+(ACTIVE_NAMES[d.project]||'')+'</span></td>'+
-      '<td style="padding:7px 10px;font-weight:700">'+d.item+'</td>'+
-      '<td style="padding:7px 10px;text-align:center">'+typeBadge+'</td>'+
-      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+(dType==='contractor'?'var(--orange)':'var(--green)')+'">'+dQty.toLocaleString()+' <span style="font-size:.7rem;color:var(--muted)">'+(d.unit||'')+'</span></td>'+
-      '<td style="padding:7px 10px;text-align:center;color:var(--muted)">'+((d.unitPrice||0).toLocaleString())+' جم</td>'+
-      '<td style="padding:7px 10px;text-align:center;font-weight:700;color:var(--yellow)">'+total.toLocaleString()+' جم</td>'+
-      '<td style="padding:7px 10px;font-size:.72rem;color:var(--muted)">'+(d.notes||'—')+'</td>'+
-      '<td style="padding:7px 10px;font-size:.68rem;color:var(--muted);text-align:center">'+(d.updatedBy||d.user||'—')+'</td>'+
-      (canDel?'<td class="sb-del" style="text-align:center"><button onclick="deleteStdBoqEntry('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo;font-size:.72rem">🗑</button></td>':'')+
-    '</tr>';
+  const cntContractorProjs=new Set(_STD_BOQ_DATA.filter(d=>(d.type||'supply')==='contractor').map(d=>d.project)).size;
+  const cntSupplyProjs=new Set(_STD_BOQ_DATA.filter(d=>(d.type||'supply')==='supply').map(d=>d.project)).size;
+  // group by project
+  const _sbGroups={};
+  filteredStd.forEach(d=>{if(!_sbGroups[d.project])_sbGroups[d.project]=[];_sbGroups[d.project].push(d);});
+  let projCards='';
+  Object.entries(_sbGroups).forEach(([code,items])=>{
+    const sc=code.replace(/[^a-zA-Z0-9]/g,'');
+    const pName=ACTIVE_NAMES[code]||'';
+    const supItems=items.filter(d=>(d.type||'supply')==='supply');
+    const conItems=items.filter(d=>(d.type||'supply')==='contractor');
+    const pCost=items.reduce((s,d)=>{const t=d.type||'supply';const q=t==='contractor'?(d.stdQtyWork||0):(d.stdQty||0);return s+q*(d.unitPrice||0);},0);
+    let dRows='';
+    items.forEach((d,i)=>{
+      const dType=d.type||(d.stdQtyWork>0&&d.stdQty===0?'contractor':'supply');
+      const dQty=dType==='contractor'?(d.stdQtyWork||0):(d.stdQty||0);
+      const tot=dQty*(d.unitPrice||0);
+      const tb=dType==='contractor'?'<span style="background:rgba(249,115,22,.15);color:#f97316;border:1px solid rgba(249,115,22,.3);border-radius:10px;padding:1px 7px;font-size:.65rem;font-weight:700">🔧 مقاول</span>':'<span style="background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:1px 7px;font-size:.65rem;font-weight:700">📦 توريد</span>';
+      dRows+='<tr id="stdBoqRow_'+d.id+'" style="'+(i%2===0?'':'background:rgba(255,255,255,.02)')+'">'+
+        '<td style="padding:5px 8px;color:var(--muted);text-align:center;font-size:.7rem">'+(i+1)+'</td>'+
+        '<td style="padding:5px 8px;font-weight:600;font-size:.78rem">'+d.item+'</td>'+
+        '<td style="padding:5px 8px;text-align:center">'+tb+'</td>'+
+        '<td style="padding:5px 8px;text-align:center;font-weight:700;font-size:.78rem;color:'+(dType==='contractor'?'var(--orange)':'var(--green)')+'">'+dQty.toLocaleString()+' <span style="font-size:.65rem;color:var(--muted)">'+(d.unit||'')+'</span></td>'+
+        '<td style="padding:5px 8px;text-align:center;font-size:.72rem;color:var(--muted)">'+((d.unitPrice||0).toLocaleString())+'</td>'+
+        '<td style="padding:5px 8px;text-align:center;font-size:.72rem;font-weight:700;color:var(--yellow)">'+(tot>0?tot.toLocaleString():'—')+'</td>'+
+        '<td style="padding:5px 8px;font-size:.68rem;color:var(--muted)">'+(d.notes||'—')+'</td>'+
+        (canDel?'<td class="sb-del" style="text-align:center;padding:4px 6px"><button onclick="deleteStdBoqEntry('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 7px;cursor:pointer;font-family:Cairo;font-size:.68rem">🗑</button></td>':'')+
+      '</tr>';
+    });
+    projCards+=
+      '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px">'+
+        '<div style="background:rgba(99,102,241,.10);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer" onclick="toggleStdBoqProject(\''+code+'\')">'+
+          '<div style="flex:1;min-width:0">'+
+            '<span style="font-weight:800;color:var(--accent2);font-size:.95rem">'+code+(pName?' <span style="font-size:.75rem;color:var(--muted);font-weight:400">— '+pName+'</span>':'')+'</span>'+
+          '</div>'+
+          '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+            (supItems.length?'<span style="background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:2px 10px;font-size:.72rem;font-weight:700">📦 '+supItems.length+' توريد</span>':'')+
+            (conItems.length?'<span style="background:rgba(249,115,22,.12);color:#f97316;border:1px solid rgba(249,115,22,.25);border-radius:10px;padding:2px 10px;font-size:.72rem;font-weight:700">🔧 '+conItems.length+' مقاول</span>':'')+
+            (pCost>0?'<span style="font-size:.75rem;color:var(--yellow);font-weight:700">'+pCost.toLocaleString()+' جم</span>':'')+
+            (canDel?'<button id="stdBoqDelProjBtn_'+sc+'" onclick="event.stopPropagation();deleteStdBoqProject(\''+code+'\')" style="background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:3px 12px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem;font-weight:700">🗑 حذف الكل</button>':'')+
+            '<span id="stdBoqProjArr_'+sc+'" style="color:var(--muted);font-size:.8rem;min-width:14px">▼</span>'+
+          '</div>'+
+        '</div>'+
+        '<div id="stdBoqProjBody_'+sc+'" style="display:none;padding:8px 10px">'+
+          '<div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.78rem">'+
+            '<thead><tr style="color:var(--muted);font-size:.67rem"><th>#</th><th>البند</th><th>النوع</th><th>الكمية</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead>'+
+            '<tbody>'+dRows+'</tbody>'+
+          '</table></div>'+
+        '</div>'+
+      '</div>';
   });
-
   const cntContractor=_STD_BOQ_DATA.filter(d=>(d.type||'supply')==='contractor').length;
   const cntSupply=_STD_BOQ_DATA.filter(d=>(d.type||'supply')==='supply').length;
 
@@ -4934,8 +5006,8 @@ function renderStdBoq(){
     '<div class="kpi-grid" style="margin-bottom:16px">'+
       '<div class="kpi blue"><div class="kpi-val">'+_STD_ITEMS_DATA.length+'</div><div class="kpi-lbl">بنود مرجعية</div></div>'+
       '<div class="kpi green"><div class="kpi-val">'+totalProjs+'</div><div class="kpi-lbl">مشاريع لها عقد مسجّل</div></div>'+
-      '<div class="kpi" style="border-right-color:var(--orange)"><div class="kpi-val">'+cntContractor+'</div><div class="kpi-lbl">🔧 بنود مقاولين</div></div>'+
-      '<div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val">'+cntSupply+'</div><div class="kpi-lbl">📦 بنود توريدات</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--orange)"><div class="kpi-val">'+cntContractorProjs+'</div><div class="kpi-lbl">🔧 عقود مقاولين</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val">'+cntSupplyProjs+'</div><div class="kpi-lbl">📦 مشاريع توريدات</div></div>'+
       (totalCost>0?'<div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="font-size:1rem">'+totalCost.toLocaleString()+'</div><div class="kpi-lbl">إجمالي قيمة الحصر</div></div>':'')+
     '</div>'+
 
@@ -4994,10 +5066,8 @@ function renderStdBoq(){
           (filterProj?'<button onclick="exportStdBoqExcel(\''+filterProj+'\')" style="background:rgba(34,197,94,.15);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:5px 12px;font-size:.75rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير هذا المشروع</button>':'<button onclick="exportStdBoqExcel()" style="background:rgba(99,102,241,.12);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:5px 12px;font-size:.75rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير الكل</button>')+
         '</span>'+
       '</div>'+
-      (filteredStd.length?
-        '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem"><th>#</th><th>المشروع</th><th>البند</th><th>النوع</th><th>الكمية المعيارية</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th><th>بواسطة</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead><tbody>'+stdRows+'</tbody></table></div>'+
-        (totalCost>0?'<div style="text-align:left;padding:10px;font-size:.82rem;color:var(--yellow)">إجمالي القيمة المعيارية للعرض الحالي: <b>'+totalCost.toLocaleString()+' جم</b></div>':'')+
-        '</div>'
+      (Object.keys(_sbGroups).length?
+        '<div>'+projCards+'</div>'
         :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد بنود حصر مسجّلة بعد.'+(canEdit?' أضف بنوداً من النموذج أعلاه.':'')+'</div>')+
     '</div>';
 }
