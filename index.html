@@ -1007,7 +1007,7 @@ function ring(pct,sz=56){
 
 function _pv(code,f){const ph=_PROJECT_PHASES_DATA[code];return ph&&ph[f]!==undefined?ph[f]:(PROJECTS.find(x=>x.code===code)||{})[f];}
 // Hoisted declarations — used in renderKPIs() before their main init block
-let _FUP_BOQ_DATA=[];
+var _FUP_BOQ_DATA=[];
 let _fbFupBoqInit=false;
 let _FUP_DEV_EXTRA={};
 let _fbFupDevExtraInit=false;
@@ -3813,7 +3813,7 @@ function _syncBoqToDeliveries(d){
   saveDeliveries();
 }
 let _BOQ_DATA=[];
-let _fbBoqInit=false;
+var _fbBoqInit=false;
 const _BOQ_KEY='nile_boq_data';
 
 function _saveBoqData(){
@@ -4405,7 +4405,7 @@ function renderPortDeviations(){
 
 // ============ STANDARD BOQ (الحصر المعياري) ============
 let _STD_ITEMS_DATA=[];
-let _fbStdItemsInit=false;
+var _fbStdItemsInit=false;
 const _STD_ITEMS_KEY='nile_std_items';
 
 let _STD_BOQ_DATA=[];
