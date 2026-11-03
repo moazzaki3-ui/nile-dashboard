@@ -748,7 +748,35 @@ function renderTabPermissions(){
   return '<div id="tabPermNotice" style="display:none;background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:.8rem">✅ تم حفظ إعدادات ظهور التبويبات</div>'
     +'<div style="overflow-x:auto"><table class="project-table"><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table></div>'
     +'<p style="font-size:.73rem;color:var(--muted);margin-top:8px">💡 المسؤول يرى دائماً جميع التبويبات — التغييرات تُطبق فور الحفظ على الجلسة الحالية</p>'
-    +'<button class="form-btn form-btn-primary" onclick="saveTabPermissions()" style="margin-top:10px">💾 حفظ الإعدادات</button>';
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">'
+    +'<button class="form-btn form-btn-primary" onclick="saveTabPermissions()">💾 حفظ الإعدادات</button>'
+    +'<button class="form-btn" onclick="applyRecommendedTabPerms()" style="background:rgba(234,179,8,.12);color:var(--yellow);border:1px solid rgba(234,179,8,.3)">⭐ تطبيق الإعدادات الموصى بها</button>'
+    +'</div>';
+}
+function applyRecommendedTabPerms(){
+  // Hide portfolio from procurement & viewer; only purchases tab for procurement by default
+  const hide={
+    portfolio:['procurement','viewer','customerservice','finance','storekeeper','foreman'],
+    cashflow:['procurement','storekeeper','foreman','customerservice','viewer'],
+    financial:['procurement','storekeeper','foreman','customerservice','viewer'],
+    rates:['procurement','storekeeper','foreman','customerservice','viewer'],
+    stdboq:['storekeeper','foreman','viewer','customerservice'],
+    balances:['storekeeper','foreman','viewer','customerservice'],
+    cs:['procurement','storekeeper','foreman'],
+  };
+  const p=_getTabPerm();
+  Object.entries(hide).forEach(([tabId,roles])=>{
+    if(!p[tabId])p[tabId]={};
+    roles.forEach(r=>{p[tabId][r]=false;});
+  });
+  _TABS_CONFIG.forEach(t=>{if(!p[t.id])p[t.id]={};});
+  _saveTabPerm(p);
+  _applyTabVisibility(window._CURRENT_ROLE||'viewer');
+  const n=document.getElementById('tabPermNotice');
+  if(n){n.textContent='⭐ تم تطبيق الإعدادات الموصى بها — اضغط حفظ لتأكيدها';n.style.display='';setTimeout(()=>{n.style.display='none';},3500);}
+  // Refresh the table to reflect new checkboxes
+  const tp=document.getElementById('tabPermContainer');
+  if(tp)tp.innerHTML=renderTabPermissions();
 }
 // ===== / TAB VISIBILITY SETTINGS =====
 
@@ -2024,7 +2052,7 @@ function importPurchasesExcel(e){
 
 function renderPurchases(){
   const role=window._CURRENT_ROLE||'viewer';const _brrp=_getBaseRole(role);
-  const canAdd=_brrp==='admin'||_brrp==='chairman'||_brrp==='editor'||_brrp==='engineer'||_brrp==='supervisor'||_brrp==='sitemanager'||_brrp==='foreman'||_brrp==='storekeeper';
+  const canAdd=_brrp==='admin'||_brrp==='chairman'||_brrp==='editor'||_brrp==='engineer'||_brrp==='supervisor'||_brrp==='sitemanager'||_brrp==='foreman'||_brrp==='storekeeper'||_brrp==='procurement';
   const canDel=_brrp==='admin'||_brrp==='editor';
   const orders=Object.values(_PURCHASES_DATA).sort((a,b)=>{
     if(!a.requestDate)return 1;if(!b.requestDate)return-1;
