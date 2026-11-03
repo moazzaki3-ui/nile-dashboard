@@ -5592,47 +5592,104 @@ function _initCostPricesListener(){
   });
 }
 
+function _buildCpItemOpts(){
+  const groups={};
+  (_STD_ITEMS_DATA||[]).forEach(function(d){
+    const cat=typeof _matType==='function'?_matType(d.item).label:'أعمال أخرى';
+    if(!groups[cat])groups[cat]=[];
+    groups[cat].push(d);
+  });
+  let html='<option value="">— اختر بند —</option>';
+  Object.keys(groups).sort(function(a,b){return a.localeCompare(b,'ar');}).forEach(function(cat){
+    html+='<optgroup label="'+cat+'">';
+    groups[cat].forEach(function(d){
+      html+='<option value="'+d.item+'" data-unit="'+(d.unit||'')+'">'+d.item+'</option>';
+    });
+    html+='</optgroup>';
+  });
+  return html;
+}
+
+function _cpItemChange(){
+  const sel=document.getElementById('cpItem');
+  const unitEl=document.getElementById('cpUnit');
+  if(!sel||!unitEl)return;
+  const opt=sel.options[sel.selectedIndex];
+  if(opt&&opt.dataset&&opt.dataset.unit)unitEl.value=opt.dataset.unit;
+}
+
+function _setCpType(btn){
+  const group=document.getElementById('cpTypeGroup');
+  if(!group)return;
+  group.querySelectorAll('button').forEach(function(b){
+    b.classList.remove('cp-type-active');
+    b.style.background='var(--card)';b.style.color='var(--muted)';b.style.border='1px solid var(--border)';
+  });
+  btn.classList.add('cp-type-active');
+  if(btn.dataset.type==='توريد'){btn.style.background='rgba(56,189,248,.2)';btn.style.color='var(--blue)';btn.style.border='1px solid rgba(56,189,248,.4)';}
+  else{btn.style.background='rgba(249,115,22,.2)';btn.style.color='var(--orange)';btn.style.border='1px solid rgba(249,115,22,.4)';}
+}
+
 function addCostPrice(){
   const role=window._CURRENT_ROLE||'viewer';
-  if(role!=='admin'&&role!=='editor'){alert('❌ ليس لديك صلاحية');return;}
-  const item=(document.getElementById('cpItem')||{}).value||'';
-  const unit=(document.getElementById('cpUnit')||{}).value||'وحدة';
-  const unitPrice=parseFloat((document.getElementById('cpUnitPrice')||{}).value)||0;
-  if(!item.trim()||unitPrice<=0){
+  if(role!=='admin'&&role!=='editor'){
     const n=document.getElementById('cpNotice');
-    if(n){n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ ادخل اسم البند والسعر';n.style.display='block';setTimeout(()=>n.style.display='none',2500);}
+    if(n){n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='❌ ليس لديك صلاحية';n.style.display='block';setTimeout(function(){n.style.display='none';},2500);}
     return;
   }
+  const itemEl=document.getElementById('cpItem');
+  const unitEl=document.getElementById('cpUnit');
+  const plannedEl=document.getElementById('cpPlannedPrice');
+  const actualEl=document.getElementById('cpActualPrice');
+  const item=(itemEl||{}).value||'';
+  const unit=(unitEl||{}).value||'وحدة';
+  const plannedPrice=parseFloat((plannedEl||{}).value)||0;
+  const actualPrice=parseFloat((actualEl||{}).value)||0;
+  const typeEl=document.querySelector('#cpTypeGroup button.cp-type-active');
+  const type=typeEl?typeEl.dataset.type:'توريد';
+  if(!item.trim()||plannedPrice<=0){
+    const n=document.getElementById('cpNotice');
+    if(n){n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ اختر البند وأدخل السعر المخطط';n.style.display='block';setTimeout(function(){n.style.display='none';},2500);}
+    return;
+  }
+  const existing=_COST_PRICES_DATA.find(function(d){return d.item===item.trim();});
   const mt=typeof _matType==='function'?_matType(item):{label:'أعمال أخرى'};
-  _COST_PRICES_DATA.unshift({id:Date.now(),item:item.trim(),unit:unit.trim(),unitPrice,category:mt.label});
+  if(existing){
+    existing.unit=unit.trim();existing.plannedPrice=plannedPrice;
+    existing.actualPrice=actualPrice||existing.actualPrice||0;
+    existing.type=type;existing.category=mt.label;
+  } else {
+    _COST_PRICES_DATA.unshift({id:Date.now(),item:item.trim(),unit:unit.trim(),type:type,plannedPrice:plannedPrice,actualPrice:actualPrice||0,category:mt.label});
+  }
   _saveCostPrices();
-  if(document.getElementById('cpItem'))document.getElementById('cpItem').value='';
-  if(document.getElementById('cpUnitPrice'))document.getElementById('cpUnitPrice').value='';
+  if(itemEl)itemEl.value='';
+  if(plannedEl)plannedEl.value='';
+  if(actualEl)actualEl.value='';
   renderCosts();
   const n=document.getElementById('cpNotice');
-  if(n){n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم إضافة السعر — '+item.trim();n.style.display='block';setTimeout(()=>n.style.display='none',2500);}
+  if(n){n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم '+(existing?'تحديث':'إضافة')+' — '+item.trim();n.style.display='block';setTimeout(function(){n.style.display='none';},2500);}
 }
 
 function deleteCostPrice(id){
   const role=window._CURRENT_ROLE||'viewer';
-  if(role!=='admin'&&role!=='editor'){alert('❌ ليس لديك صلاحية');return;}
+  if(role!=='admin'&&role!=='editor'){return;}
   const btn=document.querySelector('[data-cpid="'+id+'"]');
   if(btn&&btn.dataset.confirm!=='1'){
     btn.dataset.confirm='1';btn.textContent='؟ تأكيد';btn.style.background='rgba(239,68,68,.25)';
-    setTimeout(()=>{if(btn){btn.dataset.confirm='';btn.textContent='🗑';btn.style.background='';}},4000);
+    setTimeout(function(){if(btn){btn.dataset.confirm='';btn.textContent='🗑';btn.style.background='';}},4000);
     return;
   }
-  _COST_PRICES_DATA=_COST_PRICES_DATA.filter(d=>d.id!==id);
+  _COST_PRICES_DATA=_COST_PRICES_DATA.filter(function(d){return d.id!==id;});
   _saveCostPrices();renderCosts();
 }
 
 function showCostView(v){
-  const pEl=document.getElementById('cpViewPrices');const sEl=document.getElementById('cpViewSummary');
-  if(pEl)pEl.style.display=v==='Prices'?'':'none';
-  if(sEl)sEl.style.display=v==='Summary'?'':'none';
-  const bp=document.getElementById('cpBtnPrices');const bs=document.getElementById('cpBtnSummary');
-  if(bp)bp.style.background=v==='Prices'?'var(--accent)':'var(--card)';
-  if(bs)bs.style.background=v==='Summary'?'var(--accent)':'var(--card)';
+  ['Prices','Summary','Deviation'].forEach(function(n){
+    const el=document.getElementById('cpView'+n);
+    const btn=document.getElementById('cpBtn'+n);
+    if(el)el.style.display=v===n?'':'none';
+    if(btn)btn.style.background=v===n?'var(--accent)':'var(--card)';
+  });
 }
 
 function renderCosts(){
@@ -5640,212 +5697,338 @@ function renderCosts(){
   const role=window._CURRENT_ROLE||'viewer';
   const canEdit=role==='admin'||role==='editor';
 
-  // Current view — default to Prices if no state
-  const curSum=document.getElementById('cpViewSummary');
-  const showSummary=curSum&&curSum.style.display!=='none';
+  const viewDev=document.getElementById('cpViewDeviation');
+  const viewSum=document.getElementById('cpViewSummary');
+  let curView='Prices';
+  if(viewDev&&viewDev.style.display!=='none')curView='Deviation';
+  else if(viewSum&&viewSum.style.display!=='none')curView='Summary';
+
   const filterProj=(document.getElementById('cpProjFilter')||{}).value||'';
 
-  // Price map: item → {unitPrice, unit}
+  // Price map: item → entry (plannedPrice, actualPrice fallback to unitPrice for old records)
   const priceMap={};
-  _COST_PRICES_DATA.forEach(p=>{priceMap[p.item]=p;});
+  _COST_PRICES_DATA.forEach(function(p){priceMap[p.item]=p;});
+  function _pp(p){return p?(p.plannedPrice||p.unitPrice||0):0;}
+  function _ap(p){return p?(p.actualPrice||p.plannedPrice||p.unitPrice||0):0;}
 
-  // All projects with any data
   const allProjs=[...new Set([
-    ..._STD_BOQ_DATA.map(d=>d.project),
-    ..._DELIVERIES.map(d=>d.project),
-    ..._INVOICES_DATA.map(d=>d.project)
+    ..._STD_BOQ_DATA.map(function(d){return d.project;}),
+    ..._INVOICES_DATA.map(function(d){return d.project;})
   ])].filter(Boolean).sort();
 
   // Global KPIs
-  let kpiPlanned=0,kpiDelivery=0,kpiInvoice=0;
-  _STD_BOQ_DATA.forEach(d=>{kpiPlanned+=(d.stdQty||0)*((priceMap[d.item]||{}).unitPrice||0);});
-  _DELIVERIES.forEach(d=>{kpiDelivery+=(d.qty||0)*((priceMap[d.item]||{}).unitPrice||0);});
-  _INVOICES_DATA.forEach(d=>{kpiInvoice+=(d.total||0);});
-  const kpiActual=kpiDelivery+kpiInvoice;
-  const kpiPct=kpiPlanned>0?(kpiActual/kpiPlanned*100).toFixed(1):0;
+  let kpiPlanned=0,kpiActual=0;
+  _STD_BOQ_DATA.forEach(function(d){kpiPlanned+=(d.stdQty||0)*_pp(priceMap[d.item]);});
+  _INVOICES_DATA.forEach(function(d){kpiActual+=(d.execQty||0)*_ap(priceMap[d.item]);});
+  _DELIVERIES.forEach(function(d){kpiActual+=(d.qty||0)*_ap(priceMap[d.item]);});
+  const kpiVariance=kpiActual-kpiPlanned;
+  const kpiVariancePct=kpiPlanned>0?(kpiVariance/kpiPlanned*100).toFixed(1):0;
 
-  // Selected project for summary
   const projSel=filterProj||(allProjs[0]||'');
+  const AN=ACTIVE_NAMES||{};
 
-  // Build item map for selected project
+  // Build item map for selected project (for summary view)
   const itemMap={};
-  _STD_BOQ_DATA.filter(d=>!projSel||d.project===projSel).forEach(d=>{
-    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0};
+  _STD_BOQ_DATA.filter(function(d){return !projSel||d.project===projSel;}).forEach(function(d){
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0};
     itemMap[d.item].stdQty+=(d.stdQty||0);
   });
-  _DELIVERIES.filter(d=>!projSel||d.project===projSel).forEach(d=>{
-    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0};
-    itemMap[d.item].delivQty=(itemMap[d.item].delivQty||0)+(d.qty||0);
+  _INVOICES_DATA.filter(function(d){return !projSel||d.project===projSel;}).forEach(function(d){
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0};
+    itemMap[d.item].invQty+=(d.execQty||0);
   });
-  _INVOICES_DATA.filter(d=>!projSel||d.project===projSel).forEach(d=>{
-    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0};
-    itemMap[d.item].invTotal=(itemMap[d.item].invTotal||0)+(d.total||0);
-    itemMap[d.item].invQty=(itemMap[d.item].invQty||0)+(d.execQty||0);
+  _DELIVERIES.filter(function(d){return !projSel||d.project===projSel;}).forEach(function(d){
+    if(!itemMap[d.item])itemMap[d.item]={item:d.item,unit:d.unit||'',stdQty:0,invQty:0,delivQty:0};
+    itemMap[d.item].delivQty+=(d.qty||0);
   });
 
   const itemRows=Object.values(itemMap);
-  let projPlanned=0,projDelivery=0,projInvoice=0;
-  itemRows.forEach(r=>{
-    const price=(priceMap[r.item]||{}).unitPrice||0;
-    r.price=price;
-    r.plannedCost=r.stdQty*price;
-    r.delivCost=(r.delivQty||0)*price;
-    r.invCost=r.invTotal||0;
-    r.actualCost=r.delivCost+r.invCost;
-    projPlanned+=r.plannedCost;
-    projDelivery+=r.delivCost;
-    projInvoice+=r.invCost;
+  let projPlanned=0,projActual=0;
+  itemRows.forEach(function(r){
+    const p=priceMap[r.item];
+    r.plannedPrice=_pp(p);r.actualPrice=_ap(p);
+    r.plannedCost=r.stdQty*r.plannedPrice;
+    r.actualQty=(r.invQty||0)+(r.delivQty||0);
+    r.actualCost=r.actualQty*r.actualPrice;
+    r.priceVariance=(r.actualPrice-r.plannedPrice)*r.actualQty;
+    r.qtyVariance=(r.actualQty-r.stdQty)*r.plannedPrice;
+    r.totalVariance=r.priceVariance+r.qtyVariance;
+    projPlanned+=r.plannedCost;projActual+=r.actualCost;
   });
-  const projActual=projDelivery+projInvoice;
-  const projPct=projPlanned>0?(projActual/projPlanned*100):0;
+  const projVariance=projActual-projPlanned;
+  const projVariancePct=projPlanned>0?(projVariance/projPlanned*100).toFixed(1):0;
 
-  // PRICE LIST ROWS
-  const priceRows=_COST_PRICES_DATA.map((p,i)=>`
-    <tr style="${i%2===0?'':'background:rgba(255,255,255,.025)'}">
-      <td style="padding:7px 10px">${p.item}</td>
-      <td style="padding:7px;text-align:center;color:var(--muted)">${p.unit||'—'}</td>
-      <td style="padding:7px;text-align:center;color:var(--green);font-weight:600">${(p.unitPrice||0).toLocaleString()} جم</td>
-      <td style="padding:7px;text-align:center;font-size:.78rem;color:var(--muted)">${p.category||'—'}</td>
-      ${canEdit?`<td style="padding:7px;text-align:center"><button data-cpid="${p.id}" onclick="deleteCostPrice(${p.id})" style="background:rgba(239,68,68,.15);color:var(--red);border:none;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.78rem">🗑</button></td>`:''}
-    </tr>`).join('');
+  // Deviation data per project
+  const devData=[];
+  allProjs.forEach(function(proj){
+    const iMap={};
+    _STD_BOQ_DATA.filter(function(d){return d.project===proj;}).forEach(function(d){
+      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0};
+      iMap[d.item].stdQty+=(d.stdQty||0);
+    });
+    _INVOICES_DATA.filter(function(d){return d.project===proj;}).forEach(function(d){
+      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0};
+      iMap[d.item].invQty+=(d.execQty||0);
+    });
+    _DELIVERIES.filter(function(d){return d.project===proj;}).forEach(function(d){
+      if(!iMap[d.item])iMap[d.item]={stdQty:0,invQty:0,delivQty:0};
+      iMap[d.item].delivQty+=(d.qty||0);
+    });
+    let dPlanned=0,dPriceVar=0,dQtyVar=0;
+    Object.keys(iMap).forEach(function(item){
+      const r=iMap[item];
+      const pEntry=priceMap[item];
+      const pp=_pp(pEntry),ap=_ap(pEntry);
+      const aq=(r.invQty||0)+(r.delivQty||0);
+      dPlanned+=r.stdQty*pp;
+      dPriceVar+=(ap-pp)*aq;
+      dQtyVar+=(aq-r.stdQty)*pp;
+    });
+    const dTotal=dPriceVar+dQtyVar;
+    const dPct=dPlanned>0?(dTotal/dPlanned*100).toFixed(1):0;
+    devData.push({proj:proj,name:AN[proj]||proj,planned:dPlanned,priceVar:dPriceVar,qtyVar:dQtyVar,total:dTotal,pct:dPct});
+  });
+  devData.sort(function(a,b){return b.total-a.total;});
+  const overallPlanned=devData.reduce(function(s,d){return s+d.planned;},0);
+  const overallPriceVar=devData.reduce(function(s,d){return s+d.priceVar;},0);
+  const overallQtyVar=devData.reduce(function(s,d){return s+d.qtyVar;},0);
+  const overallTotal=overallPriceVar+overallQtyVar;
+  const overallPct=overallPlanned>0?(overallTotal/overallPlanned*100).toFixed(1):0;
 
-  // SUMMARY TABLE ROWS
-  const summaryRows=itemRows.sort((a,b)=>b.plannedCost-a.plannedCost).map((r,i)=>{
-    const pct=r.plannedCost>0?(r.actualCost/r.plannedCost*100).toFixed(0):0;
-    const pctColor=Number(pct)>100?'var(--red)':Number(pct)>75?'var(--yellow)':'var(--green)';
-    const noPrice=r.price===0?'<span style="color:var(--red);font-size:.7rem">⚠ لا سعر</span>':'';
-    return `<tr style="${i%2===0?'':'background:rgba(255,255,255,.025)'}">
-      <td style="padding:6px 10px;font-size:.8rem">${r.item} ${noPrice}</td>
-      <td style="padding:6px;text-align:center;color:var(--muted);font-size:.78rem">${r.unit||'—'}</td>
-      <td style="padding:6px;text-align:center;color:var(--muted)">${r.stdQty?r.stdQty.toLocaleString():'—'}</td>
-      <td style="padding:6px;text-align:center;color:var(--accent2)">${r.price?(r.price.toLocaleString()+' جم'):'<span style="color:var(--muted)">—</span>'}</td>
-      <td style="padding:6px;text-align:center;color:var(--blue);font-weight:600">${r.plannedCost?r.plannedCost.toLocaleString()+' جم':'—'}</td>
-      <td style="padding:6px;text-align:center;color:var(--orange)">${r.delivCost?r.delivCost.toLocaleString()+' جم':'—'}</td>
-      <td style="padding:6px;text-align:center;color:var(--yellow)">${r.invCost?r.invCost.toLocaleString()+' جم':'—'}</td>
-      <td style="padding:6px;text-align:center;font-weight:700;color:${pctColor}">${pct}%</td>
-    </tr>`;
+  // PRICE LIST TABLE ROWS
+  const priceRows=_COST_PRICES_DATA.map(function(p,i){
+    const pp=_pp(p),ap=_ap(p);
+    const diffPct=pp>0?((ap-pp)/pp*100).toFixed(1):null;
+    const diffColor=ap>pp?'var(--red)':'var(--green)';
+    const typeColor=p.type==='توريد'?'var(--blue)':'var(--orange)';
+    const typeBg=p.type==='توريد'?'rgba(56,189,248,.12)':'rgba(249,115,22,.12)';
+    return '<tr style="'+(i%2===0?'':'background:rgba(255,255,255,.025)')+'">'+
+      '<td style="padding:7px 10px">'+p.item+'</td>'+
+      '<td style="padding:7px;text-align:center;color:var(--muted)">'+(p.unit||'—')+'</td>'+
+      '<td style="padding:7px;text-align:center"><span style="background:'+typeBg+';color:'+typeColor+';padding:2px 8px;border-radius:4px;font-size:.75rem">'+(p.type||'—')+'</span></td>'+
+      '<td style="padding:7px;text-align:center;color:var(--blue);font-weight:600">'+pp.toLocaleString()+' جم</td>'+
+      '<td style="padding:7px;text-align:center;color:var(--green);font-weight:600">'+ap.toLocaleString()+' جم</td>'+
+      '<td style="padding:7px;text-align:center;font-size:.78rem">'+(diffPct!==null?'<span style="color:'+diffColor+'">'+(ap>pp?'▲':'▼')+' '+Math.abs(Number(diffPct))+'%</span>':'—')+'</td>'+
+      '<td style="padding:7px;text-align:center;font-size:.75rem;color:var(--muted)">'+(p.category||'—')+'</td>'+
+      (canEdit?'<td style="padding:7px;text-align:center"><button data-cpid="'+p.id+'" onclick="deleteCostPrice('+p.id+')" style="background:rgba(239,68,68,.15);color:var(--red);border:none;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.78rem">🗑</button></td>':'')+
+      '</tr>';
   }).join('');
 
-  const projOpts=allProjs.map(c=>`<option value="${c}" ${c===projSel?'selected':''}>${c} — ${(ACTIVE_NAMES||{})[c]||''}</option>`).join('');
-  const AN=ACTIVE_NAMES||{};
+  // SUMMARY TABLE ROWS
+  const summaryRows=itemRows.slice().sort(function(a,b){return b.plannedCost-a.plannedCost;}).map(function(r,i){
+    const noPrice=r.plannedPrice===0?'<span style="color:var(--red);font-size:.7rem"> ⚠</span>':'';
+    const devColor=r.totalVariance>0?'var(--red)':r.totalVariance<0?'var(--green)':'var(--muted)';
+    const devPct=r.plannedCost>0?((r.totalVariance/r.plannedCost)*100).toFixed(0):'—';
+    return '<tr style="'+(i%2===0?'':'background:rgba(255,255,255,.025)')+'">'+
+      '<td style="padding:6px 10px;font-size:.8rem">'+r.item+noPrice+'</td>'+
+      '<td style="padding:6px;text-align:center;color:var(--muted);font-size:.78rem">'+(r.unit||'—')+'</td>'+
+      '<td style="padding:6px;text-align:center;color:var(--muted)">'+(r.stdQty?r.stdQty.toLocaleString():'—')+'</td>'+
+      '<td style="padding:6px;text-align:center;color:var(--muted)">'+(r.actualQty?r.actualQty.toLocaleString():'—')+'</td>'+
+      '<td style="padding:6px;text-align:center;color:var(--blue);font-size:.75rem">'+(r.plannedPrice?r.plannedPrice.toLocaleString()+' جم':'—')+'</td>'+
+      '<td style="padding:6px;text-align:center;color:var(--green);font-size:.75rem">'+(r.actualPrice?r.actualPrice.toLocaleString()+' جم':'—')+'</td>'+
+      '<td style="padding:6px;text-align:center;color:var(--blue);font-weight:600">'+(r.plannedCost?r.plannedCost.toLocaleString()+' جم':'—')+'</td>'+
+      '<td style="padding:6px;text-align:center;color:var(--orange);font-weight:600">'+(r.actualCost?r.actualCost.toLocaleString()+' جم':'—')+'</td>'+
+      '<td style="padding:6px;text-align:center;font-weight:700;color:'+devColor+'">'+(devPct!=='—'?(Number(devPct)>0?'+':'')+devPct+'%':'—')+'</td>'+
+      '</tr>';
+  }).join('');
+
+  // DEVIATION TABLE ROWS
+  const devRows=devData.map(function(d,i){
+    const pctColor=d.total>0?'var(--red)':d.total<0?'var(--green)':'var(--muted)';
+    const priceVarColor=d.priceVar>0?'var(--red)':d.priceVar<0?'var(--green)':'var(--muted)';
+    const qtyVarColor=d.qtyVar>0?'var(--red)':d.qtyVar<0?'var(--green)':'var(--muted)';
+    const priceVarPct=d.planned>0?(d.priceVar/d.planned*100).toFixed(1):0;
+    const qtyVarPct=d.planned>0?(d.qtyVar/d.planned*100).toFixed(1):0;
+    return '<tr style="'+(i%2===0?'':'background:rgba(255,255,255,.025)')+'">'+
+      '<td style="padding:7px 10px;font-size:.82rem"><span style="color:var(--accent2);font-weight:600">'+d.proj+'</span><br><span style="font-size:.72rem;color:var(--muted)">'+(d.name||'')+'</span></td>'+
+      '<td style="padding:7px;text-align:center;color:var(--blue)">'+(d.planned/1e6).toFixed(2)+' م</td>'+
+      '<td style="padding:7px;text-align:center;color:'+priceVarColor+'">'+(d.priceVar>0?'+':'')+(d.priceVar/1e6).toFixed(2)+' م<br><span style="font-size:.72rem;color:var(--muted)">'+priceVarPct+'%</span></td>'+
+      '<td style="padding:7px;text-align:center;color:'+qtyVarColor+'">'+(d.qtyVar>0?'+':'')+(d.qtyVar/1e6).toFixed(2)+' م<br><span style="font-size:.72rem;color:var(--muted)">'+qtyVarPct+'%</span></td>'+
+      '<td style="padding:7px;text-align:center;font-weight:700;color:'+pctColor+'">'+(d.total>0?'+':'')+Number(d.pct)+'%</td>'+
+      '</tr>';
+  }).join('');
+
+  const projOpts=allProjs.map(function(c){return '<option value="'+c+'" '+(c===projSel?'selected':'')+'>'+c+' — '+(AN[c]||'')+'</option>';}).join('');
   const btnBase='border:none;border-radius:7px;padding:5px 14px;cursor:pointer;font-size:.85rem;color:#fff;font-family:Cairo,sans-serif';
+  const cpItemOpts=_buildCpItemOpts();
 
-  tab.innerHTML=`<div style="padding:16px;max-width:1300px;margin:0 auto">
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-    <span style="font-size:1.05rem;font-weight:700;color:var(--accent2)">💰 التكاليف</span>
-    <div style="margin-right:auto;display:flex;gap:6px">
-      <button id="cpBtnPrices" onclick="showCostView('Prices')" style="${btnBase};background:${!showSummary?'var(--accent)':'var(--card)'}">📋 قائمة الأسعار</button>
-      <button id="cpBtnSummary" onclick="showCostView('Summary')" style="${btnBase};background:${showSummary?'var(--accent)':'var(--card)'}">📊 ملخص التكاليف</button>
-    </div>
-  </div>
+  tab.innerHTML='<div style="padding:16px;max-width:1300px;margin:0 auto">'+
+  '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">'+
+    '<span style="font-size:1.05rem;font-weight:700;color:var(--accent2)">💰 التكاليف</span>'+
+    '<div style="margin-right:auto;display:flex;gap:6px;flex-wrap:wrap">'+
+      '<button id="cpBtnPrices" onclick="showCostView(\'Prices\')" style="'+btnBase+';background:'+(curView==='Prices'?'var(--accent)':'var(--card)')+'">📋 قائمة الأسعار</button>'+
+      '<button id="cpBtnSummary" onclick="showCostView(\'Summary\')" style="'+btnBase+';background:'+(curView==='Summary'?'var(--accent)':'var(--card)')+'">📊 ملخص التكاليف</button>'+
+      '<button id="cpBtnDeviation" onclick="showCostView(\'Deviation\')" style="'+btnBase+';background:'+(curView==='Deviation'?'var(--accent)':'var(--card)')+'">📉 تحليل الانحراف</button>'+
+    '</div>'+
+  '</div>'+
 
-  <!-- Global KPIs -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">
-    <div class="kpi blue"><div class="kpi-val">${(kpiPlanned/1e6).toFixed(2)}<span style="font-size:.6rem"> م جم</span></div><div class="kpi-lbl">التكاليف المخططة (كل المشاريع)</div></div>
-    <div class="kpi" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25)"><div class="kpi-val" style="color:var(--orange)">${(kpiDelivery/1e6).toFixed(2)}<span style="font-size:.6rem"> م جم</span></div><div class="kpi-lbl">تكلفة التوريدات الفعلية</div></div>
-    <div class="kpi yellow"><div class="kpi-val">${(kpiInvoice/1e6).toFixed(2)}<span style="font-size:.6rem"> م جم</span></div><div class="kpi-lbl">إجمالي المستخلصات</div></div>
-    <div class="kpi" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25)"><div class="kpi-val" style="color:var(--accent2)">${kpiPct}%</div><div class="kpi-lbl">نسبة الصرف الإجمالية</div></div>
-  </div>
+  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">'+
+    '<div class="kpi blue"><div class="kpi-val">'+(kpiPlanned/1e6).toFixed(2)+'<span style="font-size:.6rem"> م جم</span></div><div class="kpi-lbl">التكاليف المخططة</div></div>'+
+    '<div class="kpi" style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25)"><div class="kpi-val" style="color:var(--green)">'+(kpiActual/1e6).toFixed(2)+'<span style="font-size:.6rem"> م جم</span></div><div class="kpi-lbl">التكاليف الفعلية</div></div>'+
+    '<div class="kpi" style="background:rgba('+(kpiVariance>0?'239,68,68':'34,197,94')+',.1);border:1px solid rgba('+(kpiVariance>0?'239,68,68':'34,197,94')+',.25)">'+
+      '<div class="kpi-val" style="color:var(--'+(kpiVariance>0?'red':'green')+')">'+(kpiVariance>0?'+':'')+(kpiVariance/1e6).toFixed(2)+'<span style="font-size:.6rem"> م جم</span></div>'+
+      '<div class="kpi-lbl">الانحراف الكلي</div></div>'+
+    '<div class="kpi" style="background:rgba('+(Number(kpiVariancePct)>0?'239,68,68':'34,197,94')+',.1);border:1px solid rgba('+(Number(kpiVariancePct)>0?'239,68,68':'34,197,94')+',.25)">'+
+      '<div class="kpi-val" style="color:var(--'+(Number(kpiVariancePct)>0?'red':'green')+')">'+(Number(kpiVariancePct)>0?'+':'')+kpiVariancePct+'%</div>'+
+      '<div class="kpi-lbl">نسبة الانحراف</div></div>'+
+  '</div>'+
 
-  <!-- PRICE LIST VIEW -->
-  <div id="cpViewPrices" style="display:${showSummary?'none':''}">
-    ${canEdit?`<div class="chart-card" style="margin-bottom:12px">
-      <div style="font-size:.9rem;font-weight:600;margin-bottom:10px;color:var(--accent2)">➕ إضافة سعر بند</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-        <div style="display:flex;flex-direction:column;gap:4px;flex:2;min-width:160px">
-          <label style="font-size:.75rem;color:var(--muted)">اسم البند</label>
-          <input id="cpItem" placeholder="مثال: خرسانة مسلحة" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem;direction:rtl">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;min-width:80px">
-          <label style="font-size:.75rem;color:var(--muted)">الوحدة</label>
-          <select id="cpUnit" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">
-            <option>م3</option><option>طن</option><option>م2</option><option>م.ط</option><option>عدد</option><option>كجم</option><option>وحدة</option>
-          </select>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;min-width:130px">
-          <label style="font-size:.75rem;color:var(--muted)">سعر الوحدة (جم)</label>
-          <input id="cpUnitPrice" type="number" min="0" placeholder="0" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">
-        </div>
-        <button onclick="addCostPrice()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:Cairo,sans-serif;font-weight:600;white-space:nowrap">💾 إضافة</button>
-      </div>
-      <div id="cpNotice" style="display:none;margin-top:8px;border-radius:7px;padding:8px 12px;font-size:.83rem;border:1px solid transparent"></div>
-    </div>`:''}
-    <div class="chart-card">
-      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📋 قائمة الأسعار — ${_COST_PRICES_DATA.length} بند مسجل</div>
-      ${_COST_PRICES_DATA.length?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">
-        <thead><tr style="background:rgba(99,102,241,.12);color:var(--accent2)">
-          <th style="padding:8px 10px;text-align:right">اسم البند</th>
-          <th style="padding:8px;text-align:center">الوحدة</th>
-          <th style="padding:8px;text-align:center">سعر الوحدة</th>
-          <th style="padding:8px;text-align:center">التصنيف</th>
-          ${canEdit?'<th style="padding:8px;text-align:center">حذف</th>':''}
-        </tr></thead>
-        <tbody>${priceRows}</tbody>
-      </table></div>`:'<div style="color:var(--muted);font-size:.82rem;padding:24px 0;text-align:center">لا توجد أسعار بعد — أضف أسعار البنود من النموذج أعلاه لتفعيل حساب التكاليف</div>'}
-    </div>
-  </div>
+  '<div id="cpViewPrices" style="display:'+(curView==='Prices'?'':'none')+'">'+
+    (canEdit?
+    '<div class="chart-card" style="margin-bottom:12px">'+
+      '<div style="font-size:.9rem;font-weight:600;margin-bottom:10px;color:var(--accent2)">➕ إضافة / تحديث سعر بند</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'+
+        '<div style="display:flex;flex-direction:column;gap:4px;flex:2;min-width:180px">'+
+          '<label style="font-size:.75rem;color:var(--muted)">اسم البند (من الحصر المعياري)</label>'+
+          '<select id="cpItem" onchange="_cpItemChange()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem;direction:rtl">'+cpItemOpts+'</select>'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;gap:4px;min-width:75px">'+
+          '<label style="font-size:.75rem;color:var(--muted)">الوحدة</label>'+
+          '<input id="cpUnit" placeholder="م3" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem;width:65px">'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;gap:4px">'+
+          '<label style="font-size:.75rem;color:var(--muted)">النوع</label>'+
+          '<div id="cpTypeGroup" style="display:flex;gap:4px">'+
+            '<button data-type="توريد" onclick="_setCpType(this)" class="cp-type-active" style="background:rgba(56,189,248,.2);color:var(--blue);border:1px solid rgba(56,189,248,.4);border-radius:6px;padding:7px 12px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.82rem">📦 توريد</button>'+
+            '<button data-type="مقاول" onclick="_setCpType(this)" style="background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 12px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.82rem">👷 مقاول</button>'+
+          '</div>'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;gap:4px;min-width:130px">'+
+          '<label style="font-size:.75rem;color:var(--blue)">السعر المخطط (جم) ✱</label>'+
+          '<input id="cpPlannedPrice" type="number" min="0" placeholder="0" style="background:var(--bg);border:1px solid rgba(56,189,248,.35);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;gap:4px;min-width:130px">'+
+          '<label style="font-size:.75rem;color:var(--green)">السعر الفعلي (جم)</label>'+
+          '<input id="cpActualPrice" type="number" min="0" placeholder="0 (اختياري)" style="background:var(--bg);border:1px solid rgba(34,197,94,.35);border-radius:7px;padding:7px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">'+
+        '</div>'+
+        '<button onclick="addCostPrice()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:Cairo,sans-serif;font-weight:600;white-space:nowrap;align-self:flex-end">💾 حفظ</button>'+
+      '</div>'+
+      '<div id="cpNotice" style="display:none;margin-top:8px;border-radius:7px;padding:8px 12px;font-size:.83rem;border:1px solid transparent"></div>'+
+    '</div>'
+    :'')+
+    '<div class="chart-card">'+
+      '<div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📋 قائمة الأسعار — '+_COST_PRICES_DATA.length+' بند مسجل</div>'+
+      (_COST_PRICES_DATA.length?
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">'+
+        '<thead><tr style="background:rgba(99,102,241,.12);color:var(--accent2)">'+
+          '<th style="padding:8px 10px;text-align:right">اسم البند</th>'+
+          '<th style="padding:8px;text-align:center">الوحدة</th>'+
+          '<th style="padding:8px;text-align:center">النوع</th>'+
+          '<th style="padding:8px;text-align:center;color:var(--blue)">مخطط</th>'+
+          '<th style="padding:8px;text-align:center;color:var(--green)">فعلي</th>'+
+          '<th style="padding:8px;text-align:center">فرق%</th>'+
+          '<th style="padding:8px;text-align:center">التصنيف</th>'+
+          (canEdit?'<th style="padding:8px;text-align:center">حذف</th>':'')+
+        '</tr></thead>'+
+        '<tbody>'+priceRows+'</tbody>'+
+      '</table></div>'
+      :'<div style="color:var(--muted);font-size:.82rem;padding:24px 0;text-align:center">لا توجد أسعار — أضف البنود من النموذج أعلاه</div>')+
+    '</div>'+
+  '</div>'+
 
-  <!-- COST SUMMARY VIEW -->
-  <div id="cpViewSummary" style="display:${showSummary?'':'none'}">
-    <div class="chart-card" style="margin-bottom:10px">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-        <span style="font-size:.85rem;color:var(--muted)">عرض تكاليف:</span>
-        <select id="cpProjFilter" onchange="renderCosts()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">
-          <option value="">— كل المشاريع —</option>
-          ${projOpts}
-        </select>
-        ${projSel?`<span style="font-size:.82rem;color:var(--muted)">${AN[projSel]||''}</span>`:''}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">
-        <div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:1.1rem;font-weight:700;color:var(--blue)">${(projPlanned/1e6).toFixed(2)}<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>
-          <div style="font-size:.7rem;color:var(--muted)">التكلفة المخططة</div>
-        </div>
-        <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:1.1rem;font-weight:700;color:var(--orange)">${(projDelivery/1e6).toFixed(2)}<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>
-          <div style="font-size:.7rem;color:var(--muted)">تكلفة التوريدات</div>
-        </div>
-        <div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:1.1rem;font-weight:700;color:var(--yellow)">${(projInvoice/1e6).toFixed(2)}<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>
-          <div style="font-size:.7rem;color:var(--muted)">إجمالي المستخلصات</div>
-        </div>
-        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:1.1rem;font-weight:700;color:var(--accent2)">${projPct.toFixed(1)}%</div>
-          <div style="font-size:.7rem;color:var(--muted)">نسبة الصرف</div>
-        </div>
-        <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:1.1rem;font-weight:700;color:var(--green)">${((projPlanned-projActual)/1e6).toFixed(2)}<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>
-          <div style="font-size:.7rem;color:var(--muted)">المتبقي</div>
-        </div>
-      </div>
-    </div>
-    ${itemRows.length?`<div class="chart-card">
-      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📊 تفصيل التكاليف — ${itemRows.length} بند</div>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">
-        <thead><tr style="background:rgba(99,102,241,.12);color:var(--accent2)">
-          <th style="padding:7px 10px;text-align:right">البند</th>
-          <th style="padding:7px;text-align:center">الوحدة</th>
-          <th style="padding:7px;text-align:center">ك.معيارية</th>
-          <th style="padding:7px;text-align:center">سعر/وحدة</th>
-          <th style="padding:7px;text-align:center;color:var(--blue)">التكلفة المخططة</th>
-          <th style="padding:7px;text-align:center;color:var(--orange)">تكلفة التوريدات</th>
-          <th style="padding:7px;text-align:center;color:var(--yellow)">تكلفة المستخلصات</th>
-          <th style="padding:7px;text-align:center">نسبة الصرف</th>
-        </tr></thead>
-        <tbody>${summaryRows}</tbody>
-        <tfoot><tr style="background:rgba(99,102,241,.08);font-weight:700">
-          <td colspan="4" style="padding:8px 10px;color:var(--accent2)">الإجمالي</td>
-          <td style="padding:8px;text-align:center;color:var(--blue)">${projPlanned.toLocaleString()} جم</td>
-          <td style="padding:8px;text-align:center;color:var(--orange)">${projDelivery.toLocaleString()} جم</td>
-          <td style="padding:8px;text-align:center;color:var(--yellow)">${projInvoice.toLocaleString()} جم</td>
-          <td style="padding:8px;text-align:center;color:var(--accent2)">${projPct.toFixed(1)}%</td>
-        </tfoot>
-      </table></div>
-    </div>`:'<div class="chart-card" style="color:var(--muted);text-align:center;padding:30px;font-size:.85rem">لا توجد بيانات حصر أو مستخلصات لهذا المشروع</div>'}
-  </div>
-</div>`;
-}
+  '<div id="cpViewSummary" style="display:'+(curView==='Summary'?'':'none')+'">'+
+    '<div class="chart-card" style="margin-bottom:10px">'+
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'+
+        '<span style="font-size:.85rem;color:var(--muted)">تكاليف مشروع:</span>'+
+        '<select id="cpProjFilter" onchange="renderCosts()" style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:#e2e8f0;font-family:Cairo,sans-serif;font-size:.85rem">'+
+          '<option value="">— اختر مشروع —</option>'+projOpts+
+        '</select>'+
+        (projSel?'<span style="font-size:.82rem;color:var(--accent2);font-weight:600">'+(AN[projSel]||'')+'</span>':'')+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">'+
+        '<div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:8px;padding:10px;text-align:center">'+
+          '<div style="font-size:1.1rem;font-weight:700;color:var(--blue)">'+(projPlanned/1e6).toFixed(2)+'<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>'+
+          '<div style="font-size:.7rem;color:var(--muted)">مخططة</div></div>'+
+        '<div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;text-align:center">'+
+          '<div style="font-size:1.1rem;font-weight:700;color:var(--green)">'+(projActual/1e6).toFixed(2)+'<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>'+
+          '<div style="font-size:.7rem;color:var(--muted)">فعلية</div></div>'+
+        '<div style="background:rgba('+(projVariance>0?'239,68,68':'34,197,94')+',.08);border:1px solid rgba('+(projVariance>0?'239,68,68':'34,197,94')+',.2);border-radius:8px;padding:10px;text-align:center">'+
+          '<div style="font-size:1.1rem;font-weight:700;color:var(--'+(projVariance>0?'red':'green')+')">'+(projVariance>0?'+':'')+(projVariance/1e6).toFixed(2)+'<span style="font-size:.6rem;color:var(--muted)"> م جم</span></div>'+
+          '<div style="font-size:.7rem;color:var(--muted)">انحراف</div></div>'+
+        '<div style="background:rgba('+(Number(projVariancePct)>0?'239,68,68':'34,197,94')+',.08);border:1px solid rgba('+(Number(projVariancePct)>0?'239,68,68':'34,197,94')+',.2);border-radius:8px;padding:10px;text-align:center">'+
+          '<div style="font-size:1.1rem;font-weight:700;color:var(--'+(Number(projVariancePct)>0?'red':'green')+')">'+(Number(projVariancePct)>0?'+':'')+projVariancePct+'%</div>'+
+          '<div style="font-size:.7rem;color:var(--muted)">انحراف%</div></div>'+
+      '</div>'+
+    '</div>'+
+    (itemRows.length?
+    '<div class="chart-card">'+
+      '<div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">📊 تفصيل التكاليف — '+itemRows.length+' بند</div>'+
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">'+
+        '<thead><tr style="background:rgba(99,102,241,.12);color:var(--accent2)">'+
+          '<th style="padding:7px 10px;text-align:right">البند</th>'+
+          '<th style="padding:7px;text-align:center">وحدة</th>'+
+          '<th style="padding:7px;text-align:center">ك.مخططة</th>'+
+          '<th style="padding:7px;text-align:center">ك.فعلية</th>'+
+          '<th style="padding:7px;text-align:center;color:var(--blue)">سعر مخطط</th>'+
+          '<th style="padding:7px;text-align:center;color:var(--green)">سعر فعلي</th>'+
+          '<th style="padding:7px;text-align:center;color:var(--blue)">تكلفة مخططة</th>'+
+          '<th style="padding:7px;text-align:center;color:var(--orange)">تكلفة فعلية</th>'+
+          '<th style="padding:7px;text-align:center">انحراف%</th>'+
+        '</tr></thead>'+
+        '<tbody>'+summaryRows+'</tbody>'+
+        '<tfoot><tr style="background:rgba(99,102,241,.08);font-weight:700">'+
+          '<td colspan="6" style="padding:8px 10px;color:var(--accent2)">الإجمالي</td>'+
+          '<td style="padding:8px;text-align:center;color:var(--blue)">'+projPlanned.toLocaleString()+' جم</td>'+
+          '<td style="padding:8px;text-align:center;color:var(--orange)">'+projActual.toLocaleString()+' جم</td>'+
+          '<td style="padding:8px;text-align:center;color:var(--'+(projVariance>0?'red':'green')+')">'+(Number(projVariancePct)>0?'+':'')+projVariancePct+'%</td>'+
+        '</tfoot>'+
+      '</table></div>'+
+    '</div>'
+    :'<div class="chart-card" style="color:var(--muted);text-align:center;padding:30px;font-size:.85rem">اختر مشروعاً من القائمة أعلاه لعرض التكاليف التفصيلية</div>')+
+  '</div>'+
+
+  '<div id="cpViewDeviation" style="display:'+(curView==='Deviation'?'':'none')+'">'+
+    '<div class="chart-card" style="margin-bottom:10px">'+
+      '<div style="font-size:.88rem;font-weight:600;color:var(--accent2);margin-bottom:10px">📉 تحليل الانحراف — جميع المشاريع</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px">'+
+        '<div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:8px;padding:10px;text-align:center">'+
+          '<div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">إجمالي مخطط</div>'+
+          '<div style="font-size:1rem;font-weight:700;color:var(--blue)">'+(overallPlanned/1e6).toFixed(2)+' م جم</div>'+
+        '</div>'+
+        '<div style="background:rgba('+(overallPriceVar>0?'239,68,68':'34,197,94')+',.08);border:1px solid rgba('+(overallPriceVar>0?'239,68,68':'34,197,94')+',.2);border-radius:8px;padding:10px;text-align:center">'+
+          '<div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">انحراف أسعار</div>'+
+          '<div style="font-size:1rem;font-weight:700;color:var(--'+(overallPriceVar>0?'red':'green')+')">'+(overallPriceVar>0?'+':'')+(overallPriceVar/1e6).toFixed(2)+' م</div>'+
+          '<div style="font-size:.7rem;color:var(--muted)">'+(overallPlanned>0?(overallPriceVar/overallPlanned*100).toFixed(1):0)+'%</div>'+
+        '</div>'+
+        '<div style="background:rgba('+(overallQtyVar>0?'239,68,68':'34,197,94')+',.08);border:1px solid rgba('+(overallQtyVar>0?'239,68,68':'34,197,94')+',.2);border-radius:8px;padding:10px;text-align:center">'+
+          '<div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">انحراف كميات</div>'+
+          '<div style="font-size:1rem;font-weight:700;color:var(--'+(overallQtyVar>0?'red':'green')+')">'+(overallQtyVar>0?'+':'')+(overallQtyVar/1e6).toFixed(2)+' م</div>'+
+          '<div style="font-size:.7rem;color:var(--muted)">'+(overallPlanned>0?(overallQtyVar/overallPlanned*100).toFixed(1):0)+'%</div>'+
+        '</div>'+
+        '<div style="background:rgba('+(Number(overallPct)>0?'239,68,68':'34,197,94')+',.1);border:2px solid rgba('+(Number(overallPct)>0?'239,68,68':'34,197,94')+',.35);border-radius:8px;padding:10px;text-align:center">'+
+          '<div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">الانحراف الإجمالي</div>'+
+          '<div style="font-size:1.2rem;font-weight:700;color:var(--'+(Number(overallPct)>0?'red':'green')+')">'+(Number(overallPct)>0?'+':'')+overallPct+'%</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:.78rem;color:var(--muted);padding:6px 0">'+
+        '💡 <b>انحراف الأسعار</b> = (السعر الفعلي − المخطط) × الكمية المنفذة &nbsp;|&nbsp; <b>انحراف الكميات</b> = (الكمية المنفذة − المخططة) × السعر المخطط'+
+      '</div>'+
+    '</div>'+
+    (devData.length?
+    '<div class="chart-card">'+
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem">'+
+        '<thead><tr style="background:rgba(99,102,241,.12);color:var(--accent2)">'+
+          '<th style="padding:8px 10px;text-align:right">المشروع</th>'+
+          '<th style="padding:8px;text-align:center;color:var(--blue)">مخطط (م جم)</th>'+
+          '<th style="padding:8px;text-align:center">انحراف أسعار</th>'+
+          '<th style="padding:8px;text-align:center">انحراف كميات</th>'+
+          '<th style="padding:8px;text-align:center">انحراف %</th>'+
+        '</tr></thead>'+
+        '<tbody>'+devRows+'</tbody>'+
+        '<tfoot><tr style="background:rgba(99,102,241,.08);font-weight:700">'+
+          '<td style="padding:8px 10px;color:var(--accent2)">الإجمالي</td>'+
+          '<td style="padding:8px;text-align:center;color:var(--blue)">'+(overallPlanned/1e6).toFixed(2)+' م</td>'+
+          '<td style="padding:8px;text-align:center;color:var(--'+(overallPriceVar>0?'red':'green')+')">'+(overallPriceVar>0?'+':'')+(overallPriceVar/1e6).toFixed(2)+' م</td>'+
+          '<td style="padding:8px;text-align:center;color:var(--'+(overallQtyVar>0?'red':'green')+')">'+(overallQtyVar>0?'+':'')+(overallQtyVar/1e6).toFixed(2)+' م</td>'+
+          '<td style="padding:8px;text-align:center;color:var(--'+(Number(overallPct)>0?'red':'green')+')">'+(Number(overallPct)>0?'+':'')+overallPct+'%</td>'+
+        '</tfoot>'+
+      '</table></div>'+
+    '</div>'
+    :'<div class="chart-card" style="color:var(--muted);text-align:center;padding:30px;font-size:.85rem">لا توجد بيانات حصر معياري أو مستخلصات كافية لتحليل الانحراف</div>')+
+  '</div>'+
+'</div>';}
 // ===== END التكاليف TAB =====
+
 
 function startApp(){
   _initUsersListener();
