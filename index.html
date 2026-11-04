@@ -5637,6 +5637,143 @@ const _STD_ITEMS_KEY='nile_std_items';
 let _STD_BOQ_DATA=[];
 let _fbStdBoqInit=false;
 const _STD_BOQ_KEY='nile_std_boq';
+/* ---- 104K BOQ import data (106 records) ---- */
+const _BOQ_104K_IMPORT = [
+  {id:'104k-s-1',project:'104K',item:'خرسانة عادية لزوم أساسات المبني',unit:'م3',type:'supply',stdQty:129.92,stdQtyWork:0,unitPrice:2180.0,notes:'خرسانة'},
+  {id:'104k-s-3',project:'104K',item:'خرسانة مسلحة لزوم أساسات المبني',unit:'م3',type:'supply',stdQty:145.53,stdQtyWork:0,unitPrice:2620.0,notes:'خرسانة'},
+  {id:'104k-s-4',project:'104K',item:'خرسانة مسلحة لزوم أساسات المبني — حديد φ8',unit:'طن',type:'supply',stdQty:1.414,stdQtyWork:0,unitPrice:3162.184,notes:'حديد φ8'},
+  {id:'104k-s-5',project:'104K',item:'خرسانة مسلحة لزوم أساسات المبني — حديد φ10',unit:'طن',type:'supply',stdQty:0.56,stdQtyWork:0,unitPrice:3162.184,notes:'حديد φ10'},
+  {id:'104k-s-6',project:'104K',item:'خرسانة مسلحة لزوم أساسات المبني — حديد φ12',unit:'طن',type:'supply',stdQty:1.179,stdQtyWork:0,unitPrice:3162.184,notes:'حديد φ12'},
+  {id:'104k-s-7',project:'104K',item:'خرسانة مسلحة لزوم أساسات المبني — حديد φ16',unit:'طن',type:'supply',stdQty:8.847,stdQtyWork:0,unitPrice:3162.184,notes:'حديد φ16'},
+  {id:'104k-s-9',project:'104K',item:'خرسانة مسلحة لزوم أعمدة البدروم',unit:'م3',type:'supply',stdQty:16.55,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-10',project:'104K',item:'خرسانة مسلحة لزوم أعمدة البدروم — حديد φ8',unit:'طن',type:'supply',stdQty:1.101,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-11',project:'104K',item:'خرسانة مسلحة لزوم أعمدة البدروم — حديد φ16',unit:'طن',type:'supply',stdQty:3.39,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-13',project:'104K',item:'خرسانة مسلحة سلالم البدروم + ك سلم',unit:'م3',type:'supply',stdQty:2.54,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-14',project:'104K',item:'خرسانة مسلحة سلالم البدروم + ك سلم — حديد φ8',unit:'طن',type:'supply',stdQty:0.017,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-15',project:'104K',item:'خرسانة مسلحة سلالم البدروم + ك سلم — حديد φ10',unit:'طن',type:'supply',stdQty:0.05,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-16',project:'104K',item:'خرسانة مسلحة سلالم البدروم + ك سلم — حديد φ12',unit:'طن',type:'supply',stdQty:0.032,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-17',project:'104K',item:'خرسانة مسلحة سلالم البدروم + ك سلم — حديد φ16',unit:'طن',type:'supply',stdQty:0.25,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-19',project:'104K',item:'خرسانة مسلحة سقف المشاية',unit:'م3',type:'supply',stdQty:27.27,stdQtyWork:0,unitPrice:2820.0,notes:'خرسانة'},
+  {id:'104k-s-20',project:'104K',item:'خرسانة مسلحة سقف المشاية — حديد φ8',unit:'طن',type:'supply',stdQty:0.286,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-21',project:'104K',item:'خرسانة مسلحة سقف المشاية — حديد φ10',unit:'طن',type:'supply',stdQty:1.001,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-22',project:'104K',item:'خرسانة مسلحة سقف المشاية — حديد φ12',unit:'طن',type:'supply',stdQty:0.41,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-23',project:'104K',item:'خرسانة مسلحة سقف المشاية — حديد φ16',unit:'طن',type:'supply',stdQty:0.092,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-25',project:'104K',item:'خرسانة مسلحة أعمدة السور ح1',unit:'م3',type:'supply',stdQty:6.3,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-26',project:'104K',item:'خرسانة مسلحة أعمدة السور ح1 — حديد φ8',unit:'طن',type:'supply',stdQty:0.256,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-27',project:'104K',item:'خرسانة مسلحة أعمدة السور ح1 — حديد φ16',unit:'طن',type:'supply',stdQty:0.809,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-29',project:'104K',item:'خرسانة مسلحة لزوم الطبانة',unit:'م3',type:'supply',stdQty:9.46,stdQtyWork:0,unitPrice:2820.0,notes:'خرسانة'},
+  {id:'104k-s-30',project:'104K',item:'خرسانة مسلحة لزوم الطبانة — حديد φ8',unit:'طن',type:'supply',stdQty:0.345,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-31',project:'104K',item:'خرسانة مسلحة لزوم الطبانة — حديد φ12',unit:'طن',type:'supply',stdQty:0.538,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-33',project:'104K',item:'خرسانة مسلحة لزوم اعمدة السور ح2',unit:'م3',type:'supply',stdQty:5.0,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-34',project:'104K',item:'خرسانة مسلحة لزوم اعمدة السور ح2 — حديد φ8',unit:'طن',type:'supply',stdQty:0.221,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-35',project:'104K',item:'خرسانة مسلحة لزوم اعمدة السور ح2 — حديد φ12',unit:'طن',type:'supply',stdQty:0.341,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-37',project:'104K',item:'خرسانة مسلحة لزوم سقف البدروم',unit:'م3',type:'supply',stdQty:73.83,stdQtyWork:0,unitPrice:2820.0,notes:'خرسانة'},
+  {id:'104k-s-38',project:'104K',item:'خرسانة مسلحة لزوم سقف البدروم — حديد φ8',unit:'طن',type:'supply',stdQty:0.452,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-39',project:'104K',item:'خرسانة مسلحة لزوم سقف البدروم — حديد φ10',unit:'طن',type:'supply',stdQty:4.512,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-40',project:'104K',item:'خرسانة مسلحة لزوم سقف البدروم — حديد φ12',unit:'طن',type:'supply',stdQty:2.101,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-41',project:'104K',item:'خرسانة مسلحة لزوم سقف البدروم — حديد φ16',unit:'طن',type:'supply',stdQty:0.347,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-43',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الارضي',unit:'م3',type:'supply',stdQty:17.19,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-44',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الارضي — حديد φ8',unit:'طن',type:'supply',stdQty:0.838,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-45',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الارضي — حديد φ16',unit:'طن',type:'supply',stdQty:2.21,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-47',project:'104K',item:'خرسانة مسلحة لزوم السلم الارضى + ك السلم',unit:'م3',type:'supply',stdQty:6.024,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-48',project:'104K',item:'خرسانة مسلحة لزوم السلم الارضى + ك السلم — حديد φ8',unit:'طن',type:'supply',stdQty:0.051,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-49',project:'104K',item:'خرسانة مسلحة لزوم السلم الارضى + ك السلم — حديد φ10',unit:'طن',type:'supply',stdQty:0.15,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-50',project:'104K',item:'خرسانة مسلحة لزوم السلم الارضى + ك السلم — حديد φ12',unit:'طن',type:'supply',stdQty:0.096,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-51',project:'104K',item:'خرسانة مسلحة لزوم السلم الارضى + ك السلم — حديد φ16',unit:'طن',type:'supply',stdQty:0.75,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-53',project:'104K',item:'خرسانة مسلحة لزوم سقف الارضي',unit:'م3',type:'supply',stdQty:85.29,stdQtyWork:0,unitPrice:2820.0,notes:'خرسانة'},
+  {id:'104k-s-54',project:'104K',item:'خرسانة مسلحة لزوم سقف الارضي — حديد φ8',unit:'طن',type:'supply',stdQty:0.421,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-55',project:'104K',item:'خرسانة مسلحة لزوم سقف الارضي — حديد φ10',unit:'طن',type:'supply',stdQty:5.421,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-56',project:'104K',item:'خرسانة مسلحة لزوم سقف الارضي — حديد φ12',unit:'طن',type:'supply',stdQty:2.281,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-57',project:'104K',item:'خرسانة مسلحة لزوم سقف الارضي — حديد φ16',unit:'طن',type:'supply',stdQty:0.664,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-59',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الاول',unit:'م3',type:'supply',stdQty:15.05,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-60',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الاول — حديد φ8',unit:'طن',type:'supply',stdQty:0.722,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-61',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الاول — حديد φ16',unit:'طن',type:'supply',stdQty:1.894,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-63',project:'104K',item:'خرسانة مسلحة لزوم السلم الأول + ك السلم',unit:'م3',type:'supply',stdQty:6.02,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-64',project:'104K',item:'خرسانة مسلحة لزوم السلم الأول + ك السلم — حديد φ8',unit:'طن',type:'supply',stdQty:0.051,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-65',project:'104K',item:'خرسانة مسلحة لزوم السلم الأول + ك السلم — حديد φ10',unit:'طن',type:'supply',stdQty:0.15,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-66',project:'104K',item:'خرسانة مسلحة لزوم السلم الأول + ك السلم — حديد φ12',unit:'طن',type:'supply',stdQty:0.096,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-67',project:'104K',item:'خرسانة مسلحة لزوم السلم الأول + ك السلم — حديد φ16',unit:'طن',type:'supply',stdQty:0.75,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-69',project:'104K',item:'خرسانة مسلحة لزوم سقف الأول',unit:'م3',type:'supply',stdQty:84.73,stdQtyWork:0,unitPrice:2820.0,notes:'خرسانة'},
+  {id:'104k-s-70',project:'104K',item:'خرسانة مسلحة لزوم سقف الأول — حديد φ8',unit:'طن',type:'supply',stdQty:0.29,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-71',project:'104K',item:'خرسانة مسلحة لزوم سقف الأول — حديد φ10',unit:'طن',type:'supply',stdQty:5.421,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-72',project:'104K',item:'خرسانة مسلحة لزوم سقف الأول — حديد φ12',unit:'طن',type:'supply',stdQty:1.887,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-73',project:'104K',item:'خرسانة مسلحة لزوم سقف الأول — حديد φ16',unit:'طن',type:'supply',stdQty:0.731,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-75',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الثاني',unit:'م3',type:'supply',stdQty:15.05,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-76',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الثاني — حديد φ8',unit:'طن',type:'supply',stdQty:0.722,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-77',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الثاني — حديد φ16',unit:'طن',type:'supply',stdQty:1.894,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-79',project:'104K',item:'خرسانة مسلحة لزوم السلم الثانى + ك السلم',unit:'م3',type:'supply',stdQty:6.02,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-80',project:'104K',item:'خرسانة مسلحة لزوم السلم الثانى + ك السلم — حديد φ8',unit:'طن',type:'supply',stdQty:0.051,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-81',project:'104K',item:'خرسانة مسلحة لزوم السلم الثانى + ك السلم — حديد φ10',unit:'طن',type:'supply',stdQty:0.15,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-82',project:'104K',item:'خرسانة مسلحة لزوم السلم الثانى + ك السلم — حديد φ12',unit:'طن',type:'supply',stdQty:0.096,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-83',project:'104K',item:'خرسانة مسلحة لزوم السلم الثانى + ك السلم — حديد φ16',unit:'طن',type:'supply',stdQty:0.75,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-85',project:'104K',item:'خرسانة مسلحة لزوم سقف الثاني',unit:'م3',type:'supply',stdQty:84.25,stdQtyWork:0,unitPrice:2820.0,notes:'خرسانة'},
+  {id:'104k-s-86',project:'104K',item:'خرسانة مسلحة لزوم سقف الثاني — حديد φ8',unit:'طن',type:'supply',stdQty:0.29,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-87',project:'104K',item:'خرسانة مسلحة لزوم سقف الثاني — حديد φ10',unit:'طن',type:'supply',stdQty:5.476,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-88',project:'104K',item:'خرسانة مسلحة لزوم سقف الثاني — حديد φ12',unit:'طن',type:'supply',stdQty:1.887,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-89',project:'104K',item:'خرسانة مسلحة لزوم سقف الثاني — حديد φ16',unit:'طن',type:'supply',stdQty:0.731,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-91',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الثالث',unit:'م3',type:'supply',stdQty:14.17,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-92',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الثالث — حديد φ8',unit:'طن',type:'supply',stdQty:0.662,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-93',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الثالث — حديد φ16',unit:'طن',type:'supply',stdQty:1.78,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-95',project:'104K',item:'خرسانة مسلحة لزوم السلم الثالث + ك السلم',unit:'م3',type:'supply',stdQty:2.32,stdQtyWork:0,unitPrice:2740.0,notes:'خرسانة'},
+  {id:'104k-s-96',project:'104K',item:'خرسانة مسلحة لزوم السلم الثالث + ك السلم — حديد φ8',unit:'طن',type:'supply',stdQty:0.017,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-97',project:'104K',item:'خرسانة مسلحة لزوم السلم الثالث + ك السلم — حديد φ10',unit:'طن',type:'supply',stdQty:0.05,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-98',project:'104K',item:'خرسانة مسلحة لزوم السلم الثالث + ك السلم — حديد φ12',unit:'طن',type:'supply',stdQty:0.032,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-99',project:'104K',item:'خرسانة مسلحة لزوم السلم الثالث + ك السلم — حديد φ16',unit:'طن',type:'supply',stdQty:0.25,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-s-101',project:'104K',item:'خرسانة مسلحة لزوم سقف الثالث',unit:'م3',type:'supply',stdQty:89.35,stdQtyWork:0,unitPrice:2820.0,notes:'خرسانة'},
+  {id:'104k-s-102',project:'104K',item:'خرسانة مسلحة لزوم سقف الثالث — حديد φ8',unit:'طن',type:'supply',stdQty:0.29,stdQtyWork:0,unitPrice:0,notes:'حديد φ8'},
+  {id:'104k-s-103',project:'104K',item:'خرسانة مسلحة لزوم سقف الثالث — حديد φ10',unit:'طن',type:'supply',stdQty:5.505,stdQtyWork:0,unitPrice:0,notes:'حديد φ10'},
+  {id:'104k-s-104',project:'104K',item:'خرسانة مسلحة لزوم سقف الثالث — حديد φ12',unit:'طن',type:'supply',stdQty:1.894,stdQtyWork:0,unitPrice:0,notes:'حديد φ12'},
+  {id:'104k-s-105',project:'104K',item:'خرسانة مسلحة لزوم سقف الثالث — حديد φ16',unit:'طن',type:'supply',stdQty:0.522,stdQtyWork:0,unitPrice:0,notes:'حديد φ16'},
+  {id:'104k-c-2',project:'104K',item:'خرسانة عادية لزوم أساسات المبني',unit:'م3',type:'contractor',stdQty:129.92,stdQtyWork:129.92,unitPrice:0,notes:''},
+  {id:'104k-c-8',project:'104K',item:'خرسانة مسلحة لزوم أساسات المبني',unit:'م3',type:'contractor',stdQty:145.53,stdQtyWork:145.53,unitPrice:0,notes:''},
+  {id:'104k-c-12',project:'104K',item:'خرسانة مسلحة لزوم أعمدة البدروم',unit:'عدد',type:'contractor',stdQty:16.55,stdQtyWork:28.0,unitPrice:0,notes:''},
+  {id:'104k-c-18',project:'104K',item:'خرسانة مسلحة سلالم البدروم + ك سلم',unit:'م3 *1.5',type:'contractor',stdQty:2.54,stdQtyWork:3.81,unitPrice:0,notes:''},
+  {id:'104k-c-24',project:'104K',item:'خرسانة مسلحة سقف المشاية',unit:'م3',type:'contractor',stdQty:27.27,stdQtyWork:27.27,unitPrice:0,notes:''},
+  {id:'104k-c-28',project:'104K',item:'خرسانة مسلحة أعمدة السور ح1',unit:'عدد',type:'contractor',stdQty:6.3,stdQtyWork:32.0,unitPrice:0,notes:''},
+  {id:'104k-c-32',project:'104K',item:'خرسانة مسلحة لزوم الطبانة',unit:'عدد',type:'contractor',stdQty:9.46,stdQtyWork:31.0,unitPrice:0,notes:''},
+  {id:'104k-c-36',project:'104K',item:'خرسانة مسلحة لزوم اعمدة السور ح2',unit:'عدد/2',type:'contractor',stdQty:5.0,stdQtyWork:16.0,unitPrice:0,notes:''},
+  {id:'104k-c-42',project:'104K',item:'خرسانة مسلحة لزوم سقف البدروم',unit:'م3',type:'contractor',stdQty:73.83,stdQtyWork:73.83,unitPrice:0,notes:''},
+  {id:'104k-c-46',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الارضي',unit:'عدد',type:'contractor',stdQty:17.19,stdQtyWork:26.0,unitPrice:0,notes:''},
+  {id:'104k-c-52',project:'104K',item:'خرسانة مسلحة لزوم السلم الارضى + ك السلم',unit:'م3 *1.5',type:'contractor',stdQty:6.024,stdQtyWork:9.036,unitPrice:0,notes:''},
+  {id:'104k-c-58',project:'104K',item:'خرسانة مسلحة لزوم سقف الارضي',unit:'م3',type:'contractor',stdQty:85.29,stdQtyWork:85.29,unitPrice:0,notes:''},
+  {id:'104k-c-62',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الاول',unit:'عدد',type:'contractor',stdQty:15.05,stdQtyWork:26.0,unitPrice:0,notes:''},
+  {id:'104k-c-68',project:'104K',item:'خرسانة مسلحة لزوم السلم الأول + ك السلم',unit:'م3 *1.5',type:'contractor',stdQty:6.02,stdQtyWork:9.03,unitPrice:0,notes:''},
+  {id:'104k-c-74',project:'104K',item:'خرسانة مسلحة لزوم سقف الأول',unit:'م3',type:'contractor',stdQty:84.73,stdQtyWork:84.73,unitPrice:0,notes:''},
+  {id:'104k-c-78',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الثاني',unit:'عدد',type:'contractor',stdQty:15.05,stdQtyWork:26.0,unitPrice:0,notes:''},
+  {id:'104k-c-84',project:'104K',item:'خرسانة مسلحة لزوم السلم الثانى + ك السلم',unit:'م3 *1.5',type:'contractor',stdQty:6.02,stdQtyWork:9.03,unitPrice:0,notes:''},
+  {id:'104k-c-90',project:'104K',item:'خرسانة مسلحة لزوم سقف الثاني',unit:'م3',type:'contractor',stdQty:84.25,stdQtyWork:84.25,unitPrice:0,notes:''},
+  {id:'104k-c-94',project:'104K',item:'خرسانة مسلحة لزوم أعمدة الثالث',unit:'عدد',type:'contractor',stdQty:14.17,stdQtyWork:26.0,unitPrice:0,notes:''},
+  {id:'104k-c-100',project:'104K',item:'خرسانة مسلحة لزوم السلم الثالث + ك السلم',unit:'م3 *1.5',type:'contractor',stdQty:2.32,stdQtyWork:3.48,unitPrice:0,notes:''},
+  {id:'104k-c-106',project:'104K',item:'خرسانة مسلحة لزوم سقف الثالث',unit:'م3',type:'contractor',stdQty:89.35,stdQtyWork:89.35,unitPrice:0,notes:''},
+];
+/* ---- importBoq104K: push 104K records to Firebase ---- */
+function importBoq104K(){
+  const btn=document.getElementById('import104kBtn');
+  if(btn&&btn.dataset.confirm==='1'){
+    const sess=_getSession();
+    const dateStr=new Date().toLocaleDateString('ar-EG');
+    const userName=sess?sess.name||sess.username:'admin';
+    let added=0,skipped=0;
+    _BOQ_104K_IMPORT.forEach(function(r){
+      const exists=_STD_BOQ_DATA.find(function(d){return d.id===r.id;});
+      if(!exists){
+        _STD_BOQ_DATA.push(Object.assign({},r,{date:dateStr,user:userName,lastUpdate:new Date().toISOString()}));
+        added++;
+      } else { skipped++; }
+    });
+    _saveStdBoq();
+    const n=document.getElementById('stdBoqNotice');
+    if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم استيراد '+added+' بند (104K) | '+skipped+' بند موجود مسبقاً';setTimeout(function(){n.style.display='none';},5000);}
+    renderStdBoq();
+  } else if(btn){
+    btn.dataset.confirm='1';
+    btn.style.background='rgba(239,68,68,.2)';
+    btn.style.borderColor='rgba(239,68,68,.5)';
+    btn.style.color='var(--red)';
+    btn.textContent='⚠ تأكيد استيراد 106 بند للمشروع 104K؟';
+    setTimeout(function(){if(btn&&btn.dataset.confirm==='1'){btn.dataset.confirm='';btn.style.background='';btn.style.borderColor='';btn.style.color='';btn.textContent='📂 استيراد بيانات هيكل 104K';}},4000);
+  }
+}
 
 function _saveStdItems(){
   const obj={};_STD_ITEMS_DATA.forEach((d)=>{obj['si'+d.id]=d;});
@@ -6363,6 +6500,7 @@ function renderStdBoq(){
           '<button id="stdBoqConfirmBtn" onclick="confirmStdBoqSave()" style="display:none;background:rgba(34,197,94,.18);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:6px 16px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap;font-weight:700;align-items:center;gap:6px">💾 حفظ الحصر</button>'+
           '<button onclick="exportStdBoqExcel()" style="background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير كل المشاريع Excel</button>'+
           '<button onclick="downloadStdBoqTemplate()" style="background:rgba(99,102,241,.15);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📋 تنزيل قالب Excel</button>'+
+          (_brs==='admin'?'<button id="import104kBtn" onclick="importBoq104K()" style="background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.4);color:#fbbf24;border-radius:8px;padding:6px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📂 استيراد بيانات هيكل 104K</button>':'')+
           '<span style="font-size:.68rem;color:var(--muted);flex:1">Excel: المشروع (A) | البند (B) | الوحدة (C) | الكمية المعيارية (D) | كميات الأعمال (E) | السعر (F) | ملاحظات (G)</span>'+
         '</div>'
       :'')+
