@@ -4038,7 +4038,9 @@ function _getWhAlerts(){
   _MIN_STOCK.forEach(m=>{
     const key=m.name.trim().toLowerCase();
     const st=stockMap[key];
-    const bal=st?st.balance:0;
+    // تجاهل الأصناف اللي مفيش لها أي حركة مسجّلة — مش حرج، مجرد لم يُضف للمخزن بعد
+    if(!st)return;
+    const bal=st.balance;
     const warn=m.min*1.1;
     var status;
     if(bal<m.min)status='حرج';
