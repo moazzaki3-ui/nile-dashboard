@@ -3313,6 +3313,10 @@ window._EST_SALE_RATIO=window._EST_SALE_RATIO||80; // نسبة المساحة ا
 function renderEstimated(){
   var el=document.getElementById('tab-estimated');
   if(!el)return;
+  // حفظ الـ active element قبل الـ rebuild (لتجنب فقدان focus أثناء الكتابة)
+  var _estActiveId=(document.activeElement||{}).id||'';
+  var _estActiveVal=(document.activeElement||{}).value||'';
+  var _estActivePos=(document.activeElement||{}).selectionStart||0;
   // بناء قائمة كل المشاريع (من PROJECTS + _PROJ_AREAS)
   var allCodes={};
   if(window._PROJ_AREAS){Object.keys(_PROJ_AREAS).forEach(function(c){allCodes[c]=1;});}
@@ -3417,10 +3421,10 @@ function renderEstimated(){
     '</div>'+
     '<div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:10px">'+
       '<label style="font-size:.78rem;color:var(--muted)">سعر التشطيب (ج.م / م² GFA):</label>'+
-      '<input type="number" id="estRate" value="'+window._EST_RATE+'" min="0" oninput="window._EST_RATE=parseFloat(this.value)||4000;renderEstimated()" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:#e2e8f0;font-family:Cairo;font-size:.88rem;width:130px">'+
+      '<input type="number" id="estRate" value="'+(_estActiveId==='estRate'?_estActiveVal:window._EST_RATE)+'" min="0" oninput="window._EST_RATE=parseFloat(this.value)||4000;renderEstimated()" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:#e2e8f0;font-family:Cairo;font-size:.88rem;width:130px">'+
       '<span style="color:var(--border)">|</span>'+
       '<label style="font-size:.78rem;color:var(--accent2)">نسبة المساحة البيعية %:</label>'+
-      '<input type="number" id="estSaleRatio" value="'+(window._EST_SALE_RATIO||80)+'" min="1" max="100" step="0.5" oninput="window._EST_SALE_RATIO=parseFloat(this.value)||80;renderEstimated()" style="background:var(--bg);border:1px solid var(--accent2);border-radius:8px;padding:6px 10px;color:var(--accent2);font-family:Cairo;font-size:.88rem;width:90px;font-weight:700">'+
+      '<input type="number" id="estSaleRatio" value="'+(_estActiveId==='estSaleRatio'?_estActiveVal:(window._EST_SALE_RATIO||80))+'" min="1" max="100" step="0.5" oninput="window._EST_SALE_RATIO=parseFloat(this.value)||80;renderEstimated()" style="background:var(--bg);border:1px solid var(--accent2);border-radius:8px;padding:6px 10px;color:var(--accent2);font-family:Cairo;font-size:.88rem;width:90px;font-weight:700">'+
       '<span style="font-size:.75rem;color:var(--muted)">م² بيعي = GFA × النسبة</span>'+
     '</div>'+
   '</div>';
@@ -3432,6 +3436,11 @@ function renderEstimated(){
   '</div>';
 
   el.innerHTML=addFormHtml+listHtml+cfHtml;
+  // استرجاع focus بعد الـ rebuild
+  if(_estActiveId==='estRate'||_estActiveId==='estSaleRatio'){
+    var _ra=document.getElementById(_estActiveId);
+    if(_ra){_ra.focus();try{_ra.setSelectionRange(_estActivePos,_estActivePos);}catch(e){}}
+  }
   if(window._EST_LIST.length>0)renderEstCashFlow();
 }
 
