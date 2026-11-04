@@ -3784,11 +3784,33 @@ function renderWarehouse(){
     else stock[key].out+=d.qty;
   });
 
-  const stockArr=Object.values(stock).map(s=>({...s,balance:s.in-s.out}));
+  // Build weighted average cost per item from توريد entries that have avgCost
+  const itemCost={};// key -> {totalVal, totalQty}
+  sorted.forEach(d=>{
+    if(d.type==='توريد'&&d.avgCost>0){
+      const key=d.item+'|'+(d.unit||'');
+      if(!itemCost[key])itemCost[key]={totalVal:0,totalQty:0};
+      itemCost[key].totalVal+=d.avgCost*d.qty;
+      itemCost[key].totalQty+=d.qty;
+    }
+  });
+  // avgCost per key
+  const avgCostMap={};
+  Object.keys(itemCost).forEach(k=>{
+    avgCostMap[k]=itemCost[k].totalQty>0?itemCost[k].totalVal/itemCost[k].totalQty:0;
+  });
+
+  const stockArr=Object.values(stock).map(s=>{
+    const key=s.item+'|'+s.unit;
+    const uc=avgCostMap[key]||0;
+    return {...s,balance:s.in-s.out,unitCost:uc,stockVal:(s.in-s.out)*uc,issuedVal:s.out*uc};
+  });
   const totalIn=_WAREHOUSE_DATA.filter(d=>d.type==='توريد').reduce((s,d)=>s+d.qty,0);
   const totalOut=_WAREHOUSE_DATA.filter(d=>d.type==='صرف').reduce((s,d)=>s+d.qty,0);
   const uniqueItems=stockArr.length;
   const lowStock=stockArr.filter(s=>s.balance<=0).length;
+  const totalStockVal=stockArr.reduce((s,r)=>s+(r.stockVal||0),0);
+  const totalIssuedVal=stockArr.reduce((s,r)=>s+(r.issuedVal||0),0);
 
   const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
 
@@ -3797,10 +3819,18 @@ function renderWarehouse(){
   stockArr.sort((a,b)=>a.balance-b.balance).forEach(s=>{
     const balColor=s.balance<=0?'var(--red)':s.balance<10?'var(--orange)':'var(--green)';
     const balIcon=s.balance<=0?'🔴':s.balance<10?'🟡':'🟢';
+    const valLine=s.unitCost>0?
+      '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:.72rem">'+
+        '<span style="color:var(--muted)">سعر الوحدة: <b style="color:#e2e8f0">'+s.unitCost.toLocaleString('ar-EG',{maximumFractionDigits:0})+' ج</b></span>'+
+        '<span style="color:var(--muted)">قيمة المخزون: <b style="color:var(--green)">'+s.stockVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+' ج</b></span>'+
+      '</div>'+
+      (s.issuedVal>0?'<div style="font-size:.7rem;color:var(--muted);margin-top:2px;text-align:left">صُرف بقيمة: <b style="color:var(--yellow)">'+s.issuedVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+' ج</b></div>':'')
+      :'';
     stockCards+='<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:200px;flex:1">'+
       '<div style="font-weight:700;font-size:.88rem;margin-bottom:6px">'+s.item+'</div>'+
       '<div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);margin-bottom:4px"><span>وارد: '+s.in.toLocaleString()+' '+s.unit+'</span><span>صرف: '+s.out.toLocaleString()+' '+s.unit+'</span></div>'+
       '<div style="font-size:1.1rem;font-weight:900;color:'+balColor+'">'+balIcon+' رصيد: '+s.balance.toLocaleString()+' '+s.unit+'</div>'+
+      valLine+
     '</div>';
   });
 
@@ -3817,6 +3847,8 @@ function renderWarehouse(){
       '<td style="padding:8px 10px"><span style="background:'+typeBg+';color:'+typeClr+';padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700">'+typeLabel+'</span></td>'+
       '<td style="padding:8px 10px;font-weight:700">'+d.item+'</td>'+
       '<td style="padding:8px 10px;text-align:center;font-weight:700">'+d.qty.toLocaleString()+' '+(d.unit||'')+'</td>'+
+      (function(){const uc=d.avgCost>0?d.avgCost:(avgCostMap[d.item+'|'+(d.unit||'')]||0);const val=uc*d.qty;return '<td style="padding:8px 10px;text-align:center;font-size:.75rem;color:var(--muted)">'+(uc>0?uc.toLocaleString('ar-EG',{maximumFractionDigits:0})+'':'—')+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-size:.8rem;font-weight:700;color:'+(d.type==='توريد'?'var(--green)':'var(--yellow)')+'">'+(val>0?val.toLocaleString('ar-EG',{maximumFractionDigits:0}):'—')+'</td>';})()+
       '<td style="padding:8px 10px"><b style="color:var(--accent2)">'+d.project+'</b></td>'+
       '<td style="padding:8px 10px;font-size:.72rem">'+(d.supplier||'—')+'</td>'+
       '<td style="padding:8px 10px;font-size:.72rem;color:var(--muted);max-width:120px">'+(d.note||'—')+'</td>'+
@@ -3833,6 +3865,8 @@ function renderWarehouse(){
       '<div class="kpi green"><div class="kpi-val" style="color:var(--green)">'+_WAREHOUSE_DATA.filter(d=>d.type==='توريد').length+'</div><div class="kpi-lbl">📥 توريدات واردة</div><div class="kpi-sub">إجمالي: '+totalIn.toLocaleString()+'</div></div>'+
       '<div class="kpi" style="border-right-color:var(--yellow)"><div class="kpi-val" style="color:var(--yellow)">'+_WAREHOUSE_DATA.filter(d=>d.type==='صرف').length+'</div><div class="kpi-lbl">📤 صرف للمشاريع</div><div class="kpi-sub">إجمالي: '+totalOut.toLocaleString()+'</div></div>'+
       '<div class="kpi orange"><div class="kpi-val" style="color:var(--accent2)">'+uniqueItems+'</div><div class="kpi-lbl">📦 أصناف مختلفة</div></div>'+
+      (totalStockVal>0?'<div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val" style="color:var(--green);font-size:1.1rem">'+totalStockVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">💰 قيمة المخزون الحالي</div><div class="kpi-sub">ج.م</div></div>':'')+
+      (totalIssuedVal>0?'<div class="kpi" style="border-right-color:var(--orange)"><div class="kpi-val" style="color:var(--orange);font-size:1.1rem">'+totalIssuedVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">📤 قيمة المصروف للمشاريع</div><div class="kpi-sub">ج.م</div></div>':'')+
       (lowStock>0?'<div class="kpi" style="border-right-color:var(--red)"><div class="kpi-val" style="color:var(--red)">'+lowStock+'</div><div class="kpi-lbl">🔴 أصناف نفدت / سالبة</div></div>':'')+
     '</div>'+
 
@@ -3951,7 +3985,7 @@ function renderWarehouse(){
     '</div>'+
     (filtered.length?
     '<div class="chart-card"><div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.82rem"><thead><tr style="border-bottom:1px solid var(--border);color:var(--muted);font-size:.72rem">'+
-      '<th>#</th><th>التاريخ</th><th>النوع</th><th>الصنف</th><th>الكمية</th><th>المشروع</th><th>المورد/الجهة</th><th>ملاحظة</th><th>المسجّل</th>'+delTh+
+      '<th>#</th><th>التاريخ</th><th>النوع</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>القيمة ج.م</th><th>المشروع</th><th>المورد/الجهة</th><th>ملاحظة</th><th>المسجّل</th>'+delTh+
     '</tr></thead><tbody>'+txRows+'</tbody></table></div></div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد حركات بالفلتر الحالي.</div>');
 }
