@@ -3723,6 +3723,220 @@ let _WAREHOUSE_DATA=[];
 let _fbWhInit=false;
 const _WH_KEY='nile_warehouse_data';
 
+// ===== الحد الأدنى للمخزون (185 صنف) =====
+const _MIN_STOCK=[
+  {cat:'كهرباء عمارة',name:'لفه خرطوم 16مم داخلي 45متر',unit:'لفة',min:74},
+  {cat:'كهرباء عمارة',name:'لفه خرطوم 23مم داخلي 45متر',unit:'لفة',min:120},
+  {cat:'كهرباء عمارة',name:'لفه 29 مم 45 متر',unit:'لفة',min:2},
+  {cat:'كهرباء عمارة',name:'لفة خراطيم 16باور الوان 80 م',unit:'لفة',min:108},
+  {cat:'كهرباء عمارة',name:'لفة 13مم فليكسبيل',unit:'لفة',min:126},
+  {cat:'كهرباء عمارة',name:'لفه 16 مم فليكسيبل',unit:'لفة',min:76},
+  {cat:'كهرباء عمارة',name:'لفه خرطوم3بوصه',unit:'لفة',min:40},
+  {cat:'كهرباء عمارة',name:'ماجيك اصفر مفرد',unit:'عدد',min:1080},
+  {cat:'كهرباء عمارة',name:'ماجيك اصفر مجوز',unit:'عدد',min:370},
+  {cat:'كهرباء عمارة',name:'لوحة 24 خط بيتا',unit:'عدد',min:26},
+  {cat:'كهرباء عمارة',name:'لوحة 35*35 بيتا -صاعد',unit:'عدد',min:32},
+  {cat:'كهرباء عمارة',name:'لوحة عداد الحجاز',unit:'عدد',min:30},
+  {cat:'كهرباء عمارة',name:'لوحة 35*35 بيتا -صاعد',unit:'عدد',min:10},
+  {cat:'كهرباء عمارة',name:'بواط 20*20',unit:'عدد',min:32},
+  {cat:'كهرباء عمارة',name:'بواط سقف 4 مخرج',unit:'عدد',min:580},
+  {cat:'كهرباء عمارة',name:'لفة سلك  1.5 مم',unit:'لفة',min:14},
+  {cat:'كهرباء عمارة',name:'لفة سلك  2 مم',unit:'لفة',min:24},
+  {cat:'كهرباء عمارة',name:'لفة سلك  3 مم',unit:'لفة',min:4},
+  {cat:'كهرباء عمارة',name:'كابل صاعد متر 50مم',unit:'متر',min:270},
+  {cat:'كهرباء عمارة',name:'سلك سويدى 16 ملى (اللفة 100 متر)',unit:'لفة',min:4},
+  {cat:'كهرباء عمارة',name:'سلك سويدى 50 ملى',unit:'متر',min:240},
+  {cat:'كهرباء عمارة',name:'سلك سويدى 70 ملى',unit:'متر',min:144},
+  {cat:'كهرباء عمارة',name:'سلك سويدى 3×95×50 مسلح',unit:'متر',min:50},
+  {cat:'كهرباء عمارة',name:'سلك سويدى 3×95×70 مسلح',unit:'متر',min:50},
+  {cat:'كهرباء عمارة',name:'لوحة عمومية',unit:'عدد',min:2},
+  {cat:'كهرباء عمارة',name:'لوحه هيربشر 400امبير',unit:'عدد',min:2},
+  {cat:'كهرباء عمارة',name:'مفتاح قاطع رئيس 250امبير 25كيلو',unit:'عدد',min:4},
+  {cat:'كهرباء عمارة',name:'مفتاح اتوماتيك 20A',unit:'عدد',min:12},
+  {cat:'كهرباء عمارة',name:'مفتاح 25 امبير احادي',unit:'عدد',min:4},
+  {cat:'كهرباء عمارة',name:'مفتاح احادي 63 امبير 10كيلو',unit:'عدد',min:10},
+  {cat:'كهرباء عمارة',name:'ضفضعة نحاس +بلاستيك',unit:'عدد',min:54},
+  {cat:'كهرباء عمارة',name:'شريط لحام',unit:'عدد',min:24},
+  {cat:'كهرباء عمارة',name:'ماكينه سلم شنيدر',unit:'عدد',min:2},
+  {cat:'كهرباء عمارة',name:'كشاف 36وات مدور',unit:'عدد',min:80},
+  {cat:'كهرباء عمارة',name:'كشاف اب داون 2 ليد دهبي',unit:'عدد',min:40},
+  {cat:'كهرباء عمارة',name:'كشاف اب لايت 20 وات',unit:'عدد',min:32},
+  {cat:'كهرباء عمارة',name:'مسمار صلب متنوع',unit:'كيلو',min:18},
+  {cat:'كهرباء عمارة',name:'مسمار خشابي 10 سم',unit:'كيلو',min:10},
+  {cat:'كهرباء عمارة',name:'مسمار سنارة',unit:'كيلو',min:6},
+  {cat:'كهرباء عمارة',name:'فشر',unit:'علبة',min:6},
+  {cat:'كهرباء عمارة',name:'مسمار سن صاج كيلو',unit:'كيلو',min:3},
+  {cat:'كهرباء عمارة',name:'كيس حزام 1م 25سم',unit:'عدد',min:4},
+  {cat:'كهرباء عمارة',name:'نجفة',unit:'عدد',min:2},
+  {cat:'كهرباء عمارة',name:'لمبة 12 وات',unit:'عدد',min:36},
+  {cat:'كهرباء عمارة',name:'دواية قلوظ كبيرة بيضاء',unit:'عدد',min:32},
+  {cat:'كهرباء عمارة',name:'دواية سبوت',unit:'عدد',min:4},
+  {cat:'كهرباء عمارة',name:'مفتاح كند',unit:'لقمة',min:6},
+  {cat:'كهرباء عمارة',name:'بريزه كند شامبين',unit:'لقمة',min:2},
+  {cat:'كهرباء عمارة',name:'شاسية كند',unit:'لقمة',min:2},
+  {cat:'كهرباء عمارة',name:'جرس كند',unit:'لقمة',min:26},
+  {cat:'كهرباء عمارة',name:'سدادة كند',unit:'لقمة',min:22},
+  {cat:'كهرباء عمارة',name:'وش كند',unit:'لقمة',min:26},
+  {cat:'كهرباء عمارة',name:'مفتاح شانسي',unit:'لقمة',min:8},
+  {cat:'كهرباء عمارة',name:'بريزة شانسي',unit:'لقمة',min:40},
+  {cat:'كهرباء عمارة',name:'شاسية شانسي',unit:'لقمة',min:44},
+  {cat:'كهرباء عمارة',name:'وش شانسي',unit:'لقمة',min:44},
+  {cat:'كهرباء عمارة',name:'سدادة شانسي',unit:'لقمة',min:84},
+  {cat:'كهرباء عمارة',name:'مفتاح قاطع رئيسي 400امبير 36كيلو',unit:'عدد',min:2},
+  {cat:'كهرباء عمارة',name:'لمبه شوكه',unit:'عدد',min:88},
+  {cat:'مصعد أسانسير',name:'طقم دليل تركى (شليجراى)',unit:'متر',min:90},
+  {cat:'مصعد أسانسير',name:'باب محمد محمود70سم (اسانسير)',unit:'عدد',min:10},
+  {cat:'مصعد أسانسير',name:'باب اسانسير اوتاك 70سم فورجيه',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'زاوية 5سم*6م',unit:'عدد',min:14},
+  {cat:'مصعد أسانسير',name:'كابولي كبير ( اسانسير)',unit:'عدد',min:60},
+  {cat:'مصعد أسانسير',name:'كابولي صغير ( اسانسير)',unit:'عدد',min:60},
+  {cat:'مصعد أسانسير',name:'بالتة كبيرة (اسانسير )',unit:'عدد',min:20},
+  {cat:'مصعد أسانسير',name:'بالتة صغيرة ( اسانسير )',unit:'عدد',min:20},
+  {cat:'مصعد أسانسير',name:'مسمار12*30مم',unit:'كيلو',min:16},
+  {cat:'مصعد أسانسير',name:'وردة بلدي12 مم',unit:'كيلو',min:6},
+  {cat:'مصعد أسانسير',name:'وردة سوستة 12 مم',unit:'كيلو',min:2},
+  {cat:'مصعد أسانسير',name:'مسمار صلب 8 ملى طول 3 سم بالصمولة',unit:'كيلو',min:8},
+  {cat:'مصعد أسانسير',name:'وردة بلدي  8مم',unit:'كيلو',min:2},
+  {cat:'مصعد أسانسير',name:'وردة سوستة 8 مم',unit:'كيلو',min:1},
+  {cat:'مصعد أسانسير',name:'سلك لحام',unit:'باكو',min:2},
+  {cat:'مصعد أسانسير',name:'اسطوانة صاروخ بسكوتة 9 ملى',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'خيط بلاستيك',unit:'لفة',min:2},
+  {cat:'مصعد أسانسير',name:'بنطة هيلتي 12مم',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'مسمار هيلتي',unit:'عدد',min:200},
+  {cat:'مصعد أسانسير',name:'ماكينة سيكور ايطالى 8 حصان MR12',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'كمر مجري 14سم*6م',unit:'كمرة',min:2},
+  {cat:'مصعد أسانسير',name:'كمر مجري 12سم *3م',unit:'متر',min:6},
+  {cat:'مصعد أسانسير',name:'نهاية 5 سم',unit:'متر',min:6},
+  {cat:'مصعد أسانسير',name:'طارة مناول',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'كاوتش ماكينة',unit:'طقم',min:2},
+  {cat:'مصعد أسانسير',name:'بالتة صغيرة ( اسانسير )',unit:'عدد',min:20},
+  {cat:'مصعد أسانسير',name:'مسمار 16*60',unit:'عدد',min:8},
+  {cat:'مصعد أسانسير',name:'مسمار 10*60',unit:'عدد',min:8},
+  {cat:'مصعد أسانسير',name:'حبل صلب 11مم ( اسانسير)',unit:'متر',min:200},
+  {cat:'مصعد أسانسير',name:'شداد صيني11مم(اسانسير)',unit:'عدد',min:16},
+  {cat:'مصعد أسانسير',name:'ذرجينة 11 سم',unit:'عدد',min:32},
+  {cat:'مصعد أسانسير',name:'ذرجينة 6 سم(اسانسير)',unit:'عدد',min:8},
+  {cat:'مصعد أسانسير',name:'منظم سرعة علوي تركي وسفلي محلي باراشوت (اسانسير)',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'حبل صلب 6 مم (اسانسير)',unit:'متر',min:90},
+  {cat:'مصعد أسانسير',name:'طقم كرسي ميتسوبيشي 9سم(اسانسير)',unit:'طقم',min:2},
+  {cat:'مصعد أسانسير',name:'طقم كرسي زهر 5سم ( اسانسير)',unit:'طقم',min:2},
+  {cat:'مصعد أسانسير',name:'سوستة بير',unit:'طقم',min:2},
+  {cat:'مصعد أسانسير',name:'كابينة بالشاسيه على حسب مقاس البير',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'زهر بلاستيك مقاس (اسانسير)',unit:'كيلو',min:1200},
+  {cat:'مصعد أسانسير',name:'كنترول انفرتر شنايدر 7.5 (كل المكونات شنايدر)',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'كنترول طوارئ لاب استار',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'كالون باب جان لفت تركى الأصلى',unit:'عدد',min:12},
+  {cat:'مصعد أسانسير',name:'كامة جين ليفت',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'طلمبة باب اسانسير',unit:'عدد',min:12},
+  {cat:'مصعد أسانسير',name:'طلب خارجي بالمبين',unit:'عدد',min:12},
+  {cat:'مصعد أسانسير',name:'علبة صيانة',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'كابل مرن 1 ملى بول تركى',unit:'متر',min:140},
+  {cat:'مصعد أسانسير',name:'حامل كبل مرن',unit:'عدد',min:12},
+  {cat:'مصعد أسانسير',name:'كاوتش حامل كبل مرن',unit:'عدد',min:8},
+  {cat:'مصعد أسانسير',name:'نهاية ايطالي',unit:'عدد',min:8},
+  {cat:'مصعد أسانسير',name:'مغناطيس ايطالي',unit:'عدد',min:4},
+  {cat:'مصعد أسانسير',name:'شريحة ايطالى',unit:'عدد',min:36},
+  {cat:'مصعد أسانسير',name:'مزيتة بلاستيك',unit:'عدد',min:4},
+  {cat:'مصعد أسانسير',name:'شاحن 12 + سارينة 12',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'كرنك 4  *  4 مقفول',unit:'عدد',min:24},
+  {cat:'مصعد أسانسير',name:'خرطوم فليكسبل 16 ملى',unit:'لفة',min:2},
+  {cat:'مصعد أسانسير',name:'لفة 13مم فليكسبيل',unit:'لفة',min:2},
+  {cat:'مصعد أسانسير',name:'شريط لحام',unit:'لفة',min:10},
+  {cat:'مصعد أسانسير',name:'لفه سلك نت 8طرف 50 متر',unit:'لفة',min:2},
+  {cat:'مصعد أسانسير',name:'لفة سلك 6 مم اسانسير',unit:'لفة',min:2},
+  {cat:'مصعد أسانسير',name:'لفة سلك1 مم',unit:'لفة',min:16},
+  {cat:'مصعد أسانسير',name:'مروحة شندلر',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'اكسز كنتورل',unit:'عدد',min:2},
+  {cat:'مصعد أسانسير',name:'ميداليات',unit:'عدد',min:20},
+  {cat:'مصعد أسانسير',name:'زيت تعاون سوبر ستان -4لتر',unit:'جركن',min:2},
+  {cat:'مصعد أسانسير',name:'سورلار',unit:'لتر',min:10},
+  {cat:'مصعد أسانسير',name:'اسبوت كابينة 7 سم',unit:'عدد',min:8},
+  {cat:'سباكة عمارة',name:'مواسير بلاستيك كاسيل 6 ملى',unit:'متر',min:230},
+  {cat:'سباكة عمارة',name:'مواسير بلاستيك 4 ملى',unit:'متر',min:430},
+  {cat:'سباكة عمارة',name:'مواسير بلاستيك 3 ملى',unit:'متر',min:420},
+  {cat:'سباكة عمارة',name:'مواسير بلاستيك 50 ملى',unit:'متر',min:230},
+  {cat:'سباكة عمارة',name:'ماسورة بولي اسود معزول 50مم BR',unit:'متر',min:260},
+  {cat:'سباكة عمارة',name:'ماسورة بولي اسود معزول 32مم BR',unit:'متر',min:320},
+  {cat:'سباكة عمارة',name:'ماسورة بولي اسود معزول 25مم BR',unit:'متر',min:65},
+  {cat:'سباكة عمارة',name:'مشترك 32 كاسيل',unit:'عدد',min:570},
+  {cat:'سباكة عمارة',name:'مشترك 45°×90° 6 بوصة',unit:'عدد',min:10},
+  {cat:'سباكة عمارة',name:'مشترك 4×6 بوصة',unit:'عدد',min:71},
+  {cat:'سباكة عمارة',name:'كوع مفتوح 6 بوصة',unit:'عدد',min:18},
+  {cat:'سباكة عمارة',name:'كوع بابا 6 بوصة',unit:'عدد',min:22},
+  {cat:'سباكة عمارة',name:'جلبة 6 بوصة',unit:'عدد',min:50},
+  {cat:'سباكة عمارة',name:'نقاص 4×6 بوصة',unit:'عدد',min:10},
+  {cat:'سباكة عمارة',name:'عود تيش 10مم',unit:'عود',min:60},
+  {cat:'سباكة عمارة',name:'أكمن 10 ملى',unit:'عدد',min:250},
+  {cat:'سباكة عمارة',name:'صمولة وردة',unit:'كيلو',min:6.5},
+  {cat:'سباكة عمارة',name:'غرفة تفتيش 60*60سم',unit:'عدد',min:5},
+  {cat:'سباكة عمارة',name:'مشترك 90°×6 بوصة',unit:'عدد',min:8},
+  {cat:'سباكة عمارة',name:'مشترك 45°×4 بوصة',unit:'عدد',min:70},
+  {cat:'سباكة عمارة',name:'مشترك 50°×4 بوصة',unit:'عدد',min:75},
+  {cat:'سباكة عمارة',name:'جلبة 50مم كاسيل',unit:'عدد',min:105},
+  {cat:'سباكة عمارة',name:'نقاص 3×4 بوصة',unit:'عدد',min:16},
+  {cat:'سباكة عمارة',name:'كوع بابا 4 بوصة',unit:'عدد',min:70},
+  {cat:'سباكة عمارة',name:'هوائية 4 بوصة',unit:'عدد',min:17},
+  {cat:'سباكة عمارة',name:'هوائية 3 بوصة',unit:'عدد',min:15},
+  {cat:'سباكة عمارة',name:'أفيزا 4 بوصة',unit:'عدد',min:350},
+  {cat:'سباكة عمارة',name:'مشترك 45°×3 بوصة',unit:'عدد',min:90},
+  {cat:'سباكة عمارة',name:'جلبة 3 بوصة',unit:'عدد',min:105},
+  {cat:'سباكة عمارة',name:'كوع بابا 3 بوصة',unit:'عدد',min:105},
+  {cat:'سباكة عمارة',name:'كوع مفتوح 3 بوصة',unit:'عدد',min:40},
+  {cat:'سباكة عمارة',name:'كوع مفتوح 4 بوصة',unit:'عدد',min:30},
+  {cat:'سباكة عمارة',name:'افيز ايطالي 2.5بوصه',unit:'عدد',min:270},
+  {cat:'سباكة عمارة',name:'مشترك 50/50كاسيل 45',unit:'عدد',min:60},
+  {cat:'سباكة عمارة',name:'جلبة 50مم كاسيل',unit:'عدد',min:60},
+  {cat:'سباكة عمارة',name:'هواية 50مم كاسيل',unit:'عدد',min:14},
+  {cat:'سباكة عمارة',name:'افيز ايطالي 1.5بوصه',unit:'عدد',min:220},
+  {cat:'سباكة عمارة',name:'جلبة بسن داخلى 1.5 لحام',unit:'عدد',min:4},
+  {cat:'سباكة عمارة',name:'جلبة بسن خارجى 1.5 لحام',unit:'عدد',min:4},
+  {cat:'سباكة عمارة',name:'ته لحام 1.5×1.5 بولى',unit:'عدد',min:16},
+  {cat:'سباكة عمارة',name:'مشترك لحام بولي 50*32مم اسود معزول BR',unit:'عدد',min:22},
+  {cat:'سباكة عمارة',name:'كوع لحام 50مم 90 اخضر BR',unit:'عدد',min:100},
+  {cat:'سباكة عمارة',name:'محبس 2 الكور بولي 50مم اسود معزول BR',unit:'عدد',min:4},
+  {cat:'سباكة عمارة',name:'محبس 2 الكور بولي 32مم',unit:'عدد',min:4},
+  {cat:'سباكة عمارة',name:'افيز ايطالي 1بوصه',unit:'عدد',min:600},
+  {cat:'سباكة عمارة',name:'كوع لحام 32 بولى',unit:'عدد',min:40},
+  {cat:'سباكة عمارة',name:'طبة كاب لحام بولي 32مم اسود معزول BR',unit:'عدد',min:12},
+  {cat:'سباكة عمارة',name:'مشترك لحام بولي 50*32مم اسود معزول BR',unit:'عدد',min:80},
+  {cat:'سباكة عمارة',name:'طبة كاب لحام بولي 25مم اسود معزول BR',unit:'عدد',min:80},
+  {cat:'سباكة عمارة',name:'كوع لحام بولي 25مم اسود معزول BR',unit:'عدد',min:25},
+  {cat:'سباكة عمارة',name:'محبس حديد 50 ملى',unit:'عدد',min:2},
+  {cat:'سباكة عمارة',name:'بوش حديد 50×32 ملى',unit:'عدد',min:2},
+  {cat:'سباكة عمارة',name:'بوش حديد 1*3/4',unit:'عدد',min:2},
+  {cat:'سباكة عمارة',name:'جلبة حديد 50 ملى',unit:'عدد',min:2},
+  {cat:'سباكة عمارة',name:'نبيل حديد 50 ملى',unit:'عدد',min:2},
+  {cat:'سباكة عمارة',name:'محبس حديد 32 ملى',unit:'عدد',min:2},
+  {cat:'سباكة عمارة',name:'شريط حديد 25 ملى',unit:'عدد',min:2},
+  {cat:'سباكة عمارة',name:'بكره تيفلون كبيره',unit:'بكرة',min:4},
+  {cat:'سباكة عمارة',name:'ماسورة 50 ملى بولى أخضر',unit:'متر',min:32},
+];
+
+// ===== دالة حساب تنبيهات الحد الأدنى =====
+function _getWhAlerts(){
+  // بناء خريطة الأرصدة الحالية
+  const stockMap={};
+  _WAREHOUSE_DATA.forEach(d=>{
+    const key=d.item.trim().toLowerCase();
+    if(!stockMap[key])stockMap[key]={balance:0,unit:d.unit||''};
+    if(d.type==='توريد')stockMap[key].balance+=d.qty;
+    else stockMap[key].balance-=d.qty;
+  });
+  const alerts=[];
+  _MIN_STOCK.forEach(m=>{
+    const key=m.name.trim().toLowerCase();
+    const st=stockMap[key];
+    const bal=st?st.balance:0;
+    const warn=m.min*1.1;
+    var status;
+    if(bal<m.min)status='حرج';
+    else if(bal<warn)status='تحذير';
+    else status='طبيعي';
+    alerts.push({...m,balance:bal,status:status});
+  });
+  return alerts;
+}
+
 function _saveWarehouseData(){
   const obj={};_WAREHOUSE_DATA.forEach((d,i)=>{obj['wh'+d.id]=d;});
   _DB.ref('warehouse').set(Object.keys(obj).length?obj:null).then(()=>_fbOk()).catch(e=>_fbErr('warehouse_data',e));
@@ -4110,8 +4324,75 @@ function renderWarehouse(){
   });
   const delTh=canDel?'<th>حذف</th>':'';
 
+  // ===== حساب التنبيهات =====
+  const _alerts=_getWhAlerts();
+  const _alertCritical=_alerts.filter(a=>a.status==='حرج');
+  const _alertWarn=_alerts.filter(a=>a.status==='تحذير');
+  const _alertOk=_alerts.filter(a=>a.status==='طبيعي');
+  const _curAlertTab=window._whAlertTab||'';
+
+  // ===== جدول التنبيهات =====
+  function _buildAlertTable(arr,colHeader){
+    if(!arr.length)return '<div style="text-align:center;color:var(--muted);padding:20px">لا توجد أصناف</div>';
+    return '<table style="width:100%;border-collapse:collapse;font-size:.8rem">'+
+      '<thead><tr style="background:var(--card)">'+
+        '<th style="padding:8px 10px;text-align:right">الصنف</th>'+
+        '<th style="padding:8px 10px;text-align:center">الفئة</th>'+
+        '<th style="padding:8px 10px;text-align:center">الحد الأدنى</th>'+
+        '<th style="padding:8px 10px;text-align:center;color:'+colHeader+'">الرصيد الحالي</th>'+
+        '<th style="padding:8px 10px;text-align:center">الوحدة</th>'+
+        '<th style="padding:8px 10px;text-align:center">الفرق</th>'+
+      '</tr></thead><tbody>'+
+      arr.map(function(a,i){
+        var diff=a.balance-a.min;
+        var balClr=a.status==='حرج'?'var(--red)':a.status==='تحذير'?'var(--yellow)':'var(--green)';
+        var diffClr=diff<0?'var(--red)':'var(--green)';
+        return '<tr style="'+(i%2?'background:rgba(255,255,255,.025)':'')+'">'+
+          '<td style="padding:7px 10px;font-weight:700">'+a.name+'</td>'+
+          '<td style="padding:7px 10px;text-align:center;font-size:.72rem;color:var(--muted)">'+a.cat+'</td>'+
+          '<td style="padding:7px 10px;text-align:center">'+a.min.toLocaleString()+'</td>'+
+          '<td style="padding:7px 10px;text-align:center;font-weight:900;color:'+balClr+'">'+a.balance.toLocaleString()+'</td>'+
+          '<td style="padding:7px 10px;text-align:center;color:var(--muted)">'+a.unit+'</td>'+
+          '<td style="padding:7px 10px;text-align:center;font-weight:700;color:'+diffClr+'">'+(diff>=0?'+':'')+diff.toLocaleString()+'</td>'+
+        '</tr>';
+      }).join('')+
+    '</tbody></table>';
+  }
+
+  var alertPanelHtml='';
+  if(_curAlertTab==='حرج'){
+    alertPanelHtml='<div style="margin-top:12px">'+
+      '<div style="font-weight:700;color:var(--red);margin-bottom:8px;font-size:.88rem">🔴 نقص حرج — '+_alertCritical.length+' صنف (الرصيد أقل من الحد الأدنى)</div>'+
+      _buildAlertTable(_alertCritical,'var(--red)')+
+    '</div>';
+  } else if(_curAlertTab==='تحذير'){
+    alertPanelHtml='<div style="margin-top:12px">'+
+      '<div style="font-weight:700;color:var(--yellow);margin-bottom:8px;font-size:.88rem">🟡 تحذير — '+_alertWarn.length+' صنف (الرصيد قارب الحد الأدنى ضمن 10%)</div>'+
+      _buildAlertTable(_alertWarn,'var(--yellow)')+
+    '</div>';
+  } else if(_curAlertTab==='طبيعي'){
+    alertPanelHtml='<div style="margin-top:12px">'+
+      '<div style="font-weight:700;color:var(--green);margin-bottom:8px;font-size:.88rem">🟢 مؤمن — '+_alertOk.length+' صنف بالمستوى الطبيعي</div>'+
+      _buildAlertTable(_alertOk,'var(--green)')+
+    '</div>';
+  }
+
   document.getElementById('tab-warehouse').innerHTML=
     '<div class="section-title">🏭 المخازن — صرف وتوريد ورصيد</div>'+
+
+    // ===== شريط تنبيهات الحد الأدنى =====
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center">'+
+      '<span style="font-size:.78rem;color:var(--muted);font-weight:700">📊 مستوى المخزون:</span>'+
+      '<button onclick="window._whAlertTab=(window._whAlertTab===\'حرج\'?\'\':\'حرج\');renderWarehouse()" style="cursor:pointer;border:1px solid rgba(239,68,68,.5);background:'+((_curAlertTab==='حرج')?'rgba(239,68,68,.25)':'rgba(239,68,68,.1)')+';color:var(--red);border-radius:20px;padding:5px 14px;font-family:Cairo,sans-serif;font-size:.8rem;font-weight:700">'+
+        '🔴 نقص حرج <span style="background:var(--red);color:#fff;border-radius:50%;padding:0 6px;font-size:.72rem;margin-right:4px">'+_alertCritical.length+'</span></button>'+
+      '<button onclick="window._whAlertTab=(window._whAlertTab===\'تحذير\'?\'\':\'تحذير\');renderWarehouse()" style="cursor:pointer;border:1px solid rgba(234,179,8,.5);background:'+((_curAlertTab==='تحذير')?'rgba(234,179,8,.25)':'rgba(234,179,8,.1)')+';color:var(--yellow);border-radius:20px;padding:5px 14px;font-family:Cairo,sans-serif;font-size:.8rem;font-weight:700">'+
+        '🟡 تحذير <span style="background:var(--yellow);color:#000;border-radius:50%;padding:0 6px;font-size:.72rem;margin-right:4px">'+_alertWarn.length+'</span></button>'+
+      '<button onclick="window._whAlertTab=(window._whAlertTab===\'طبيعي\'?\'\':\'طبيعي\');renderWarehouse()" style="cursor:pointer;border:1px solid rgba(34,197,94,.5);background:'+((_curAlertTab==='طبيعي')?'rgba(34,197,94,.25)':'rgba(34,197,94,.1)')+';color:var(--green);border-radius:20px;padding:5px 14px;font-family:Cairo,sans-serif;font-size:.8rem;font-weight:700">'+
+        '🟢 مؤمن <span style="background:var(--green);color:#000;border-radius:50%;padding:0 6px;font-size:.72rem;margin-right:4px">'+_alertOk.length+'</span></button>'+
+      (_curAlertTab?'<button onclick="window._whAlertTab=\'\';renderWarehouse()" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:5px 12px;font-family:Cairo,sans-serif;font-size:.78rem">✕ إغلاق</button>':'')+
+    '</div>'+
+    (_curAlertTab?alertPanelHtml:'')+
+
     '<div class="kpi-grid" style="margin-bottom:16px">'+
       '<div class="kpi blue"><div class="kpi-val">'+_WAREHOUSE_DATA.length+'</div><div class="kpi-lbl">إجمالي الحركات</div></div>'+
       '<div class="kpi green"><div class="kpi-val" style="color:var(--green)">'+_WAREHOUSE_DATA.filter(d=>d.type==='توريد').length+'</div><div class="kpi-lbl">📥 توريدات واردة</div><div class="kpi-sub">إجمالي: '+totalIn.toLocaleString()+'</div></div>'+
