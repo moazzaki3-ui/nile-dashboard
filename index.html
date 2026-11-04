@@ -959,6 +959,67 @@ PROJECTS.forEach(p=>{
   p.locLabel=lmap[p.locN]||p.loc;
 });
 
+// ========== GLOBAL PROJECT AREAS (من PDF المساحات) ==========
+(function(){
+  var _PA_SRC={
+    'P-001':500,'P-002':500,'P-003':535,'P-004':541,'P-005':438.05,'P-006':486,
+    'P-007':467.78,'P-008':967.07,'P-009':425,'P-010':450,'P-011':449.93,
+    'P-012':732.03,'P-013':732.03,'P-014':737,'P-015':954.51,'P-016':735.86,
+    'P-017':737,'P-018':600,'P-019':600,'P-020':605.60,'P-021':604,
+    'P-022':769.72,'P-023':600,'P-024':600,'P-025':622.87,'P-026':892.36,
+    'P-027':601,'P-028':603.91,'P-029':600,'P-030':600.02,'P-031':600.02,
+    'P-032':600.02,'P-033':660.33,'P-034':600,'P-035':796.55,'P-036':660,
+    'P-037':775,'P-038':750.31,'P-039':763.38,'P-040':793.49,'P-041':748.52,
+    'P-042':804.14,'P-043':804.54,'P-044':828.86,'P-045':737.01,'P-046':752.67,
+    'P-047':741.15,'P-048':760.10,'P-049':867.97,'P-050':837.50,'P-051':832.97,
+    'P-052':738,'P-053':799.59,'P-054':737,'P-055':822.83,'P-056':737,
+    'P-057':608.35,'P-058':604,'P-059':612.60,'P-060':600.02,'P-061':600,
+    'P-062':602.92,'P-063':602.97,'P-064':602.97,'P-065':654.64,'P-066':605.66,
+    'P-067':605.66,'P-068':605.66,'P-069':662.92,'P-070':600,'P-071':600,
+    'P-072':660,'P-073':523.83,'P-074':538.80,'P-075':538.80,'P-076':600,
+    'P-077':464.49,'P-078':405.47,'P-079':448.10,'P-080':645.35,'P-081':447.69,
+    'P-082':425,'P-083':600,'P-084':600,'P-085':531.28,'P-086':437.50,
+    'P-087':767.09,'P-088':737,'P-089':600,'P-090':600,'P-091':600,
+    'P-092':792.46,'P-093':621.19,'P-094':600,'P-095':719.11,'P-096':425,
+    'P-097':457.50,'P-098':437.50,'P-099':475,'P-100':475,'P-101':450,
+    'P-102':500,'P-103':437.50,'P-104':658.66,'P-105':552.54,'P-106':1117.12,
+    'P-107':483,'P-108':798,'P-109':475,'P-110':528,'P-111':450,'P-112':450,
+    'P-113':475,'P-114':475,'P-115':559,'P-116':526.5,'P-117':526.5,
+    'P-118':600,'P-119':600,'P-120':600,'P-121':732.62,'P-122':0,'P-123':608.54,
+    'P-124':600,'P-125':673.35,'P-126':600,'P-127':0,'P-128':0,'P-129':0,
+    'P-130':425,'P-131':425,'P-132':475,'P-133':475,'P-134':475,'P-135':475,
+    'P-136':475,'P-137':473,'P-138':473,'P-139':425,'P-140':425,'P-141':425,
+    'P-142':0,'P-143':0,'P-144':0,'P-145':746,'P-146':525,'P-147':525,
+    'P-148':525,'P-149':525,'P-150':525,'P-151':463,'P-152':463,'P-153':463,
+    'P-154':463,'P-155':463,'P-156':463,'P-157':463,'P-158':463,'P-159':750.31,
+    'P-160':0,'P-161':0,'P-162':0,'P-163':0,'P-164':0,'P-165':0,'P-166':0,'P-167':0
+  };
+  var _PROJ_AREAS={};
+  PROJECTS.forEach(function(p){
+    _PROJ_AREAS[p.code]={name:p.name,area:_PA_SRC[p.code]||0,loc:p.locLabel||p.loc};
+  });
+  // إضافة أي كود موجود في PDF لكن مش في PROJECTS
+  Object.keys(_PA_SRC).forEach(function(code){
+    if(!_PROJ_AREAS[code])_PROJ_AREAS[code]={name:code,area:_PA_SRC[code]||0,loc:''};
+  });
+  window._PROJ_AREAS=_PROJ_AREAS;
+})();
+
+// 12 مشروع نشط — config مركزي (type مطلوب لكل دالة)
+var _ACTV_CFG=[
+  {code:'P-003',type:'da5li'},{code:'P-004',type:'da5li'},{code:'P-005',type:'da5li'},
+  {code:'P-006',type:'wajhat'},{code:'P-014',type:'wajhat'},{code:'P-015',type:'da5li'},
+  {code:'P-016',type:'wajhat'},{code:'P-017',type:'wajhat'},{code:'P-021',type:'da5li'},
+  {code:'P-034',type:'da5li'},{code:'P-035',type:'da5li'},{code:'P-125',type:'k104'}
+];
+// إضافة name وarea وloc من _PROJ_AREAS
+(function(){
+  _ACTV_CFG.forEach(function(p){
+    var pa=window._PROJ_AREAS[p.code]||{};
+    p.name=pa.name||p.code;p.area=pa.area||0;p.loc=pa.loc||'';
+  });
+})();
+
 function showTab(t){
   // Permission guard: block restricted tabs even when called programmatically (e.g. KPI links)
   const _sRole=window._CURRENT_ROLE||'viewer';
@@ -1360,21 +1421,8 @@ function renderUpdates(){
 }
 
 function renderCashFlow(){
-  // ===== 12 Active Projects Config =====
-  var _ACTV=[
-    {code:'P-003',name:'117A',area:535,type:'da5li'},
-    {code:'P-004',name:'59A',area:541,type:'da5li'},
-    {code:'P-005',name:'33I',area:438.05,type:'da5li'},
-    {code:'P-006',name:'98A',area:486,type:'wajhat'},
-    {code:'P-014',name:'52L',area:737,type:'wajhat'},
-    {code:'P-015',name:'58C',area:954.51,type:'da5li'},
-    {code:'P-016',name:'226J',area:735.86,type:'wajhat'},
-    {code:'P-017',name:'160J',area:737,type:'wajhat'},
-    {code:'P-021',name:'122K',area:604,type:'da5li'},
-    {code:'P-034',name:'145A',area:600,type:'da5li'},
-    {code:'P-035',name:'53A',area:796.55,type:'da5li'},
-    {code:'P-125',name:'104K',area:673.35,type:'k104'}
-  ];
+  // ===== 12 Active Projects Config — من _ACTV_CFG =====
+  var _ACTV=_ACTV_CFG.slice();
   var BASE=11578094/600;
   var _DEF_MONTHS={'P-003':8,'P-004':8,'P-005':8,'P-006':8,'P-014':8,'P-015':8,'P-016':8,'P-017':8,'P-021':8,'P-034':8,'P-035':8,'P-125':3};
   var _DEF_START={'P-003':'2025-06-01','P-004':'2025-06-01','P-005':'2025-06-01','P-006':'2025-06-01','P-014':'2025-06-01','P-015':'2025-06-01','P-016':'2025-06-01','P-017':'2025-06-01','P-021':'2025-06-01','P-034':'2025-06-01','P-035':'2025-06-01','P-125':'2025-10-12'};
@@ -1584,20 +1632,7 @@ function renderFinancial(){
     wajhat:{paid:.75,oct:.01,nov:.08,dec:.12,jan:.04},
     k104:{paid:.35,oct:.09,nov:.35,dec:.21,jan:0}
   };
-  const ACTIVE=[
-    {code:'P-003',name:'117A',area:535,loc:'North Rehab',type:'da5li'},
-    {code:'P-004',name:'59A',area:541,loc:'North Rehab',type:'da5li'},
-    {code:'P-005',name:'33I',area:438.05,loc:'North Rehab',type:'da5li'},
-    {code:'P-006',name:'98A',area:486,loc:'North Rehab',type:'wajhat'},
-    {code:'P-014',name:'52L',area:737,loc:'2nd Settlement',type:'wajhat'},
-    {code:'P-015',name:'58C',area:954.51,loc:'3rd Settlement',type:'da5li'},
-    {code:'P-016',name:'226J',area:735.86,loc:'2nd Settlement',type:'wajhat'},
-    {code:'P-017',name:'160J',area:737,loc:'2nd Settlement',type:'wajhat'},
-    {code:'P-021',name:'122K',area:604,loc:'4th Settlement',type:'da5li'},
-    {code:'P-034',name:'145A',area:600,loc:'7th Settlement',type:'da5li'},
-    {code:'P-035',name:'53A',area:796.55,loc:'2nd Settlement',type:'da5li'},
-    {code:'P-125',name:'104K',area:673.35,loc:'4th Settlement',type:'k104'},
-  ];
+  const ACTIVE=_ACTV_CFG.slice();
   const statusLabel={da5li:'تشطيب داخلي',wajhat:'تشطيب وجهات',k104:'هيكل (104K)'};
   const statusCol={da5li:'var(--orange)',wajhat:'var(--yellow)',k104:'var(--accent)'};
   // الموقف التنفيذي الحقيقي من مصفوفة المشاريع
@@ -5613,20 +5648,7 @@ function saveProjectDate(code,val){
 function _drawCfScheduleGrid(){
   const tbody=document.getElementById('cfMonthsBody');if(!tbody)return;
   const BASE=11578094/600;
-  const _ACTV=[
-    {code:'P-003',name:'117A',area:535,type:'da5li'},
-    {code:'P-004',name:'59A',area:541,type:'da5li'},
-    {code:'P-005',name:'33I',area:438.05,type:'da5li'},
-    {code:'P-006',name:'98A',area:486,type:'wajhat'},
-    {code:'P-014',name:'52L',area:737,type:'wajhat'},
-    {code:'P-015',name:'58C',area:954.51,type:'da5li'},
-    {code:'P-016',name:'226J',area:735.86,type:'wajhat'},
-    {code:'P-017',name:'160J',area:737,type:'wajhat'},
-    {code:'P-021',name:'122K',area:604,type:'da5li'},
-    {code:'P-034',name:'145A',area:600,type:'da5li'},
-    {code:'P-035',name:'53A',area:796.55,type:'da5li'},
-    {code:'P-125',name:'104K',area:673.35,type:'k104'}
-  ];
+  const _ACTV=_ACTV_CFG.slice();
   const _DEF_MONTHS={'P-003':8,'P-004':8,'P-005':8,'P-006':8,'P-014':8,'P-015':8,'P-016':8,'P-017':8,'P-021':8,'P-034':8,'P-035':8,'P-125':3};
   const _DEF_START={'P-003':'2025-06-01','P-004':'2025-06-01','P-005':'2025-06-01','P-006':'2025-06-01','P-014':'2025-06-01','P-015':'2025-06-01','P-016':'2025-06-01','P-017':'2025-06-01','P-021':'2025-06-01','P-034':'2025-06-01','P-035':'2025-06-01','P-125':'2025-10-12'};
   const _AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
