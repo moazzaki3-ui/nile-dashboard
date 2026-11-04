@@ -4332,7 +4332,13 @@ function renderWarehouse(){
   const canEdit=(_brw==='admin'||_brw==='editor'||_brw==='engineer'||_brw==='supervisor'||_brw==='foreman'||_brw==='storekeeper');
   const canDel=(_brw==='admin'||_brw==='editor');
   const filterType=(document.getElementById('whFilterType')||{}).value||'';
-  const filterItem=((document.getElementById('whFilterItem')||{}).value||'').toLowerCase().trim();
+  const _whActiveId=(document.activeElement||{}).id||'';
+  const _whActiveVal=(document.activeElement||{}).value||'';
+  const _whActivePos=(document.activeElement||{}).selectionStart||0;
+  const filterItemRaw=(_whActiveId==='whFilterItem'?_whActiveVal:((document.getElementById('whFilterItem')||{}).value||'')).trim();
+  const filterItem=filterItemRaw.toLowerCase();
+  const stockSearchRaw=(_whActiveId==='whStockSearch'?_whActiveVal:((document.getElementById('whStockSearch')||{}).value||'')).trim();
+  const stockSearch=stockSearchRaw.toLowerCase();
 
   const filtered=_WAREHOUSE_DATA.filter(d=>(!filterType||d.type===filterType)&&(!filterItem||d.item.toLowerCase().includes(filterItem)));
 
@@ -4377,24 +4383,80 @@ function renderWarehouse(){
 
   const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
 
-  // Stock balance cards
-  let stockCards='';
-  stockArr.sort((a,b)=>a.balance-b.balance).forEach(s=>{
-    const balColor=s.balance<=0?'var(--red)':s.balance<10?'var(--orange)':'var(--green)';
-    const balIcon=s.balance<=0?'🔴':s.balance<10?'🟡':'🟢';
-    const valLine=s.unitCost>0?
-      '<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:.72rem">'+
-        '<span style="color:var(--muted)">سعر الوحدة: <b style="color:#e2e8f0">'+s.unitCost.toLocaleString('ar-EG',{maximumFractionDigits:0})+' ج</b></span>'+
-        '<span style="color:var(--muted)">قيمة المخزون: <b style="color:var(--green)">'+s.stockVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+' ج</b></span>'+
+  // ===== أرصدة المخزن المصنّفة =====
+  const _minMapStock={};
+  _MIN_STOCK.forEach(function(m){_minMapStock[m.name.trim().toLowerCase()]={cat:m.cat,min:m.min};});
+  const _catOrder=['كهرباء عمارة','مصعد أسانسير','سباكة عمارة','أخرى'];
+  const _catIds={'كهرباء عمارة':'Elec','مصعد أسانسير':'Elev','سباكة عمارة':'Plumb','أخرى':'Other'};
+  const _catIcons={'كهرباء عمارة':'⚡','مصعد أسانسير':'🏗','سباكة عمارة':'🔧','أخرى':'📦'};
+  const _catColors={'كهرباء عمارة':'var(--yellow)','مصعد أسانسير':'var(--blue)','سباكة عمارة':'var(--accent2)','أخرى':'var(--muted)'};
+  window._whCatCollapsed=window._whCatCollapsed||{};
+
+  // Enrich stockArr with category and alert status
+  const stockArrE=stockArr.map(function(s){
+    const mk=_minMapStock[s.item.trim().toLowerCase()];
+    const cat=mk?mk.cat:'أخرى';
+    const minQty=mk?mk.min:0;
+    const bal=s.balance;
+    var ast='-';
+    if(minQty>0){if(bal<minQty)ast='حرج';else if(bal<minQty*1.1)ast='تحذير';else ast='طبيعي';}
+    return Object.assign({},s,{cat:cat,minQty:minQty,alertStatus:ast});
+  }).filter(function(s){return !stockSearch||s.item.toLowerCase().includes(stockSearch);});
+
+  // Group by category
+  const catGroups={};
+  _catOrder.forEach(function(c){catGroups[c]=[];});
+  stockArrE.forEach(function(s){(catGroups[s.cat]||(catGroups['أخرى']||(catGroups['أخرى']=[]))).push(s);});
+
+  // Build HTML for each category
+  var catHtml='';
+  _catOrder.forEach(function(cat){
+    const items=catGroups[cat]||[];
+    if(!items.length)return;
+    const cid=_catIds[cat];
+    const icon=_catIcons[cat];
+    const col=_catColors[cat];
+    const nCrit=items.filter(function(i){return i.alertStatus==='حرج';}).length;
+    const nWarn=items.filter(function(i){return i.alertStatus==='تحذير';}).length;
+    const collapsed=window._whCatCollapsed[cid];
+    catHtml+='<div style="margin-bottom:12px;border:1px solid var(--border);border-radius:12px;overflow:hidden">'+
+      '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--card);cursor:pointer;user-select:none" onclick="toggleWhCat(\''+cid+'\')">'+
+        '<span style="font-weight:700;font-size:.88rem;color:'+col+'">'+icon+' '+cat+'</span>'+
+        '<span style="font-size:.75rem;color:var(--muted);border:1px solid var(--border);border-radius:10px;padding:1px 8px">'+items.length+' صنف</span>'+
+        (nCrit?'<span style="background:rgba(239,68,68,.2);color:var(--red);border-radius:10px;padding:1px 8px;font-size:.7rem">🔴 '+nCrit+' حرج</span>':'')+
+        (nWarn?'<span style="background:rgba(234,179,8,.15);color:var(--yellow);border-radius:10px;padding:1px 8px;font-size:.7rem">🟡 '+nWarn+' تحذير</span>':'')+
+        '<span id="whCatChev_'+cid+'" style="margin-right:auto;color:var(--muted);font-size:.85rem">'+(collapsed?'▸':'▾')+'</span>'+
       '</div>'+
-      (s.issuedVal>0?'<div style="font-size:.7rem;color:var(--muted);margin-top:2px;text-align:left">صُرف بقيمة: <b style="color:var(--yellow)">'+s.issuedVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+' ج</b></div>':'')
-      :'';
-    stockCards+='<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:200px;flex:1">'+
-      '<div style="font-weight:700;font-size:.88rem;margin-bottom:6px">'+s.item+'</div>'+
-      '<div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);margin-bottom:4px"><span>وارد: '+s.in.toLocaleString()+' '+s.unit+'</span><span>صرف: '+s.out.toLocaleString()+' '+s.unit+'</span></div>'+
-      '<div style="font-size:1.1rem;font-weight:900;color:'+balColor+'">'+balIcon+' رصيد: '+s.balance.toLocaleString()+' '+s.unit+'</div>'+
-      valLine+
-    '</div>';
+      '<div id="whCatBody_'+cid+'" style="'+(collapsed?'display:none':'')+'">'+
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem">'+
+      '<thead><tr style="background:var(--bg);font-size:.72rem;color:var(--muted)">'+
+        '<th style="padding:7px 12px;text-align:right">الصنف</th>'+
+        '<th style="padding:7px 8px;text-align:center">الوحدة</th>'+
+        '<th style="padding:7px 8px;text-align:center;color:var(--green)">وارد</th>'+
+        '<th style="padding:7px 8px;text-align:center;color:var(--yellow)">صرف</th>'+
+        '<th style="padding:7px 8px;text-align:center">الرصيد</th>'+
+        '<th style="padding:7px 8px;text-align:center">الحد الأدنى</th>'+
+        '<th style="padding:7px 8px;text-align:center">الحالة</th>'+
+      '</tr></thead><tbody>'+
+      items.sort(function(a,b){
+        const o={'حرج':0,'تحذير':1,'طبيعي':2,'-':3};
+        return (o[a.alertStatus]||3)-(o[b.alertStatus]||3);
+      }).map(function(s,i){
+        const balColor=s.alertStatus==='حرج'?'var(--red)':s.alertStatus==='تحذير'?'var(--yellow)':s.balance<=0?'var(--red)':'var(--green)';
+        const badge=s.alertStatus==='حرج'?'<span style="background:rgba(239,68,68,.18);color:var(--red);border-radius:8px;padding:1px 8px;font-size:.7rem;font-weight:700">🔴 حرج</span>':
+          s.alertStatus==='تحذير'?'<span style="background:rgba(234,179,8,.15);color:var(--yellow);border-radius:8px;padding:1px 8px;font-size:.7rem;font-weight:700">🟡 تحذير</span>':
+          s.alertStatus==='طبيعي'?'<span style="background:rgba(34,197,94,.12);color:var(--green);border-radius:8px;padding:1px 8px;font-size:.7rem">🟢 طبيعي</span>':'<span style="color:var(--muted);font-size:.72rem">—</span>';
+        return '<tr style="border-top:1px solid var(--border)'+(i%2?';background:rgba(255,255,255,.018)':'')+'">'+
+          '<td style="padding:7px 12px;font-weight:600">'+s.item+'</td>'+
+          '<td style="padding:7px 8px;text-align:center;color:var(--muted);font-size:.75rem">'+s.unit+'</td>'+
+          '<td style="padding:7px 8px;text-align:center;color:var(--green)">'+s.in.toLocaleString()+'</td>'+
+          '<td style="padding:7px 8px;text-align:center;color:var(--yellow)">'+s.out.toLocaleString()+'</td>'+
+          '<td style="padding:7px 8px;text-align:center;font-weight:900;color:'+balColor+'">'+s.balance.toLocaleString()+'</td>'+
+          '<td style="padding:7px 8px;text-align:center;color:var(--muted)">'+( s.minQty>0?s.minQty.toLocaleString():'—')+'</td>'+
+          '<td style="padding:7px 8px;text-align:center">'+badge+'</td>'+
+        '</tr>';
+      }).join('')+
+      '</tbody></table></div></div></div>';
   });
 
   // Transactions rows
@@ -4553,10 +4615,16 @@ function renderWarehouse(){
     '</div>':'')+
 
     // Stock balance section
-    '<div class="section-title" style="margin-top:12px">📦 أرصدة المخزن الحالية</div>'+
-    (stockArr.length?
-    '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">'+stockCards+'</div>'
-    :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد أصناف مسجّلة بعد.</div>')+
+    '<div class="section-title" style="margin-top:12px;flex-wrap:wrap;gap:8px">'+
+      '<span>📦 أرصدة المخزن الحالية</span>'+
+      '<span style="margin-right:auto">'+
+        '<input id="whStockSearch" oninput="renderWarehouse()" value="'+stockSearchRaw+'" placeholder="🔍 ابحث عن صنف بالاسم..." style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:8px;padding:5px 12px;font-family:Cairo,sans-serif;font-size:.8rem;outline:none;width:220px">'+
+      '</span>'+
+    '</div>'+
+    (stockArrE.length>0||stockArr.length===0?
+      (stockArr.length?catHtml:'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد أصناف مسجّلة بعد.</div>'):
+      '<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد نتائج مطابقة لـ "'+stockSearchRaw+'"</div>'
+    )+
 
     // ===== جرد comparison table (shows when window._WH_JARD exists) =====
     (window._WH_JARD ? (function(){
@@ -4609,7 +4677,7 @@ function renderWarehouse(){
       '<span>📋 سجل حركات المخزن</span>'+
       '<span style="display:inline-flex;gap:8px;margin-right:10px;align-items:center">'+
         '<select id="whFilterType" onchange="renderWarehouse()" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none"><option value="">كل الحركات</option><option value="توريد">📥 توريد</option><option value="صرف">📤 صرف</option></select>'+
-        '<input id="whFilterItem" oninput="renderWarehouse()" placeholder="🔍 فلتر صنف..." style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none;width:180px">'+
+        '<input id="whFilterItem" oninput="renderWarehouse()" value="'+filterItemRaw+'" placeholder="🔍 فلتر صنف..." style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:8px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none;width:180px">'+
         '<button onclick="exportWarehouseExcel()" style="background:rgba(34,197,94,.12);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:5px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer;white-space:nowrap">📤 تصدير Excel</button>'+
       '</span>'+
     '</div>'+
@@ -4618,6 +4686,19 @@ function renderWarehouse(){
       '<th>#</th><th>التاريخ</th><th>النوع</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>القيمة ج.م</th><th>المشروع</th><th>المورد/الجهة</th><th>ملاحظة</th><th>المسجّل</th>'+delTh+
     '</tr></thead><tbody>'+txRows+'</tbody></table></div></div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد حركات بالفلتر الحالي.</div>');
+  // Restore focus after re-render
+  if(_whActiveId==='whFilterItem'||_whActiveId==='whStockSearch'){
+    var _ra=document.getElementById(_whActiveId);
+    if(_ra){_ra.focus();try{_ra.setSelectionRange(_whActivePos,_whActivePos);}catch(e){}}
+  }
+}
+function toggleWhCat(cid){
+  window._whCatCollapsed=window._whCatCollapsed||{};
+  window._whCatCollapsed[cid]=!window._whCatCollapsed[cid];
+  var el=document.getElementById('whCatBody_'+cid);
+  var chev=document.getElementById('whCatChev_'+cid);
+  if(el){el.style.display=window._whCatCollapsed[cid]?'none':'';}
+  if(chev){chev.textContent=window._whCatCollapsed[cid]?'▸':'▾';}
 }
 function exportWarehouseExcel(){
   if(!_WAREHOUSE_DATA.length){alert('لا توجد بيانات للتصدير');return;}
