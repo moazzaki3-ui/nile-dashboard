@@ -2242,6 +2242,10 @@ function importPurchasesExcel(e){
 }
 
 function renderPurchases(){
+  // حفظ الـ active element قبل الـ rebuild
+  const _poActiveId=(document.activeElement||{}).id||'';
+  const _poActiveVal=(document.activeElement||{}).value||'';
+  const _poActivePos=(document.activeElement||{}).selectionStart||0;
   const role=window._CURRENT_ROLE||'viewer';const _brrp=_getBaseRole(role);
   const canAdd=_brrp==='admin'||_brrp==='chairman'||_brrp==='editor'||_brrp==='engineer'||_brrp==='supervisor'||_brrp==='sitemanager'||_brrp==='foreman'||_brrp==='storekeeper'||_brrp==='procurement';
   const canDel=_brrp==='admin'||_brrp==='editor';
@@ -2250,7 +2254,7 @@ function renderPurchases(){
     return new Date(b.requestDate)-new Date(a.requestDate);
   });
   const filterStat=(document.getElementById('poFilterStatus')||{}).value||'';
-  const filterProj=(document.getElementById('poFilterProj')||{}).value||'';
+  const filterProj=(_poActiveId==='poFilterProj'?_poActiveVal:(document.getElementById('poFilterProj')||{}).value||'');
   const filtered=orders.filter(o=>{
     if(filterStat&&o.status!==filterStat)return false;
     if(filterProj&&!(o.project||'').includes(filterProj)&&!(o.item||'').includes(filterProj))return false;
@@ -2350,12 +2354,12 @@ ${canAdd?`
 
 <!-- Filters -->
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-  <input type="text" id="poFilterProj" placeholder="🔍 بحث بالمشروع أو البند..." oninput="renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;min-width:200px">
+  <input type="text" id="poFilterProj" value="${filterProj}" placeholder="🔍 بحث بالمشروع أو البند..." oninput="renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;min-width:200px">
   <select id="poFilterStatus" onchange="renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">
-    <option value="">كل الحالات</option>
-    <option value="تم الطلب">📋 تم الطلب</option>
-    <option value="جارى التوريد">🔄 جارى التوريد</option>
-    <option value="تم التوريد">✅ تم التوريد</option>
+    <option value="" ${filterStat===''?'selected':''}>كل الحالات</option>
+    <option value="تم الطلب" ${filterStat==='تم الطلب'?'selected':''}>📋 تم الطلب</option>
+    <option value="جارى التوريد" ${filterStat==='جارى التوريد'?'selected':''}>🔄 جارى التوريد</option>
+    <option value="تم التوريد" ${filterStat==='تم التوريد'?'selected':''}>✅ تم التوريد</option>
   </select>
 </div>
 
@@ -2411,6 +2415,11 @@ ${canAdd?`
 </table>
 </div>`;
   document.getElementById('tab-purchases').innerHTML=html;
+  // استرجاع focus بعد الـ rebuild
+  if(_poActiveId==='poFilterProj'){
+    var _rp=document.getElementById('poFilterProj');
+    if(_rp){_rp.focus();try{_rp.setSelectionRange(_poActivePos,_poActivePos);}catch(e){}}
+  }
 }
 // ============ / PURCHASES TAB ============
 
