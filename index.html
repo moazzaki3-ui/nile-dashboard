@@ -1232,7 +1232,7 @@ function filterProjects(){
     return `<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td style="color:var(--accent2);font-weight:700">${p.code}</td>
-    <td style="font-weight:600">${p.name}</td>
+    <td style="font-weight:600">${p.name}<br><span style="font-size:.68rem;color:var(--muted);font-weight:400">${(window._PROJ_AREAS&&window._PROJ_AREAS[p.code]&&window._PROJ_AREAS[p.code].area)?window._PROJ_AREAS[p.code].area.toLocaleString('ar-EG')+' م²':''}</span></td>
     <td style="color:var(--muted)">${p.locLabel}</td>
     <td><span class="status-badge ${statusClass(p.status)}">${p.status}</span></td>
     <td><div class="pct-bar"><div class="pct-fill" style="width:${p.pct}%;background:${pctColor(p.pct)}"></div></div><span style="font-size:.73rem">${p.pct}%</span></td>
@@ -3732,6 +3732,37 @@ function applyJardAdjustment(){
 
 function clearJardResult(){window._WH_JARD=null;renderWarehouse();}
 
+function clearOpeningBalance(){
+  const cnt=_WAREHOUSE_DATA.filter(function(d){return d.isOpeningBalance||d.supplier==='رصيد افتتاحي';}).length;
+  if(!cnt){
+    const n=document.getElementById('whNotice');
+    if(n){n.style.display='block';n.style.background='rgba(234,179,8,.12)';n.style.color='var(--yellow)';n.style.borderColor='rgba(234,179,8,.3)';n.textContent='⚠ لا يوجد رصيد افتتاحي مسجّل في النظام';setTimeout(function(){n.style.display='none';},3000);}
+    return;
+  }
+  // show inline confirm banner
+  var banner=document.getElementById('whOBConfirm');
+  if(!banner){
+    var n2=document.getElementById('whNotice');
+    if(n2){n2.style.display='none';}
+    var el=document.createElement('div');
+    el.id='whOBConfirm';
+    el.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a1d27;border-bottom:2px solid var(--red);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:Cairo,sans-serif;direction:rtl';
+    el.innerHTML='<span style="color:var(--red);font-weight:700;font-size:.88rem">⚠ هتمسح '+cnt+' سجل رصيد افتتاحي نهائياً — مش هيرجع</span>'+
+      '<button onclick="confirmClearOpeningBalance()" style="background:rgba(239,68,68,.2);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:5px 18px;font-family:Cairo,sans-serif;font-size:.82rem;cursor:pointer;font-weight:700">✔ تأكيد المسح</button>'+
+      '<button onclick="document.getElementById(\'whOBConfirm\').remove()" style="background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 18px;font-family:Cairo,sans-serif;font-size:.82rem;cursor:pointer">إلغاء</button>';
+    document.body.appendChild(el);
+  }
+}
+function confirmClearOpeningBalance(){
+  var removed=_WAREHOUSE_DATA.filter(function(d){return d.isOpeningBalance||d.supplier==='رصيد افتتاحي';}).length;
+  _WAREHOUSE_DATA=_WAREHOUSE_DATA.filter(function(d){return !d.isOpeningBalance&&d.supplier!=='رصيد افتتاحي';});
+  _saveWarehouseData();
+  renderWarehouse();
+  var b=document.getElementById('whOBConfirm');if(b)b.remove();
+  var n=document.getElementById('whNotice');
+  if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم مسح الرصيد الافتتاحي: '+removed+' سجل';setTimeout(function(){n.style.display='none';},4000);}
+}
+
 function renderWarehouse(){
   _initWarehouseListener();
   const role=window._CURRENT_ROLE||'viewer';const _brw=_getBaseRole(role);
@@ -3846,6 +3877,13 @@ function renderWarehouse(){
             '<input type="file" id="whExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadWarehouseExcel()">'+
           '</label>'+
           '<span style="font-size:.65rem;color:var(--muted);padding-right:4px">الأعمدة: النوع، الصنف، الكمية، الوحدة، المشروع، المورد</span>'+
+        '</div>'+
+        // ===== مسح الرصيد الافتتاحي =====
+        '<div style="display:flex;flex-direction:column;gap:4px;margin-right:auto">'+
+          '<button onclick="clearOpeningBalance()" style="font-size:.75rem;color:var(--red);font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:7px 14px;font-family:Cairo,sans-serif">'+
+            '🗑 مسح الرصيد الافتتاحي'+
+          '</button>'+
+          '<span style="font-size:.65rem;color:var(--muted);padding-right:4px">يمسح كل سجلات رصيد افتتاحي مرة واحدة</span>'+
         '</div>'+
       '</div>'+
     '</div>':'')+
