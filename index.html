@@ -3625,6 +3625,113 @@ function uploadWarehouseExcel(){
   reader.readAsArrayBuffer(file);
 }
 
+// ======= رصيد افتتاحي وجرد المخازن =======
+function _parseAhramExcel(arrayBuffer){
+  // Row 1 = بيانات المخزن، Row 2 = رؤوس الأعمدة، Row 3+ = بيانات
+  const wb=XLSX.read(arrayBuffer,{type:'array'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  const result=[];
+  for(let i=2;i<rows.length;i++){
+    const r=rows[i];
+    const code=r[1];
+    const item=(r[2]+'').trim();
+    const unit=(r[3]+'').trim();
+    const qty=parseFloat(r[4])||0;
+    const avgCost=parseFloat(r[5])||0;
+    const totalVal=parseFloat(r[6])||0;
+    if(!item||qty<=0)continue;
+    result.push({code:code,item:item,unit:unit,qty:qty,avgCost:avgCost,totalVal:totalVal});
+  }
+  return result;
+}
+
+function uploadOpeningBalanceExcel(){
+  const input=document.getElementById('whOpeningFile');
+  if(!input||!input.files.length)return;
+  const file=input.files[0];
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const items=_parseAhramExcel(e.target.result);
+      const sess=window._CURRENT_SESSION||{};
+      const dateStr=new Date().toLocaleDateString('ar-EG');
+      let added=0;
+      items.forEach(function(r){
+        _WAREHOUSE_DATA.unshift({id:Date.now()+added,type:'توريد',itemCode:r.code+'',item:r.item,qty:r.qty,unit:r.unit,avgCost:r.avgCost,totalVal:r.totalVal,project:'—',supplier:'رصيد افتتاحي',note:'رصيد افتتاحي — '+file.name,date:dateStr,user:sess.name||sess.username||'Excel',ts:new Date().toISOString(),isOpeningBalance:true});
+        added++;
+      });
+      if(added>0){_saveWarehouseData();renderWarehouse();}
+      const n=document.getElementById('whNotice');
+      if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم استيراد الرصيد الافتتاحي: '+added+' صنف';setTimeout(function(){n.style.display='none';},4000);}
+    }catch(ex){
+      const n=document.getElementById('whNotice');
+      if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ في الملف: '+ex.message;setTimeout(function(){n.style.display='none';},5000);}
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function uploadInventoryCountExcel(){
+  const input=document.getElementById('whJardFile');
+  if(!input||!input.files.length)return;
+  const file=input.files[0];
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const items=_parseAhramExcel(e.target.result);
+      // احسب الرصيد الحالي من _WAREHOUSE_DATA
+      const sysBalance={};
+      const sorted=[..._WAREHOUSE_DATA].sort(function(a,b){return a.id-b.id;});
+      sorted.forEach(function(d){
+        const key=d.item+'|'+(d.unit||'');
+        if(!sysBalance[key])sysBalance[key]={item:d.item,unit:d.unit||'',balance:0};
+        if(d.type==='توريد')sysBalance[key].balance+=d.qty;
+        else sysBalance[key].balance-=d.qty;
+      });
+      // قارن الجرد الفعلي بالرصيد في السجلات
+      const jard=items.map(function(r){
+        const key=r.item+'|'+r.unit;
+        const sys=sysBalance[key];
+        const sysQty=sys?sys.balance:0;
+        const diff=r.qty-sysQty;
+        return {code:r.code,item:r.item,unit:r.unit,qty:r.qty,sysQty:sysQty,diff:diff};
+      });
+      window._WH_JARD={date:new Date().toLocaleDateString('ar-EG'),file:file.name,items:jard};
+      renderWarehouse();
+      const diffs=jard.filter(function(r){return Math.abs(r.diff)>0.001;}).length;
+      const n=document.getElementById('whNotice');
+      if(n){n.style.display='block';n.style.background='rgba(99,102,241,.15)';n.style.color='var(--accent2)';n.style.borderColor='rgba(99,102,241,.3)';n.textContent='📋 تحليل الجرد: '+jard.length+' صنف — '+diffs+' صنف به فرق — انظر نتائج المقارنة أدناه';setTimeout(function(){n.style.display='none';},6000);}
+    }catch(ex){
+      const n=document.getElementById('whNotice');
+      if(n){n.style.display='block';n.style.background='rgba(239,68,68,.15)';n.style.color='var(--red)';n.style.borderColor='rgba(239,68,68,.3)';n.textContent='⚠ خطأ في الملف: '+ex.message;setTimeout(function(){n.style.display='none';},5000);}
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function applyJardAdjustment(){
+  if(!window._WH_JARD)return;
+  const sess=window._CURRENT_SESSION||{};
+  const dateStr=new Date().toLocaleDateString('ar-EG');
+  let count=0;
+  window._WH_JARD.items.forEach(function(r){
+    if(Math.abs(r.diff)<0.001)return;
+    const type=r.diff>0?'توريد':'صرف';
+    _WAREHOUSE_DATA.unshift({id:Date.now()+count,type:type,itemCode:r.code+'',item:r.item,qty:Math.abs(r.diff),unit:r.unit,project:'—',supplier:type==='توريد'?'تسوية جرد':'—',note:'تسوية جرد — '+window._WH_JARD.file,date:dateStr,user:sess.name||sess.username||'جرد',ts:new Date().toISOString(),isJardAdjustment:true});
+    count++;
+  });
+  if(count>0){_saveWarehouseData();}
+  window._WH_JARD=null;
+  renderWarehouse();
+  const n=document.getElementById('whNotice');
+  if(n){n.style.display='block';n.style.background='rgba(34,197,94,.15)';n.style.color='var(--green)';n.style.borderColor='rgba(34,197,94,.3)';n.textContent='✅ تم تطبيق تسوية الجرد: '+count+' صنف معدّل';setTimeout(function(){n.style.display='none';},4000);}
+}
+
+function clearJardResult(){window._WH_JARD=null;renderWarehouse();}
+
 function renderWarehouse(){
   _initWarehouseListener();
   const role=window._CURRENT_ROLE||'viewer';const _brw=_getBaseRole(role);
@@ -3715,9 +3822,31 @@ function renderWarehouse(){
         '<div class="form-group" style="flex:2;min-width:200px"><label>ملاحظة (اختياري)</label><input type="text" id="whNote" placeholder="أي تفاصيل إضافية..."></div>'+
         '<div class="form-group" style="justify-content:flex-end"><label style="color:transparent">.</label><button class="form-btn form-btn-green" onclick="addWarehouseEntry()">✅ تسجيل</button></div>'+
       '</div>'+
-      '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
-        '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع من Excel <input type="file" id="whExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadWarehouseExcel()"></label>'+
-        '<span style="font-size:.68rem;color:var(--muted)">الأعمدة: النوع (توريد/صرف)، الصنف، الكمية، الوحدة، المشروع، المورد، ملاحظة</span>'+
+      '<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start">'+
+        // ===== رصيد افتتاحي =====
+        '<div style="display:flex;flex-direction:column;gap:4px">'+
+          '<label style="font-size:.75rem;color:var(--green);font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:7px 14px">'+
+            '📥 رصيد افتتاحي (أهرام)'+
+            '<input type="file" id="whOpeningFile" accept=".xlsx,.xls" style="display:none" onchange="uploadOpeningBalanceExcel()">'+
+          '</label>'+
+          '<span style="font-size:.65rem;color:var(--muted);padding-right:4px">ملف مخزن الأهرام — يُضاف كتوريد</span>'+
+        '</div>'+
+        // ===== جرد دوري =====
+        '<div style="display:flex;flex-direction:column;gap:4px">'+
+          '<label style="font-size:.75rem;color:var(--accent2);font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:7px 14px">'+
+            '📋 جرد دوري (مقارنة)'+
+            '<input type="file" id="whJardFile" accept=".xlsx,.xls" style="display:none" onchange="uploadInventoryCountExcel()">'+
+          '</label>'+
+          '<span style="font-size:.65rem;color:var(--muted);padding-right:4px">نفس شكل ملف الأهرام — يقارن برصيد النظام</span>'+
+        '</div>'+
+        // ===== رفع عام توريد/صرف =====
+        '<div style="display:flex;flex-direction:column;gap:4px">'+
+          '<label style="font-size:.75rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 14px">'+
+            '📤 رفع حركات Excel'+
+            '<input type="file" id="whExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadWarehouseExcel()">'+
+          '</label>'+
+          '<span style="font-size:.65rem;color:var(--muted);padding-right:4px">الأعمدة: النوع، الصنف، الكمية، الوحدة، المشروع، المورد</span>'+
+        '</div>'+
       '</div>'+
     '</div>':'')+
 
@@ -3726,6 +3855,52 @@ function renderWarehouse(){
     (stockArr.length?
     '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">'+stockCards+'</div>'
     :'<div style="color:var(--muted);font-size:.82rem;padding:14px 0">لا توجد أصناف مسجّلة بعد.</div>')+
+
+    // ===== جرد comparison table (shows when window._WH_JARD exists) =====
+    (window._WH_JARD ? (function(){
+      var jd=window._WH_JARD;
+      var diffs=jd.items.filter(function(r){return Math.abs(r.diff)>0.001;});
+      var rows=jd.items.map(function(r,i){
+        var match=Math.abs(r.diff)<0.001;
+        var excess=r.diff>0;
+        var bg=match?'':'rgba('+(excess?'34,197,94':'239,68,68')+',.07)';
+        var diffColor=match?'var(--muted)':excess?'var(--green)':'var(--red)';
+        var sign=match?'—':excess?'+'+r.diff.toFixed(2):r.diff.toFixed(2);
+        return '<tr style="border-bottom:1px solid var(--border);font-size:.8rem;background:'+bg+'">'+
+          '<td style="padding:5px 8px;color:var(--muted)">'+(i+1)+'</td>'+
+          '<td style="padding:5px 8px">'+r.item+'</td>'+
+          '<td style="padding:5px 8px;text-align:center">'+r.unit+'</td>'+
+          '<td style="padding:5px 8px;text-align:center">'+r.qty.toFixed(2)+'</td>'+
+          '<td style="padding:5px 8px;text-align:center">'+r.sysQty.toFixed(2)+'</td>'+
+          '<td style="padding:5px 8px;text-align:center;font-weight:700;color:'+diffColor+'">'+sign+'</td>'+
+          '<td style="padding:5px 8px;text-align:center;font-size:.7rem">'+(match?'<span style="color:var(--green)">✓ مطابق</span>':excess?'<span style="color:var(--green)">فائض</span>':'<span style="color:var(--red)">عجز</span>')+'</td>'+
+        '</tr>';
+      }).join('');
+      return '<div class="chart-card" style="margin:12px 0;border:1px solid rgba(99,102,241,.3);background:rgba(99,102,241,.04)">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">'+
+          '<div>'+
+            '<div style="font-size:.88rem;font-weight:700;color:var(--accent2)">📋 نتائج الجرد الدوري</div>'+
+            '<div style="font-size:.7rem;color:var(--muted);margin-top:2px">'+jd.file+' — '+jd.date+' | الأصناف: '+jd.items.length+' | بها فرق: '+diffs.length+'</div>'+
+          '</div>'+
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+            (diffs.length?'<button onclick="applyJardAdjustment()" style="background:rgba(34,197,94,.12);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:5px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer">✅ تطبيق تسوية الجرد ('+diffs.length+' صنف)</button>':'')+
+            '<button onclick="clearJardResult()" style="background:rgba(239,68,68,.1);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:5px 14px;font-size:.78rem;font-family:Cairo,sans-serif;cursor:pointer">✕ إغلاق</button>'+
+          '</div>'+
+        '</div>'+
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'+
+          '<thead><tr style="font-size:.72rem;color:var(--muted);border-bottom:1px solid var(--border)">'+
+            '<th style="padding:5px 8px;text-align:right">#</th>'+
+            '<th style="padding:5px 8px;text-align:right">الصنف</th>'+
+            '<th style="padding:5px 8px;text-align:center">الوحدة</th>'+
+            '<th style="padding:5px 8px;text-align:center">كمية الجرد</th>'+
+            '<th style="padding:5px 8px;text-align:center">رصيد النظام</th>'+
+            '<th style="padding:5px 8px;text-align:center">الفرق</th>'+
+            '<th style="padding:5px 8px;text-align:center">الحالة</th>'+
+          '</tr></thead>'+
+          '<tbody>'+rows+'</tbody>'+
+        '</table></div>'+
+      '</div>';
+    })() : '')+
 
     // Transactions log
     '<div class="section-title" style="margin-top:12px;flex-wrap:wrap;gap:8px">'+
