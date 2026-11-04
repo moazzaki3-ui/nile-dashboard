@@ -6762,6 +6762,12 @@ function saveCSNotes(id){
     if(btn){btn.textContent='✅';setTimeout(()=>{btn.textContent='حفظ';},1500);}
   }).catch(e=>_fbErr('cs_requests',e));
 }
+function deleteCSRequest(id){
+  if(!_CS_DATA[id])return;
+  delete _CS_DATA[id];
+  window._csDeletePending=null;
+  _DB.ref('/cs_requests/'+id).remove().then(()=>renderCS()).catch(e=>{_fbErr('cs_requests',e);renderCS();});
+}
 function renderCS(){
   const tab=document.getElementById('tab-cs');if(!tab)return;
   // حفظ الـ active element قبل الـ rebuild
@@ -6871,6 +6877,12 @@ ${items.length===0?`<div style="text-align:center;padding:40px;color:var(--muted
         <button onclick="updateCSStatus('${item.id}','جارى')" style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid ${!isDone?'var(--yellow)':'var(--border)'};background:${!isDone?'rgba(234,179,8,.15)':'var(--card)'};color:${!isDone?'var(--yellow)':'var(--muted)'};cursor:pointer;font-family:Cairo,sans-serif;font-size:.78rem;font-weight:${!isDone?'700':'400'}">⏳ جارى</button>
         <button onclick="updateCSStatus('${item.id}','تم التنفيذ')" style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid ${isDone?'var(--green)':'var(--border)'};background:${isDone?'rgba(34,197,94,.15)':'var(--card)'};color:${isDone?'var(--green)':'var(--muted)'};cursor:pointer;font-family:Cairo,sans-serif;font-size:.78rem;font-weight:${isDone?'700':'400'}">✅ تم التنفيذ</button>
       </div>
+      ${base==='admin'&&isDone?(window._csDeletePending===item.id?`<div style="display:flex;gap:6px;margin-top:4px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:5px 8px;align-items:center">
+        <span style="font-size:.72rem;color:var(--red);flex:1">⚠️ تأكيد الحذف؟</span>
+        <button onclick="deleteCSRequest('${item.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid var(--red);background:rgba(239,68,68,.2);color:var(--red);cursor:pointer;font-family:Cairo,sans-serif;font-size:.75rem;font-weight:700">نعم احذف</button>
+        <button onclick="window._csDeletePending=null;renderCS()" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-family:Cairo,sans-serif;font-size:.75rem">لأ</button>
+      </div>`:`<button onclick="window._csDeletePending='${item.id}';renderCS()" style="width:100%;margin-top:4px;padding:4px 8px;border-radius:6px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);color:var(--red);cursor:pointer;font-family:Cairo,sans-serif;font-size:.75rem">🗑 حذف الطلب</button>`)
+      :''}
       <div style="display:flex;gap:6px;margin-top:2px">
         <input id="csNote_${item.id}" type="text" value="${(item.notes||'').replace(/"/g,'&quot;')}" placeholder="تعديل الملاحظات..." style="flex:1;background:var(--panel);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-family:Cairo,sans-serif;font-size:.75rem">
         <button id="csNoteBtn_${item.id}" onclick="saveCSNotes('${item.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--accent);cursor:pointer;font-family:Cairo,sans-serif;font-size:.75rem">حفظ</button>
