@@ -3430,10 +3430,10 @@ function renderEstimated(){
     '</div>'+
     '<div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:10px">'+
       '<label style="font-size:.78rem;color:var(--muted)">سعر التشطيب (ج.م / م² GFA):</label>'+
-      '<input type="number" id="estRate" value="'+(_estActiveId==='estRate'?_estActiveVal:window._EST_RATE)+'" min="0" oninput="window._EST_RATE=parseFloat(this.value)||4000;renderEstimated()" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:#e2e8f0;font-family:Cairo;font-size:.88rem;width:130px">'+
+      '<input type="number" id="estRate" value="'+window._EST_RATE+'" min="0" oninput="window._EST_RATE=parseFloat(this.value)||4000;clearTimeout(window._estTimer);window._estTimer=setTimeout(renderEstimated,450)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:#e2e8f0;font-family:Cairo;font-size:.88rem;width:130px">'+
       '<span style="color:var(--border)">|</span>'+
       '<label style="font-size:.78rem;color:var(--accent2)">نسبة المساحة البيعية %:</label>'+
-      '<input type="number" id="estSaleRatio" value="'+(_estActiveId==='estSaleRatio'?_estActiveVal:(window._EST_SALE_RATIO||80))+'" min="1" max="100" step="0.5" oninput="window._EST_SALE_RATIO=parseFloat(this.value)||80;renderEstimated()" style="background:var(--bg);border:1px solid var(--accent2);border-radius:8px;padding:6px 10px;color:var(--accent2);font-family:Cairo;font-size:.88rem;width:90px;font-weight:700">'+
+      '<input type="number" id="estSaleRatio" value="'+(window._EST_SALE_RATIO||80)+'" min="1" max="100" step="0.5" oninput="window._EST_SALE_RATIO=parseFloat(this.value)||80;clearTimeout(window._estTimer);window._estTimer=setTimeout(renderEstimated,450)" style="background:var(--bg);border:1px solid var(--accent2);border-radius:8px;padding:6px 10px;color:var(--accent2);font-family:Cairo;font-size:.88rem;width:90px;font-weight:700">'+
       '<span style="font-size:.75rem;color:var(--muted)">م² بيعي = GFA × النسبة</span>'+
     '</div>'+
   '</div>';
@@ -3445,11 +3445,6 @@ function renderEstimated(){
   '</div>';
 
   el.innerHTML=addFormHtml+listHtml+cfHtml;
-  // استرجاع focus بعد الـ rebuild
-  if(_estActiveId==='estRate'||_estActiveId==='estSaleRatio'){
-    var _ra=document.getElementById(_estActiveId);
-    if(_ra){_ra.focus();try{_ra.setSelectionRange(_estActivePos,_estActivePos);}catch(e){}}
-  }
   if(window._EST_LIST.length>0)renderEstCashFlow();
 }
 
@@ -6729,13 +6724,15 @@ function saveCSRequest(){
   const date=(document.getElementById('csDate')||{}).value||'';
   const type=(document.getElementById('csType')||{}).value||'';
   const notes=((document.getElementById('csNotes')||{}).value||'').trim();
+  const clientName=((document.getElementById('csClientName')||{}).value||'').trim();
+  const unitCode=((document.getElementById('csUnitCode')||{}).value||'').trim();
   if(!unit||!date||!type){
     const n=document.getElementById('csFormNotice');
     if(n){n.textContent='⚠️ اسم القطعة، التاريخ، ونوع الطلب مطلوبين';n.style.display='';setTimeout(()=>{n.style.display='none';},3000);}
     return;
   }
   const id='-cs'+Date.now().toString(36);
-  const rec={unit,district,date,type,status:'جارى',notes,createdAt:new Date().toISOString()};
+  const rec={unit,district,date,type,status:'جارى',notes,clientName,unitCode,createdAt:new Date().toISOString()};
   _CS_DATA[id]=rec;
   _DB.ref('/cs_requests/'+id).set(rec).then(()=>{
     const n=document.getElementById('csFormNotice');
@@ -6744,6 +6741,8 @@ function saveCSRequest(){
     document.getElementById('csDistrict').value='';
     document.getElementById('csDate').value='';
     document.getElementById('csNotes').value='';
+    if(document.getElementById('csClientName'))document.getElementById('csClientName').value='';
+    if(document.getElementById('csUnitCode'))document.getElementById('csUnitCode').value='';
     renderCS();
   }).catch(e=>_fbErr('cs_requests',e));
 }
@@ -6765,14 +6764,22 @@ function saveCSNotes(id){
 }
 function renderCS(){
   const tab=document.getElementById('tab-cs');if(!tab)return;
+  // حفظ الـ active element قبل الـ rebuild
+  const _csActiveId=(document.activeElement||{}).id||'';
+  const _csActiveVal=(document.activeElement||{}).value||'';
+  const _csActivePos=(document.activeElement||{}).selectionStart||0;
   const role=window._CURRENT_ROLE||'viewer';
   const base=_getBaseRole(role);
   const canAdd=base==='admin'||base==='chairman'||base==='editor'||base==='engineer'||base==='supervisor'||base==='sitemanager'||base==='customerservice';
-  const items=Object.entries(_CS_DATA).map(([id,v])=>({id,...v})).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const total=items.length;
-  const ongoing=items.filter(i=>i.status==='جارى').length;
-  const done=items.filter(i=>i.status==='تم التنفيذ').length;
-  const typeColors={'تعديل معماري':'#6366f1','تحديث لمساحة الوحدة':'#06b6d4','مفاتيح وحدات':'#f97316','موقف تنفيذي':'#ef4444'};
+  // قيمة البحث
+  const searchVal=_csActiveId==='csSearch'?_csActiveVal:((document.getElementById('csSearch')||{}).value||'');
+  const searchLower=searchVal.trim().toLowerCase();
+  const allItems=Object.entries(_CS_DATA).map(([id,v])=>({id,...v})).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const items=searchLower?allItems.filter(i=>(i.unit||'').toLowerCase().includes(searchLower)||(i.clientName||'').toLowerCase().includes(searchLower)||(i.unitCode||'').toLowerCase().includes(searchLower)):allItems;
+  const total=allItems.length;
+  const ongoing=allItems.filter(i=>i.status==='جارى').length;
+  const done=allItems.filter(i=>i.status==='تم التنفيذ').length;
+  const typeColors={'تعديل معماري':'#6366f1','تحديث لمساحة الوحدة':'#06b6d4','مفاتيح وحدات':'#f97316','موقف تنفيذي':'#ef4444','ملاحظات عميل بعد المعاينة':'#22c55e'};
   tab.innerHTML=`
 <div class="section-title">📞 خدمة العملاء — طلبات الوحدات</div>
 <!-- KPI Cards -->
@@ -6792,6 +6799,16 @@ ${canAdd?`
       <input id="csUnit" type="text" placeholder="مثال: 117A" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.85rem">
     </div>
     <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">👤 اسم العميل</label>
+      <input id="csClientName" type="text" placeholder="اسم العميل..." style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.85rem">
+    </div>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">🔢 كود الوحدة</label>
+      <input id="csUnitCode" type="text" placeholder="مثال: U-204" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.85rem">
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+    <div>
       <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">📍 الحي</label>
       <input id="csDistrict" type="text" placeholder="مثال: الرحاب" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.85rem">
     </div>
@@ -6799,8 +6816,6 @@ ${canAdd?`
       <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">📅 التاريخ *</label>
       <input id="csDate" type="date" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.85rem">
     </div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <div>
       <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">📝 نوع الطلب *</label>
       <select id="csType" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.85rem">
@@ -6809,19 +6824,25 @@ ${canAdd?`
         <option value="تحديث لمساحة الوحدة">📐 تحديث لمساحة الوحدة</option>
         <option value="مفاتيح وحدات">🔑 مفاتيح وحدات</option>
         <option value="موقف تنفيذي">🚗 موقف تنفيذي</option>
+        <option value="ملاحظات عميل بعد المعاينة">📋 ملاحظات عميل بعد المعاينة</option>
       </select>
     </div>
-    <div>
-      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">📌 ملاحظات</label>
-      <input id="csNotes" type="text" placeholder="أي تفاصيل إضافية..." style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.85rem">
-    </div>
+  </div>
+  <div style="margin-bottom:12px">
+    <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">📌 ملاحظات</label>
+    <input id="csNotes" type="text" placeholder="أي تفاصيل إضافية..." style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:7px 10px;font-family:Cairo,sans-serif;font-size:.85rem">
   </div>
   <button class="form-btn form-btn-primary" onclick="saveCSRequest()">✅ تأكيد الطلب</button>
 </div>
 `:''}
+<!-- Search Bar -->
+<div style="margin-bottom:14px">
+  <input type="text" id="csSearch" value="${searchVal.replace(/"/g,'&quot;')}" placeholder="🔍 بحث باسم العميل أو كود الوحدة أو رقم القطعة..." oninput="renderCS()" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:8px;padding:9px 14px;font-family:Cairo,sans-serif;font-size:.85rem;outline:none">
+</div>
+${searchLower&&items.length<allItems.length?`<div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">نتائج البحث: ${items.length} من ${allItems.length}</div>`:''}
 <!-- Requests List -->
 <div style="display:flex;flex-direction:column;gap:12px">
-${items.length===0?'<div style="text-align:center;padding:40px;color:var(--muted);font-size:.9rem">📋 لا توجد طلبات بعد</div>':
+${items.length===0?`<div style="text-align:center;padding:40px;color:var(--muted);font-size:.9rem">${searchLower?'🔍 لا توجد نتائج مطابقة':'📋 لا توجد طلبات بعد'}</div>`:
   items.map(item=>{
     const days=_csDayCount(item.date);
     const isDone=item.status==='تم التنفيذ';
@@ -6832,6 +6853,8 @@ ${items.length===0?'<div style="text-align:center;padding:40px;color:var(--muted
     <div style="flex:1;min-width:200px">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
         <span style="font-size:1rem;font-weight:700;color:#e2e8f0">${item.unit||'—'}</span>
+        ${item.clientName?`<span style="font-size:.78rem;color:#e2e8f0;font-weight:600">👤 ${item.clientName}</span>`:''}
+        ${item.unitCode?`<span style="font-size:.72rem;padding:2px 8px;border-radius:10px;background:rgba(99,102,241,.15);color:var(--accent2);border:1px solid rgba(99,102,241,.3)">🔢 ${item.unitCode}</span>`:''}
         ${item.district?`<span style="font-size:.75rem;color:var(--muted)">📍 ${item.district}</span>`:''}
         <span style="font-size:.72rem;padding:2px 8px;border-radius:10px;background:${typeColor}22;color:${typeColor};border:1px solid ${typeColor}55">${item.type||'—'}</span>
         <span style="font-size:.72rem;padding:2px 8px;border-radius:10px;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}55">${item.status}</span>
@@ -6858,6 +6881,11 @@ ${items.length===0?'<div style="text-align:center;padding:40px;color:var(--muted
   }).join('')
 }
 </div>`;
+  // استرجاع focus على حقل البحث
+  if(_csActiveId==='csSearch'){
+    const el=document.getElementById('csSearch');
+    if(el){el.focus();try{el.setSelectionRange(_csActivePos,_csActivePos);}catch(e){}}
+  }
 }
 // ===== END خدمة العملاء TAB =====
 
