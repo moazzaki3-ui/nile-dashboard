@@ -8212,11 +8212,14 @@ function renderNilePR(){
   }
   var tableHtml='<div class="section-title">قائمة طلبات الشراء</div>';
   if(entries.length){
-    tableHtml+='<div style="overflow-x:auto"><table class="project-table"><thead><tr><th>#</th><th>البند</th><th>الكمية</th><th>الوحدة</th><th>المورد</th><th>الملاحظات</th><th>الحالة</th><th>مقدم الطلب</th><th>التاريخ</th>';
+    tableHtml+='<div style="overflow-x:auto"><table class="project-table"><thead><tr><th>#</th><th>البند</th><th>الكمية</th><th>الوحدة</th><th>المورد</th><th>الملاحظات</th><th>الحالة</th><th>الأيام</th><th>مقدم الطلب</th><th>التاريخ</th>';
     if(canApprove||canDelete)tableHtml+='<th>إجراء</th>';
     tableHtml+='</tr></thead><tbody>';
     tableHtml+=entries.map(function(e,i){
       var sc=statusColor(e.status);
+      var days=e.ts?Math.floor((Date.now()-new Date(e.ts).getTime())/86400000):null;
+      var daysTxt=days===null?'—':days===0?'اليوم':days+' يوم';
+      var daysColor=e.status==='منفذ'||e.status==='مرفوض'?'var(--muted)':(days===null?'var(--muted)':days<=2?'var(--green)':days<=5?'var(--yellow)':'var(--red)');
       var actions='';
       if(canApprove&&e.status==='جديد'){
         actions='<button onclick="approveNilePR(\''+e.id+'\',\'موافق\')" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:var(--green);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:Cairo;font-size:.72rem;margin-left:4px">✓ موافق</button>'
@@ -8224,7 +8227,7 @@ function renderNilePR(){
       }
       if(canDelete){actions+='<td class="npr-del-cell" style="display:contents"><button onclick="deleteNilePR(\''+e.id+'\')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo;font-size:.7rem;margin-right:4px">🗑</button></td>';}
       var actionCell=(canApprove||canDelete)?'<td class="npr-del-cell">'+actions+'</td>':'';
-      return '<tr id="nprRow_'+e.id+'"><td style="color:var(--muted);font-size:.75rem">'+(i+1)+'</td><td><b>'+e.item+'</b></td><td>'+(e.qty||'—')+'</td><td style="color:var(--muted)">'+(e.unit||'—')+'</td><td>'+(e.supplier||'—')+'</td><td style="color:var(--muted);font-size:.78rem">'+(e.notes||'—')+'</td><td><span style="color:'+sc+';font-weight:700">'+e.status+'</span></td><td style="font-size:.78rem">'+(e.requestedBy||'—')+'</td><td style="font-size:.75rem;color:var(--muted)">'+e.date+'</td>'+actionCell+'</tr>';
+      return '<tr id="nprRow_'+e.id+'"><td style="color:var(--muted);font-size:.75rem">'+(i+1)+'</td><td><b>'+e.item+'</b></td><td>'+(e.qty||'—')+'</td><td style="color:var(--muted)">'+(e.unit||'—')+'</td><td>'+(e.supplier||'—')+'</td><td style="color:var(--muted);font-size:.78rem">'+(e.notes||'—')+'</td><td><span style="color:'+sc+';font-weight:700">'+e.status+'</span></td><td style="font-weight:700;font-size:.82rem;color:'+daysColor+'">'+daysTxt+'</td><td style="font-size:.78rem">'+(e.requestedBy||'—')+'</td><td style="font-size:.75rem;color:var(--muted)">'+e.date+'</td>'+actionCell+'</tr>';
     }).join('');
     tableHtml+='</tbody></table></div>';
   } else {
