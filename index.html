@@ -407,6 +407,9 @@ const _STATIC_USERS=[
   {username:'eman',       password:'123456',fullname:'ايمان',         role:'engineer'},
   {username:'farah',      password:'123456',fullname:'فرح',           role:'engineer'},
   {username:'ammar',      password:'123456',fullname:'عمار',          role:'engineer'},
+  {username:'ahmedgab',  password:'123456',fullname:'احمد جاب الله', role:'nile_purchasing'},
+  {username:'ahmedrezk', password:'123456',fullname:'احمد رزق',      role:'nile_purchasing'},
+  {username:'eslam',     password:'123456',fullname:'إسلام',         role:'nile_storekeeper'},
 ];
 let _fbUsersCache=[];let _fbUsersInit=false;
 function _getUsers(){return _fbUsersCache;}
@@ -7795,6 +7798,178 @@ function deleteNileWhEntry(id){
 }
 function cancelDelNileWh(id){var row=document.getElementById('nwhRow_'+id);if(row){row.dataset.confirm='';row.style.background='';}renderNileWarehouse();}
 
+// ===== NILE ITEMS (مسميات الأصناف) =====
+let _NILE_ITEMS_DATA=[];let _fbNileItemsInit=false;
+function _saveNileItemsData(){
+  var obj={};_NILE_ITEMS_DATA.forEach(function(d,i){obj['ni'+i]=d;});
+  _DB.ref('/nile_items').set(Object.keys(obj).length?obj:null).then(function(){_fbOk();}).catch(function(e){_fbErr('nile_items',e);});
+}
+function _initNileItemsListener(){
+  if(_fbNileItemsInit)return;_fbNileItemsInit=true;
+  _DB.ref('/nile_items').on('value',function(snap){
+    _fbOk();
+    var v=snap.val();
+    _NILE_ITEMS_DATA=v?Object.values(v):[];
+    var dl=document.getElementById('nileItemsList');
+    if(dl)dl.innerHTML=_NILE_ITEMS_DATA.map(function(it){return '<option value="'+it.name+'">';}).join('');
+    var tab=document.getElementById('tab-nile_wh');
+    if(tab&&!tab.classList.contains('hidden'))renderNileWarehouse();
+  },function(err){_fbErr('nile_items',err);});
+}
+function addNileItem(){
+  var role=window._CURRENT_ROLE||'viewer';var br=_getBaseRole(role);
+  var canEdit=br==='admin'||br==='finance'||role==='nile_storekeeper'||role==='nile_purchasing';
+  if(!canEdit){_sn('لا تملك صلاحية إضافة صنف','var(--red)');return;}
+  var name=((document.getElementById('ni_name')||{}).value||'').trim();
+  var unit=((document.getElementById('ni_unit')||{}).value||'').trim();
+  if(!name){_sn('⚠ يجب إدخال اسم الصنف','var(--yellow)');return;}
+  if(_NILE_ITEMS_DATA.find(function(it){return it.name===name;})){_sn('⚠ الصنف موجود بالفعل','var(--yellow)');return;}
+  _NILE_ITEMS_DATA.push({name:name,unit:unit});
+  _saveNileItemsData();
+  var el=document.getElementById('ni_name');if(el)el.value='';
+  var eu=document.getElementById('ni_unit');if(eu)eu.value='';
+  renderNileWarehouse();
+}
+function deleteNileItem(idx){
+  var role=window._CURRENT_ROLE||'viewer';var br=_getBaseRole(role);
+  if(br!=='admin'&&br!=='finance'){_sn('لا تملك صلاحية الحذف','var(--red)');return;}
+  _NILE_ITEMS_DATA.splice(idx,1);
+  _saveNileItemsData();
+  renderNileWarehouse();
+}
+function uploadNileItemsExcel(){
+  var input=document.getElementById('nileItemsFile');
+  if(!input||!input.files.length)return;
+  var file=input.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      var added=0,skipped=0;
+      rows.forEach(function(r){
+        var name=(r['الصنف']||r['اسم الصنف']||r['item']||'').toString().trim();
+        var unit=(r['الوحدة']||r['unit']||'').toString().trim();
+        if(!name){skipped++;return;}
+        if(_NILE_ITEMS_DATA.find(function(it){return it.name===name;})){skipped++;return;}
+        _NILE_ITEMS_DATA.push({name:name,unit:unit});
+        added++;
+      });
+      if(added>0){_saveNileItemsData();renderNileWarehouse();}
+      _sn(added>0?'✅ تم استيراد '+added+' صنف'+(skipped?' ('+skipped+' مكرر)':''):'⚠ لا أصناف جديدة ('+skipped+' مكرر)',added>0?'var(--green)':'var(--yellow)');
+    }catch(ex){_sn('⚠ خطأ في الملف: '+ex.message,'var(--red)');}
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+// ===== NILE WH EXCEL TOOLS =====
+function uploadNileWhOpeningBalance(){
+  var input=document.getElementById('nileWhOpeningFile');
+  if(!input||!input.files.length)return;
+  var file=input.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      var sess=window._CURRENT_SESSION||{};
+      var dateStr=new Date().toLocaleDateString('ar-EG');
+      var added=0;
+      rows.forEach(function(r){
+        var item=(r['الصنف']||r['اسم الصنف']||r['item']||'').toString().trim();
+        var unit=(r['الوحدة']||r['unit']||'').toString().trim();
+        var qty=parseFloat(r['الكمية']||r['qty']||0)||0;
+        if(!item||qty<=0)return;
+        _NILE_WH_DATA.unshift({id:Date.now()+added,type:'توريد',item:item,qty:qty,unit:unit,supplier:'رصيد افتتاحي',note:'رصيد افتتاحي — '+file.name,date:dateStr,user:sess.name||sess.username||'Excel',ts:new Date().toISOString(),isOpeningBalance:true});
+        added++;
+      });
+      if(added>0){_saveNileWhData();renderNileWarehouse();}
+      _sn(added>0?'✅ رصيد افتتاحي: '+added+' صنف':'⚠ لا بيانات صالحة في الملف',added>0?'var(--green)':'var(--yellow)');
+    }catch(ex){_sn('⚠ خطأ في الملف: '+ex.message,'var(--red)');}
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function uploadNileWhJard(){
+  var input=document.getElementById('nileWhJardFile');
+  if(!input||!input.files.length)return;
+  var file=input.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      var sysBalance={};
+      var sorted=[..._NILE_WH_DATA].sort(function(a,b){return a.id-b.id;});
+      sorted.forEach(function(d){
+        var key=d.item+'|'+(d.unit||'');
+        if(!sysBalance[key])sysBalance[key]={item:d.item,unit:d.unit||'',balance:0};
+        if(d.type==='توريد')sysBalance[key].balance+=d.qty;
+        else sysBalance[key].balance-=d.qty;
+      });
+      var jard=[];
+      rows.forEach(function(r){
+        var item=(r['الصنف']||r['اسم الصنف']||r['item']||'').toString().trim();
+        var unit=(r['الوحدة']||r['unit']||'').toString().trim();
+        var actual=parseFloat(r['الكمية الفعلية']||r['qty']||0)||0;
+        if(!item)return;
+        var key=item+'|'+unit;
+        var sysQty=sysBalance[key]?sysBalance[key].balance:0;
+        var diff=actual-sysQty;
+        jard.push({item:item,unit:unit,actual:actual,sysQty:sysQty,diff:diff});
+      });
+      window._NILE_WH_JARD={date:new Date().toLocaleDateString('ar-EG'),file:file.name,items:jard};
+      renderNileWarehouse();
+      var diffs=jard.filter(function(r){return Math.abs(r.diff)>0.001;}).length;
+      _sn('📋 جرد: '+jard.length+' صنف — '+diffs+' به فرق','var(--accent2)');
+    }catch(ex){_sn('⚠ خطأ في الملف: '+ex.message,'var(--red)');}
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function applyNileWhJard(){
+  if(!window._NILE_WH_JARD)return;
+  var sess=window._CURRENT_SESSION||{};
+  var dateStr=new Date().toLocaleDateString('ar-EG');
+  var count=0;
+  window._NILE_WH_JARD.items.forEach(function(r){
+    if(Math.abs(r.diff)<0.001)return;
+    var type=r.diff>0?'توريد':'صرف';
+    _NILE_WH_DATA.unshift({id:Date.now()+count,type:type,item:r.item,qty:Math.abs(r.diff),unit:r.unit,supplier:type==='توريد'?'تسوية جرد':'—',note:'تسوية جرد — '+window._NILE_WH_JARD.file,date:dateStr,user:sess.name||sess.username||'جرد',ts:new Date().toISOString(),isJardAdjustment:true});
+    count++;
+  });
+  if(count>0){_saveNileWhData();}
+  window._NILE_WH_JARD=null;
+  renderNileWarehouse();
+  _sn(count>0?'✅ تسوية جرد: '+count+' صنف معدّل':'⚠ لا فروق في الجرد',count>0?'var(--green)':'var(--yellow)');
+}
+function clearNileWhJardResult(){window._NILE_WH_JARD=null;renderNileWarehouse();}
+function clearNileWhOpeningBalance(){
+  var cnt=_NILE_WH_DATA.filter(function(d){return d.isOpeningBalance||d.supplier==='رصيد افتتاحي';}).length;
+  if(!cnt){_sn('⚠ لا يوجد رصيد افتتاحي مسجّل','var(--yellow)');return;}
+  var banner=document.getElementById('nileWhOBConfirm');
+  if(!banner){
+    var el=document.createElement('div');
+    el.id='nileWhOBConfirm';
+    el.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a1d27;border-bottom:2px solid var(--red);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:Cairo,sans-serif;direction:rtl';
+    el.innerHTML='<span style="color:var(--red);font-weight:700;font-size:.88rem">⚠ هتمسح '+cnt+' سجل رصيد افتتاحي نهائياً — مش هيرجع</span>'
+      +'<button onclick="confirmClearNileWhOpeningBalance()" style="background:rgba(239,68,68,.2);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:5px 18px;font-family:Cairo,sans-serif;font-size:.82rem;cursor:pointer;font-weight:700">✔ تأكيد المسح</button>'
+      +'<button onclick="document.getElementById(\'nileWhOBConfirm\').remove()" style="background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 18px;font-family:Cairo,sans-serif;font-size:.82rem;cursor:pointer">إلغاء</button>';
+    document.body.appendChild(el);
+  }
+}
+function confirmClearNileWhOpeningBalance(){
+  var removed=_NILE_WH_DATA.filter(function(d){return d.isOpeningBalance||d.supplier==='رصيد افتتاحي';}).length;
+  _NILE_WH_DATA=_NILE_WH_DATA.filter(function(d){return !d.isOpeningBalance&&d.supplier!=='رصيد افتتاحي';});
+  _saveNileWhData();renderNileWarehouse();
+  var b=document.getElementById('nileWhOBConfirm');if(b)b.remove();
+  _sn('✅ تم مسح الرصيد الافتتاحي: '+removed+' سجل','var(--green)');
+}
+// ===== / NILE WH EXCEL TOOLS =====
+
 function renderNileWarehouse(){
   var tab=document.getElementById('tab-nile_wh');
   if(!tab)return;
@@ -7833,7 +8008,8 @@ function renderNileWarehouse(){
       +'<div id="nwhNotice" style="display:none;border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:.82rem;border:1px solid transparent"></div>'
       +'<div class="form-row">'
       +'<select id="nwh_type" class="form-control"><option value="">-- النوع --</option><option value="توريد">📥 توريد</option><option value="صرف">📤 صرف</option></select>'
-      +'<input id="nwh_item" class="form-control" placeholder="اسم الصنف" />'
+      +'<input id="nwh_item" class="form-control" placeholder="اسم الصنف" list="nileItemsList" autocomplete="off" />'
+      +'<datalist id="nileItemsList">'+_NILE_ITEMS_DATA.map(function(it){return '<option value="'+it.name+'">';}).join('')+'</datalist>'
       +'<input id="nwh_qty" class="form-control" type="number" min="0.01" step="any" placeholder="الكمية" />'
       +'<select id="nwh_unit" class="form-control"><option value="">-- الوحدة --</option><option>طن</option><option>كيلو</option><option>متر</option><option>م²</option><option>م³</option><option>عبوة</option><option>قطعة</option><option>لتر</option><option>كيس</option></select>'
       +'</div>'
@@ -7858,7 +8034,79 @@ function renderNileWarehouse(){
   } else {
     logHtml+='<p style="color:var(--muted);font-size:.82rem">لا توجد حركات مسجلة بعد</p>';
   }
-  tab.innerHTML='<div class="section-title">🏭 مخازن نايل</div>'+kpiHtml+formHtml+invHtml+logHtml;
+  // ===== TOOLS ACCORDIONS =====
+  var acSty='background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden';
+  var hdSty='padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:.82rem;font-weight:700;color:var(--accent2);user-select:none';
+  var toolsHtml='<div style="margin-top:24px"><div class="section-title" style="margin-bottom:12px">🛠 أدوات المخزن</div>';
+  // 1 — Opening Balance Upload
+  toolsHtml+='<div style="'+acSty+'">'
+    +'<div style="'+hdSty+'" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">📥 رفع الرصيد الافتتاحي</div>'
+    +'<div style="display:none;padding:12px 16px">'
+    +'<p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Excel يحتوي أعمدة: <b>الصنف</b> — <b>الوحدة</b> — <b>الكمية</b></p>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    +'<input id="nileWhOpeningFile" type="file" accept=".xlsx,.xls,.csv" style="font-size:.78rem;color:var(--muted)" />'
+    +'<button onclick="uploadNileWhOpeningBalance()" style="background:rgba(99,102,241,.2);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:5px 16px;font-family:Cairo;font-size:.8rem;cursor:pointer">📥 استيراد</button>'
+    +'<button onclick="clearNileWhOpeningBalance()" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);color:var(--red);border-radius:8px;padding:5px 16px;font-family:Cairo;font-size:.8rem;cursor:pointer">🗑 مسح الرصيد الافتتاحي</button>'
+    +'</div></div></div>';
+  // 2 — Jard Upload
+  var jardHtml='';
+  if(window._NILE_WH_JARD){
+    var _j=window._NILE_WH_JARD;
+    jardHtml='<div style="margin-top:10px">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">'
+      +'<span style="font-size:.8rem;color:var(--accent2);font-weight:700">📋 نتائج الجرد — '+_j.date+' — '+_j.file+'</span>'
+      +'<button onclick="applyNileWhJard()" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:var(--green);border-radius:8px;padding:4px 14px;font-family:Cairo;font-size:.78rem;cursor:pointer">✔ تطبيق التسوية</button>'
+      +'<button onclick="clearNileWhJardResult()" style="background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:4px 12px;font-family:Cairo;font-size:.78rem;cursor:pointer">✗ إلغاء</button>'
+      +'</div>'
+      +'<div style="overflow-x:auto"><table class="project-table" style="font-size:.78rem"><thead><tr><th>الصنف</th><th>الوحدة</th><th>الجرد الفعلي</th><th>رصيد النظام</th><th>الفرق</th></tr></thead><tbody>'
+      +_j.items.map(function(r){
+        var dc=Math.abs(r.diff)<0.001?'var(--muted)':(r.diff>0?'var(--green)':'var(--red)');
+        return '<tr><td><b>'+r.item+'</b></td><td style="color:var(--muted)">'+r.unit+'</td><td>'+r.actual+'</td><td>'+r.sysQty+'</td><td style="color:'+dc+';font-weight:700">'+(r.diff>0?'+':'')+r.diff.toLocaleString()+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+  }
+  toolsHtml+='<div style="'+acSty+'">'
+    +'<div style="'+hdSty+'" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">📋 رفع الجرد الدوري'+(window._NILE_WH_JARD?' <span style="color:var(--yellow);font-size:.75rem">(جرد في الانتظار)</span>':'')+'</div>'
+    +'<div style="display:'+(window._NILE_WH_JARD?'block':'none')+';padding:12px 16px">'
+    +'<p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Excel يحتوي أعمدة: <b>الصنف</b> — <b>الوحدة</b> — <b>الكمية الفعلية</b></p>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    +'<input id="nileWhJardFile" type="file" accept=".xlsx,.xls,.csv" style="font-size:.78rem;color:var(--muted)" />'
+    +'<button onclick="uploadNileWhJard()" style="background:rgba(99,102,241,.2);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:5px 16px;font-family:Cairo;font-size:.8rem;cursor:pointer">📋 تحليل الجرد</button>'
+    +'</div>'
+    +jardHtml
+    +'</div></div>';
+  // 3 — Item Names
+  var itemListHtml='';
+  if(_NILE_ITEMS_DATA.length){
+    itemListHtml='<div style="overflow-x:auto;margin-top:10px"><table class="project-table" style="font-size:.8rem"><thead><tr><th>#</th><th>الصنف</th><th>الوحدة</th>'
+      +(canEdit?'<th></th>':'')
+      +'</tr></thead><tbody>'
+      +_NILE_ITEMS_DATA.map(function(it,i){
+        var d=canEdit?'<td><button onclick="deleteNileItem('+i+')" style="background:transparent;border:1px solid rgba(239,68,68,.4);color:var(--red);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo;font-size:.7rem">🗑</button></td>':'';
+        return '<tr><td style="color:var(--muted)">'+(i+1)+'</td><td><b>'+it.name+'</b></td><td style="color:var(--muted)">'+(it.unit||'—')+'</td>'+d+'</tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  } else {
+    itemListHtml='<p style="font-size:.8rem;color:var(--muted);margin-top:8px">لا توجد مسميات مضافة بعد</p>';
+  }
+  toolsHtml+='<div style="'+acSty+'">'
+    +'<div style="'+hdSty+'" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">📦 مسميات الأصناف <span style="font-weight:400;color:var(--muted);font-size:.75rem">('+_NILE_ITEMS_DATA.length+' صنف)</span></div>'
+    +'<div style="display:none;padding:12px 16px">'
+    +(canEdit?
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+      +'<input id="ni_name" class="form-control" placeholder="اسم الصنف" style="max-width:200px" />'
+      +'<input id="ni_unit" class="form-control" placeholder="الوحدة (اختياري)" style="max-width:140px" />'
+      +'<button onclick="addNileItem()" style="background:rgba(99,102,241,.2);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:5px 16px;font-family:Cairo;font-size:.8rem;cursor:pointer">➕ إضافة صنف</button>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">'
+      +'<input id="nileItemsFile" type="file" accept=".xlsx,.xls,.csv" style="font-size:.78rem;color:var(--muted)" />'
+      +'<button onclick="uploadNileItemsExcel()" style="background:rgba(99,102,241,.2);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:5px 16px;font-family:Cairo;font-size:.8rem;cursor:pointer">📥 استيراد Excel</button>'
+      +'</div>'
+      :'')
+    +itemListHtml
+    +'</div></div>';
+  toolsHtml+='</div>';
+  tab.innerHTML='<div class="section-title">🏭 مخازن نايل</div>'+kpiHtml+formHtml+invHtml+logHtml+toolsHtml;
 }
 // ===== / NILE WAREHOUSE =====
 
@@ -8133,6 +8381,7 @@ function startApp(){
   _initNileWhListener();
   _initNilePrListener();
   _initNileDelListener();
+  _initNileItemsListener();
   populateFormDropdowns();
   renderChangelog();
 }
