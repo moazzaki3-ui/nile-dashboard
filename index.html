@@ -5685,6 +5685,99 @@ function getStdBoqEntry(project,item){
   return _STD_BOQ_DATA.find(d=>d.project===project&&d.item===item)||null;
 }
 
+// ===== CONTRACTS =====
+let _CONTRACTS_DATA=[];
+let _fbContractsInit=false;
+const _CONTRACTS_KEY='nile_contracts';
+var _DEV_PRICES=_DEV_PRICES||{};
+
+function _initContractsListener(){
+  if(_fbContractsInit)return;_fbContractsInit=true;
+  _DB.ref('contracts').on('value',function(snap){
+    _fbOk();const v=snap.val();
+    _CONTRACTS_DATA=[];
+    if(v){Object.entries(v).forEach(function(e){var pCode=e[0];var contracts=e[1];if(contracts&&typeof contracts==='object'){Object.values(contracts).forEach(function(c){_CONTRACTS_DATA.push(Object.assign({},c,{project:pCode}));});}});}
+    try{localStorage.setItem(_CONTRACTS_KEY,JSON.stringify(_CONTRACTS_DATA));}catch(ex){}
+    var tab=document.getElementById('tab-stdboq');
+    if(tab&&!tab.classList.contains('hidden'))renderStdBoq();
+  },function(err){
+    _fbErr('contracts',err);
+    try{_CONTRACTS_DATA=JSON.parse(localStorage.getItem(_CONTRACTS_KEY)||'[]');}catch(ex){}
+  });
+}
+function deleteContract(contractId){
+  var c=_CONTRACTS_DATA.find(function(x){return String(x.id)===String(contractId);});
+  if(!c)return;
+  _DB.ref('contracts/'+c.project+'/'+contractId).remove().then(function(){_fbOk();}).catch(function(e){_fbErr('contracts',e);});
+}
+function uploadContractExcel(projCode){
+  var sc=projCode.replace(/[^a-zA-Z0-9]/g,'');
+  var fileEl=document.getElementById('contractExcelFile_'+sc);
+  var nameEl=document.getElementById('contractNameInput_'+sc);
+  var file=fileEl&&fileEl.files[0];
+  if(!file){_sn('⚠ اختر ملف Excel أولاً','var(--red)');return;}
+  var contractorName=(nameEl&&nameEl.value.trim())||'مقاول';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'binary'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      var items=[];
+      for(var i=1;i<rows.length;i++){
+        var r=rows[i];
+        var item=(r[0]||'').toString().trim();
+        if(!item)continue;
+        var qty=parseFloat(r[1])||0;
+        var unit=(r[2]||'').toString().trim()||'م²';
+        var unitPrice=parseFloat(r[3])||0;
+        var notes=(r[4]||'').toString().trim();
+        items.push({item:item,qty:qty,unit:unit,unitPrice:unitPrice,notes:notes});
+      }
+      if(!items.length){_sn('⚠ لم يتم العثور على بنود في الملف','var(--red)');return;}
+      var sess=_getSession();
+      var contractObj={
+        id:Date.now(),
+        project:projCode,
+        contractorName:contractorName,
+        items:items,
+        date:new Date().toLocaleDateString('ar-EG'),
+        user:(sess&&(sess.name||sess.username))||'—',
+        lastUpdate:new Date().toISOString()
+      };
+      _CONTRACTS_DATA.push(Object.assign({},contractObj));
+      _DB.ref('contracts/'+projCode+'/'+contractObj.id).set(contractObj).then(function(){_fbOk();}).catch(function(err){_fbErr('contracts',err);});
+      renderStdBoq();
+      _sn('✅ تم رفع عقد '+contractorName+' — '+items.length+' بند','var(--green)');
+    }catch(err){_sn('⚠ خطأ في قراءة الملف: '+err.message,'var(--red)');}
+  };
+  reader.readAsBinaryString(file);
+}
+function switchProjTab(sc,tab){
+  ['boq','contracts','dev'].forEach(function(t){
+    var btn=document.getElementById('projTab_'+sc+'_'+t);
+    var body=document.getElementById('projTabBody_'+sc+'_'+t);
+    var isActive=(t===tab);
+    if(btn){btn.style.background=isActive?'rgba(99,102,241,.22)':'transparent';btn.style.color=isActive?'var(--accent2)':'var(--muted)';btn.style.borderBottom=isActive?'2px solid var(--accent2)':'2px solid transparent';}
+    if(body)body.style.display=isActive?'':'none';
+  });
+}
+function updateDevPrice(projCode,itemName,val){
+  var key=projCode+'::'+itemName;
+  _DEV_PRICES[key]=parseFloat(val)||0;
+  var sc=projCode.replace(/[^a-zA-Z0-9]/g,'');
+  var ik=itemName.replace(/[^a-zA-Z0-9؀-ۿ]/g,'_');
+  var costEl=document.getElementById('devCost_'+sc+'_'+ik);
+  var devEl=document.getElementById('devQty_'+sc+'_'+ik);
+  if(costEl&&devEl){
+    var devQty=parseFloat(devEl.dataset.dev)||0;
+    var price=_DEV_PRICES[key]||0;
+    var cost=devQty*price;
+    costEl.textContent=(cost>=0?'+':'')+cost.toLocaleString()+' جم';
+    costEl.style.color=cost>0?'var(--red)':(cost<0?'var(--green)':'var(--muted)');
+  }
+}
+
 function autoFillBoqPlanned(){
   const proj=(document.getElementById('boqProject')||{}).value||'';
   const item=((document.getElementById('boqItem')||{}).value||'').trim();
@@ -6297,7 +6390,7 @@ function exportStdBoqExcel(projCode){
 }
 
 function renderStdBoq(){
-  _initStdItemsListener();_initStdBoqListener();
+  _initStdItemsListener();_initStdBoqListener();_initContractsListener();
   const role=window._CURRENT_ROLE||'viewer';const _brs=_getBaseRole(role);
   const canEdit=(_brs==='admin'||_brs==='editor'||_brs==='engineer'||_brs==='supervisor'||_brs==='foreman'||_brs==='storekeeper');
   const canDel=(_brs==='admin'||_brs==='editor');
@@ -6353,6 +6446,103 @@ function renderStdBoq(){
         (canDel?'<td class="sb-del" style="text-align:center;padding:4px 6px"><button onclick="deleteStdBoqEntry('+d.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 7px;cursor:pointer;font-family:Cairo;font-size:.68rem">🗑</button></td>':'')+
       '</tr>';
     });
+    // ---- Contracts for this project ----
+    const projContracts=_CONTRACTS_DATA.filter(function(c){return c.project===code;});
+    const cntProjContracts=projContracts.length;
+
+    // ---- Contracts tab HTML ----
+    const CBTNS='background:transparent;border:none;border-bottom:2px solid transparent;padding:7px 14px;font-family:Cairo,sans-serif;font-size:.78rem;cursor:pointer;color:var(--muted);transition:all .15s';
+    let contractsTabHtml=
+      '<div style="margin-bottom:14px;padding:10px 12px;background:rgba(249,115,22,.05);border:1px solid rgba(249,115,22,.18);border-radius:10px">'+
+        '<div style="font-size:.82rem;font-weight:700;color:#f97316;margin-bottom:8px">📄 رفع عقد مقاول جديد</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+          '<input type="text" id="contractNameInput_'+sc+'" placeholder="اسم المقاول" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.78rem;outline:none;min-width:150px;max-width:200px">'+
+          '<label style="font-size:.78rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid rgba(249,115,22,.4);border-radius:8px;padding:6px 14px;color:#f97316">📥 رفع عقد Excel <input type="file" id="contractExcelFile_'+sc+'" accept=".xlsx,.xls" style="display:none" onchange="uploadContractExcel(\''+code+'\')"></label>'+
+          '<span style="font-size:.67rem;color:var(--muted)">Excel: A=البند | B=الكمية | C=الوحدة | D=سعر الوحدة | E=ملاحظات</span>'+
+        '</div>'+
+      '</div>';
+    if(projContracts.length){
+      projContracts.forEach(function(contract){
+        var totalCV=contract.items?contract.items.reduce(function(s,it){return s+(it.qty||0)*(it.unitPrice||0);},0):0;
+        contractsTabHtml+=
+          '<div style="margin-bottom:12px;border:1px solid rgba(249,115,22,.2);border-radius:10px;overflow:hidden">'+
+            '<div style="background:rgba(249,115,22,.08);padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+              '<span style="font-weight:700;color:#f97316">🔧 '+contract.contractorName+'</span>'+
+              '<span style="font-size:.72rem;color:var(--muted)">'+contract.date+'</span>'+
+              '<span style="font-size:.72rem;color:var(--muted)">'+(contract.items?contract.items.length:0)+' بند</span>'+
+              (totalCV>0?'<span style="font-size:.78rem;color:var(--yellow);font-weight:700;margin-right:auto">'+totalCV.toLocaleString()+' جم</span>':'')+
+              (canDel?'<button onclick="deleteContract('+contract.id+')" style="background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:Cairo;font-size:.7rem">🗑</button>':'')+
+            '</div>'+
+            '<div style="overflow-x:auto;padding:8px">'+
+              '<table class="project-table" style="width:100%;font-size:.75rem">'+
+                '<thead><tr style="color:var(--muted);font-size:.67rem"><th>#</th><th>البند</th><th>الوحدة</th><th style="color:var(--orange)">الكمية</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th></tr></thead>'+
+                '<tbody>'+(contract.items?contract.items.map(function(it,ii){var tot=(it.qty||0)*(it.unitPrice||0);return'<tr style="'+(ii%2===0?'':'background:rgba(255,255,255,.02)')+'"><td style="padding:4px 8px;text-align:center;color:var(--muted);font-size:.7rem">'+(ii+1)+'</td><td style="padding:4px 8px;font-weight:600">'+it.item+'</td><td style="padding:4px 8px;text-align:center"><span style="background:rgba(99,102,241,.12);color:var(--accent2);border-radius:6px;padding:1px 7px;font-size:.68rem">'+(it.unit||'—')+'</span></td><td style="padding:4px 8px;text-align:center;font-weight:700;color:var(--orange)">'+((it.qty||0).toLocaleString())+'</td><td style="padding:4px 8px;text-align:center;font-size:.72rem;color:var(--muted)">'+((it.unitPrice||0).toLocaleString())+'</td><td style="padding:4px 8px;text-align:center;font-weight:700;color:var(--yellow)">'+(tot>0?tot.toLocaleString():'—')+'</td><td style="padding:4px 8px;font-size:.7rem;color:var(--muted)">'+(it.notes||'—')+'</td></tr>';}).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:8px">لا بنود</td></tr>')+
+                '</tbody>'+
+              '</table>'+
+            '</div>'+
+          '</div>';
+      });
+    }else{
+      contractsTabHtml+='<div style="color:var(--muted);font-size:.82rem;padding:10px 0">لا توجد عقود مسجّلة لهذا المشروع. ارفع أول عقد من النموذج أعلاه.</div>';
+    }
+
+    // ---- Deviations tab HTML ----
+    const stdSupplyItems=items.filter(function(d){return(d.type||'supply')==='supply';});
+    let devTabHtml='';
+    if(stdSupplyItems.length){
+      let devRows='';
+      stdSupplyItems.forEach(function(std,i){
+        var boqEntry=_BOQ_DATA.find(function(d){return d.project===code&&d.item===std.item;});
+        var actualUsed=boqEntry?(parseFloat(boqEntry.used)||0):0;
+        var stdQtyVal=parseFloat(std.stdQty)||0;
+        var devQty=actualUsed-stdQtyVal;
+        var devPct=stdQtyVal>0?(devQty/stdQtyVal*100):0;
+        var ik=std.item.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g,'_').substring(0,40);
+        var priceKey=code+'::'+std.item;
+        var savedPrice=_DEV_PRICES[priceKey]||0;
+        var devCost=devQty*savedPrice;
+        var statusClr=devQty>0?'var(--red)':(devQty<0?'var(--green)':'var(--muted)');
+        var statusIcon=devQty>0?'📈 زيادة':(devQty<0?'📉 توفير':'✅ مطابق');
+        devRows+='<tr style="'+(i%2===0?'':'background:rgba(255,255,255,.02)')+'">'+
+          '<td style="padding:5px 8px;color:var(--muted);text-align:center;font-size:.7rem">'+(i+1)+'</td>'+
+          '<td style="padding:5px 8px;font-weight:600;font-size:.78rem">'+std.item+'</td>'+
+          '<td style="padding:5px 8px;text-align:center"><span style="background:rgba(99,102,241,.12);color:var(--accent2);border-radius:6px;padding:1px 7px;font-size:.68rem">'+(std.unit||'—')+'</span></td>'+
+          '<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--green)">'+stdQtyVal.toLocaleString()+'</td>'+
+          '<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue)">'+actualUsed.toLocaleString()+(boqEntry?'':' <span style="font-size:.62rem;color:var(--muted)">(—)</span>')+'</td>'+
+          '<td style="padding:5px 8px;text-align:center;font-weight:700;color:'+statusClr+'" id="devQty_'+sc+'_'+ik+'" data-dev="'+devQty+'">'+
+            (devQty>=0?'+':'')+devQty.toLocaleString()+' <span style="font-size:.62rem">('+devPct.toFixed(1)+'%)</span>'+
+          '</td>'+
+          '<td style="padding:5px 8px;text-align:center"><span style="font-size:.7rem;color:'+statusClr+'">'+statusIcon+'</span></td>'+
+          '<td style="padding:5px 8px;text-align:center">'+
+            '<input type="number" placeholder="سعر الخامة" value="'+(savedPrice||'')+'" min="0" step="0.01" oninput="updateDevPrice(\''+code.replace(/'/g,"\\'")+'\'  ,\''+std.item.replace(/'/g,"\\'")+'\',this.value)" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px;font-family:Cairo,sans-serif;font-size:.72rem;width:100px;outline:none;text-align:center">'+
+          '</td>'+
+          '<td style="padding:5px 8px;text-align:center;font-weight:700;font-size:.75rem" id="devCost_'+sc+'_'+ik+'">'+
+            (savedPrice>0?(devCost>=0?'+':'')+devCost.toLocaleString()+' جم':'<span style="color:var(--muted)">— أدخل السعر</span>')+
+          '</td>'+
+        '</tr>';
+      });
+      devTabHtml=
+        '<div style="font-size:.74rem;color:var(--muted);margin-bottom:10px;padding:8px 12px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.12);border-radius:8px">'+
+          '📉 الانحراف = (فعلي مستهلك من تقرير المتابعة) − (كمية معيارية من الحصر) × سعر الخامة المُدخل يدوياً'+
+        '</div>'+
+        '<div style="overflow-x:auto">'+
+          '<table class="project-table" style="width:100%;font-size:.77rem">'+
+            '<thead><tr style="color:var(--muted);font-size:.67rem">'+
+              '<th>#</th><th>البند</th><th>الوحدة</th>'+
+              '<th style="color:var(--green)">معياري</th>'+
+              '<th style="color:var(--blue)">فعلي</th>'+
+              '<th style="color:var(--red)">الانحراف</th>'+
+              '<th>الحالة</th>'+
+              '<th style="color:var(--yellow)">سعر الخامة (جم)</th>'+
+              '<th style="color:var(--orange)">تكلفة الانحراف</th>'+
+            '</tr></thead>'+
+            '<tbody>'+devRows+'</tbody>'+
+          '</table>'+
+        '</div>';
+    }else{
+      devTabHtml='<div style="color:var(--muted);font-size:.82rem;padding:10px 0">لا توجد بنود توريدات في الحصر المعياري لهذا المشروع لحساب الانحراف.</div>';
+    }
+
     projCards+=
       '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px">'+
         '<div style="background:rgba(99,102,241,.10);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer" onclick="toggleStdBoqProject(\''+code+'\')">'+
@@ -6362,16 +6552,30 @@ function renderStdBoq(){
           '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
             (supItems.length?'<span style="background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:2px 10px;font-size:.72rem;font-weight:700">📦 '+supItems.length+' توريد</span>':'')+
             (conItems.length?'<span style="background:rgba(249,115,22,.12);color:#f97316;border:1px solid rgba(249,115,22,.25);border-radius:10px;padding:2px 10px;font-size:.72rem;font-weight:700">🔧 '+conItems.length+' مقاول</span>':'')+
+            (cntProjContracts?'<span style="background:rgba(99,102,241,.12);color:var(--accent2);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:2px 10px;font-size:.72rem;font-weight:700">📄 '+cntProjContracts+' عقد</span>':'')+
             (pCost>0?'<span style="font-size:.75rem;color:var(--yellow);font-weight:700">'+pCost.toLocaleString()+' جم</span>':'')+
             (canDel?'<button id="stdBoqDelProjBtn_'+sc+'" onclick="event.stopPropagation();deleteStdBoqProject(\''+code+'\')" style="background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:3px 12px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem;font-weight:700">🗑 حذف الكل</button>':'')+
             '<span id="stdBoqProjArr_'+sc+'" style="color:var(--muted);font-size:.8rem;min-width:14px">▼</span>'+
           '</div>'+
         '</div>'+
         '<div id="stdBoqProjBody_'+sc+'" style="display:none;padding:8px 10px">'+
-          '<div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.78rem">'+
-            '<thead><tr style="color:var(--muted);font-size:.67rem"><th>#</th><th>البند</th><th>النوع</th><th>الكمية</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead>'+
-            '<tbody>'+dRows+'</tbody>'+
-          '</table></div>'+
+          '<div style="display:flex;gap:0;margin-bottom:10px;border-bottom:1px solid var(--border)">'+
+            '<button id="projTab_'+sc+'_boq" onclick="switchProjTab(\''+sc+'\',\'boq\')" style="'+CBTNS+';color:var(--accent2);border-bottom:2px solid var(--accent2);background:rgba(99,102,241,.18)">📏 الحصر المعياري ('+items.length+')</button>'+
+            '<button id="projTab_'+sc+'_contracts" onclick="switchProjTab(\''+sc+'\',\'contracts\')" style="'+CBTNS+'">📄 العقود ('+cntProjContracts+')</button>'+
+            '<button id="projTab_'+sc+'_dev" onclick="switchProjTab(\''+sc+'\',\'dev\')" style="'+CBTNS+'">📉 الانحرافات</button>'+
+          '</div>'+
+          '<div id="projTabBody_'+sc+'_boq">'+
+            '<div style="overflow-x:auto"><table class="project-table" style="width:100%;font-size:.78rem">'+
+              '<thead><tr style="color:var(--muted);font-size:.67rem"><th>#</th><th>البند</th><th>النوع</th><th>الكمية</th><th>سعر الوحدة</th><th style="color:var(--yellow)">الإجمالي</th><th>ملاحظات</th>'+(canDel?'<th>حذف</th>':'')+'</tr></thead>'+
+              '<tbody>'+dRows+'</tbody>'+
+            '</table></div>'+
+          '</div>'+
+          '<div id="projTabBody_'+sc+'_contracts" style="display:none">'+
+            contractsTabHtml+
+          '</div>'+
+          '<div id="projTabBody_'+sc+'_dev" style="display:none">'+
+            devTabHtml+
+          '</div>'+
         '</div>'+
       '</div>';
   });
