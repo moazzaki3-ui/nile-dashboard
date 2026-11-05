@@ -3272,7 +3272,8 @@ function renderDeveloped(){
     return Object.assign({},p,{area:pa.area||0});
   }).sort((a,b)=>(b.area||0)-(a.area||0));
   const totalArea=doneProjects.reduce((s,p)=>s+(p.area||0),0);
-  const totalGFA=totalArea*2.87;
+  const totalGFA=totalArea*3.65;
+  const totalSale=totalArea*2.87;
   const el=document.getElementById('tab-developed');
   if(!el)return;
   const monthNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -3280,7 +3281,8 @@ function renderDeveloped(){
     '<div class="kpi-grid" style="margin-bottom:20px">'+
       '<div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val" style="color:var(--green)">'+doneProjects.length+'</div><div class="kpi-lbl">🏗 قطعة مطورة</div><div class="kpi-sub">status = تم الانتهاء</div></div>'+
       '<div class="kpi" style="border-right-color:var(--accent2)"><div class="kpi-val" style="color:var(--accent2);font-size:1.1rem">'+totalArea.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">📐 إجمالي مساحة الأراضي</div><div class="kpi-sub">م²</div></div>'+
-      '<div class="kpi" style="border-right-color:var(--blue)"><div class="kpi-val" style="color:var(--blue);font-size:1.1rem">'+totalGFA.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">🏢 إجمالي المساحة المبنية</div><div class="kpi-sub">م² GFA (× 2.87)</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--blue)"><div class="kpi-val" style="color:var(--blue);font-size:1.1rem">'+totalGFA.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">🏢 إجمالي GFA المبني</div><div class="kpi-sub">م² (× 3.65)</div></div>'+
+      '<div class="kpi" style="border-right-color:var(--orange)"><div class="kpi-val" style="color:var(--orange);font-size:1.1rem">'+totalSale.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">💰 إجمالي المساحة البيعية</div><div class="kpi-sub">م² (× 2.87)</div></div>'+
     '</div>'+
     '<div class="card" style="overflow:auto">'+
       '<table style="width:100%;border-collapse:collapse;font-size:.82rem">'+
@@ -3290,7 +3292,8 @@ function renderDeveloped(){
           '<th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);color:var(--muted)">الاسم</th>'+
           '<th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);color:var(--muted)">الموقع</th>'+
           '<th style="padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);color:var(--muted)">المساحة م²</th>'+
-          '<th style="padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);color:var(--muted)">GFA م²</th>'+
+          '<th style="padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);color:var(--blue)">GFA م² (×3.65)</th>'+
+          '<th style="padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);color:var(--orange)">بيعي م² (×2.87)</th>'+
         '</tr></thead>'+
         '<tbody>'+
         doneProjects.map(function(p,i){
@@ -3300,13 +3303,15 @@ function renderDeveloped(){
             '<td style="padding:9px 12px;font-weight:600">'+p.name+'</td>'+
             '<td style="padding:9px 12px;color:var(--muted);font-size:.78rem">'+(p.locLabel||p.loc||'')+'</td>'+
             '<td style="padding:9px 12px;text-align:left;color:var(--accent2)">'+(p.area>0?p.area.toLocaleString('ar-EG',{maximumFractionDigits:2}):'—')+'</td>'+
-            '<td style="padding:9px 12px;text-align:left;color:var(--blue);font-size:.78rem">'+(p.area>0?(p.area*2.87).toLocaleString('ar-EG',{maximumFractionDigits:0}):'—')+'</td>'+
+            '<td style="padding:9px 12px;text-align:left;color:var(--blue);font-size:.78rem">'+(p.area>0?(p.area*3.65).toLocaleString('ar-EG',{maximumFractionDigits:0}):'—')+'</td>'+
+            '<td style="padding:9px 12px;text-align:left;color:var(--orange);font-size:.78rem">'+(p.area>0?(p.area*2.87).toLocaleString('ar-EG',{maximumFractionDigits:0}):'—')+'</td>'+
           '</tr>';
         }).join('')+
         '<tr style="background:var(--card);font-weight:700;border-top:2px solid var(--border)">'+
           '<td colspan="4" style="padding:10px 12px;color:var(--muted)">الإجمالي</td>'+
           '<td style="padding:10px 12px;text-align:left;color:var(--green)">'+totalArea.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</td>'+
           '<td style="padding:10px 12px;text-align:left;color:var(--blue)">'+totalGFA.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</td>'+
+          '<td style="padding:10px 12px;text-align:left;color:var(--orange)">'+totalSale.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</td>'+
         '</tr>'+
         '</tbody>'+
       '</table>'+
@@ -3317,7 +3322,7 @@ function renderDeveloped(){
 // ===== حالة التكلفة التقديرية المتعددة =====
 window._EST_LIST=window._EST_LIST||[];
 window._EST_RATE=window._EST_RATE||0;
-window._EST_SALE_RATIO=window._EST_SALE_RATIO||80; // نسبة المساحة البيعية % من GFA
+window._EST_SALE_RATIO=window._EST_SALE_RATIO||78.63; // نسبة المساحة البيعية % من GFA (2.87/3.65)
 
 function renderEstimated(){
   var el=document.getElementById('tab-estimated');
@@ -3365,8 +3370,8 @@ function renderEstimated(){
           '<th style="padding:7px 10px"></th>'+
         '</tr></thead><tbody>';
     _EST_LIST.forEach(function(it,idx){
-      var gfa=it.area*2.87;
-      var saleArea=gfa*saleRatio;
+      var gfa=it.area*3.65;
+      var saleArea=it.area*2.87;
       var totC=saleArea*window._EST_RATE;
       var reqC=totC*it.pct/100;
       var costPerSaleM=saleArea>0?reqC/saleArea:0;
@@ -3432,9 +3437,7 @@ function renderEstimated(){
       '<label style="font-size:.78rem;color:var(--orange)">سعر التشطيب (ج.م / م² بيعي):</label>'+
       '<input type="number" id="estRate" value="'+(window._EST_RATE||'')+'" min="0" placeholder="أدخل السعر" oninput="window._EST_RATE=parseFloat(this.value)||0;clearTimeout(window._estTimer);window._estTimer=setTimeout(renderEstimated,450)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:#e2e8f0;font-family:Cairo;font-size:.88rem;width:130px">'+
       '<span style="color:var(--border)">|</span>'+
-      '<label style="font-size:.78rem;color:var(--accent2)">نسبة المساحة البيعية %:</label>'+
-      '<input type="number" id="estSaleRatio" value="'+(window._EST_SALE_RATIO||80)+'" min="1" max="100" step="0.5" oninput="window._EST_SALE_RATIO=parseFloat(this.value)||80;clearTimeout(window._estTimer);window._estTimer=setTimeout(renderEstimated,450)" style="background:var(--bg);border:1px solid var(--accent2);border-radius:8px;padding:6px 10px;color:var(--accent2);font-family:Cairo;font-size:.88rem;width:90px;font-weight:700">'+
-      '<span style="font-size:.75rem;color:var(--muted)">م² بيعي = GFA × النسبة</span>'+
+      '<span style="font-size:.74rem;color:var(--muted)">GFA = أرض × 3.65 | بيعي = أرض × 2.87 (تلقائي)</span>'+
     '</div>'+
   '</div>';
 
@@ -3492,8 +3495,8 @@ function renderEstCashFlow(){
   var merged={};
   window._EST_LIST.forEach(function(it){
     if(!it.startDate)return;
-    var gfa=it.area*2.87;
-    var saleAreaCf=gfa*saleRatioCf;
+    var gfa=it.area*3.65;
+    var saleAreaCf=it.area*2.87;
     var reqC=saleAreaCf*rate*it.pct/100;
     var months=_buildEstCashFlow(it.startDate,it.duration,reqC);
     months.forEach(function(m){
@@ -3506,7 +3509,7 @@ function renderEstCashFlow(){
   var sortedMonths=Object.keys(merged).sort().map(function(k){return merged[k];});
   if(!sortedMonths.length){if(cfSec)cfSec.style.display='none';return;}
   if(cfSec)cfSec.style.display='block';
-  var totalReqAll=window._EST_LIST.reduce(function(s,it){return s+(it.area*2.87*saleRatioCf*rate*it.pct/100);},0);
+  var totalReqAll=window._EST_LIST.reduce(function(s,it){return s+(it.area*2.87*rate*it.pct/100);},0);
   var cum=0;
   var maxCost=Math.max.apply(null,sortedMonths.map(function(m){return m.cost;}));
   var monthNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
