@@ -7832,7 +7832,7 @@ function addNileItem(){
 }
 function deleteNileItem(idx){
   var role=window._CURRENT_ROLE||'viewer';var br=_getBaseRole(role);
-  if(br!=='admin'&&br!=='finance'){_sn('لا تملك صلاحية الحذف','var(--red)');return;}
+  if(br!=='admin'&&br!=='finance'&&role!=='nile_purchasing'&&role!=='nile_storekeeper'){_sn('لا تملك صلاحية الحذف','var(--red)');return;}
   _NILE_ITEMS_DATA.splice(idx,1);
   _saveNileItemsData();
   renderNileWarehouse();
@@ -8153,7 +8153,7 @@ function addNilePR(){
 function approveNilePR(id,action){
   var role=window._CURRENT_ROLE||'viewer';
   var br=_getBaseRole(role);
-  var canApprove=br==='admin'||br==='finance';
+  var canApprove=br==='admin'||br==='finance'||role==='nile_purchasing'||role==='nile_storekeeper';
   if(!canApprove){_sn('لا تملك صلاحية الموافقة أو الرفض','var(--red)');return;}
   var d=_NILE_PR_DATA[id];if(!d)return;
   d.status=action;
@@ -8165,7 +8165,7 @@ function approveNilePR(id,action){
 function deleteNilePR(id){
   var role=window._CURRENT_ROLE||'viewer';
   var br=_getBaseRole(role);
-  if(br!=='admin'){_sn('فقط المسؤول يمكنه الحذف','var(--red)');return;}
+  if(br!=='admin'&&br!=='finance'&&role!=='nile_purchasing'&&role!=='nile_storekeeper'){_sn('لا تملك صلاحية الحذف','var(--red)');return;}
   var row=document.getElementById('nprRow_'+id);
   if(!row)return;
   if(row.dataset.confirm!=='1'){
@@ -8183,8 +8183,8 @@ function renderNilePR(){
   var role=window._CURRENT_ROLE||'viewer';
   var br=_getBaseRole(role);
   var canAdd=br==='admin'||br==='finance'||role==='nile_storekeeper'||role==='nile_purchasing';
-  var canApprove=br==='admin'||br==='finance';
-  var canDelete=br==='admin';
+  var canApprove=br==='admin'||br==='finance'||role==='nile_purchasing'||role==='nile_storekeeper';
+  var canDelete=br==='admin'||br==='finance'||role==='nile_purchasing'||role==='nile_storekeeper';
   var entries=Object.values(_NILE_PR_DATA).sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');});
   var statusColor=function(s){if(s==='موافق')return 'var(--green)';if(s==='مرفوض')return 'var(--red)';if(s==='منفذ')return 'var(--blue)';return 'var(--muted)';};
   var kpiHtml='<div class="kpi-grid" style="margin-bottom:16px">'
