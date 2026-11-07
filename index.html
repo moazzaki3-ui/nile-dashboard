@@ -730,13 +730,18 @@ function _initTabPermListener(){
     try{const v=JSON.parse(localStorage.getItem('nile_tab_perm')||'null');if(v){_TAB_PERM_CACHE=v;if(window._CURRENT_ROLE)_applyTabVisibility(window._CURRENT_ROLE);}}catch(e){}
   });
 }
+const _ROLE_FORCED_TABS={
+  nile_purchasing:['warehouse','purchases','nile_wh','nile_pr','nile_del'],
+  nile_storekeeper:['warehouse','purchases','nile_wh','nile_pr','nile_del']
+};
 function _applyTabVisibility(role){
   const perm=_getTabPerm();
+  const forced=_ROLE_FORCED_TABS[role]||[];
   _TABS_CONFIG.forEach(t=>{
     const btn=document.querySelector('.tab[onclick*="\''+t.id+'\'"]');
     if(!btn)return;
     const pr=perm[t.id];
-    const allowed=!pr||pr[role]!==false;
+    const allowed=forced.includes(t.id)||!pr||pr[role]!==false;
     btn.style.display=allowed?'':'none';
   });
 }
