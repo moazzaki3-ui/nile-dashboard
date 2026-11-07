@@ -4389,7 +4389,9 @@ function renderWarehouse(){
   const role=window._CURRENT_ROLE||'viewer';const _brw=_getBaseRole(role);
   const canEdit=(_brw==='admin'||_brw==='editor'||_brw==='engineer'||_brw==='supervisor'||_brw==='foreman'||_brw==='storekeeper');
   const canDel=(_brw==='admin'||_brw==='editor');
-  const filterType=(document.getElementById('whFilterType')||{}).value||'';
+  window._whKpiTab=window._whKpiTab||'';
+  const _whKpiTypeMap={'in':'توريد','out':'صرف','all':''};
+  const filterType=('in'===window._whKpiTab||'out'===window._whKpiTab)?_whKpiTypeMap[window._whKpiTab]:((document.getElementById('whFilterType')||{}).value||'');
   const _whActiveId=(document.activeElement||{}).id||'';
   const _whActiveVal=(document.activeElement||{}).value||'';
   const _whActivePos=(document.activeElement||{}).selectionStart||0;
@@ -4460,7 +4462,10 @@ function renderWarehouse(){
     var ast='-';
     if(minQty>0){if(bal<minQty)ast='حرج';else if(bal<minQty*1.1)ast='تحذير';else ast='طبيعي';}
     return Object.assign({},s,{cat:cat,minQty:minQty,alertStatus:ast});
-  }).filter(function(s){return !stockSearch||s.item.toLowerCase().includes(stockSearch);});
+  }).filter(function(s){
+    if(window._whKpiTab==='negative'&&s.balance>0)return false;
+    return !stockSearch||s.item.toLowerCase().includes(stockSearch);
+  });
 
   // Group by category
   const catGroups={};
@@ -4611,14 +4616,15 @@ function renderWarehouse(){
     '</div>'+
     (_curAlertTab?alertPanelHtml:'')+
 
+    (window._whKpiTab?'<div style="margin-bottom:8px"><button onclick="window._whKpiTab=\'\';renderWarehouse()" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:4px 14px;font-family:Cairo,sans-serif;font-size:.78rem">✕ عرض الكل</button></div>':'')+
     '<div class="kpi-grid" style="margin-bottom:16px">'+
-      '<div class="kpi blue"><div class="kpi-val">'+_WAREHOUSE_DATA.length+'</div><div class="kpi-lbl">إجمالي الحركات</div></div>'+
-      '<div class="kpi green"><div class="kpi-val" style="color:var(--green)">'+_WAREHOUSE_DATA.filter(d=>d.type==='توريد').length+'</div><div class="kpi-lbl">📥 توريدات واردة</div><div class="kpi-sub">إجمالي: '+totalIn.toLocaleString()+'</div></div>'+
-      '<div class="kpi" style="border-right-color:var(--yellow)"><div class="kpi-val" style="color:var(--yellow)">'+_WAREHOUSE_DATA.filter(d=>d.type==='صرف').length+'</div><div class="kpi-lbl">📤 صرف للمشاريع</div><div class="kpi-sub">إجمالي: '+totalOut.toLocaleString()+'</div></div>'+
-      '<div class="kpi orange"><div class="kpi-val" style="color:var(--accent2)">'+uniqueItems+'</div><div class="kpi-lbl">📦 أصناف مختلفة</div></div>'+
-      (totalStockVal>0?'<div class="kpi" style="border-right-color:var(--green)"><div class="kpi-val" style="color:var(--green);font-size:1.1rem">'+totalStockVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">💰 قيمة المخزون الحالي</div><div class="kpi-sub">ج.م</div></div>':'')+
-      (totalIssuedVal>0?'<div class="kpi" style="border-right-color:var(--orange)"><div class="kpi-val" style="color:var(--orange);font-size:1.1rem">'+totalIssuedVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">📤 قيمة المصروف للمشاريع</div><div class="kpi-sub">ج.م</div></div>':'')+
-      (lowStock>0?'<div class="kpi" style="border-right-color:var(--red)"><div class="kpi-val" style="color:var(--red)">'+lowStock+'</div><div class="kpi-lbl">🔴 أصناف نفدت / سالبة</div></div>':'')+
+      '<div class="kpi blue" onclick="window._whKpiTab=(window._whKpiTab===\'all\'?\'\':\'all\');renderWarehouse()" style="cursor:pointer;'+(window._whKpiTab==='all'?'outline:2px solid var(--blue);':'')+'"><div class="kpi-val">'+_WAREHOUSE_DATA.length+'</div><div class="kpi-lbl">إجمالي الحركات</div></div>'+
+      '<div class="kpi green" onclick="window._whKpiTab=(window._whKpiTab===\'in\'?\'\':\'in\');renderWarehouse()" style="cursor:pointer;'+(window._whKpiTab==='in'?'outline:2px solid var(--green);':'')+'"><div class="kpi-val" style="color:var(--green)">'+_WAREHOUSE_DATA.filter(d=>d.type==='توريد').length+'</div><div class="kpi-lbl">📥 توريدات واردة</div><div class="kpi-sub">إجمالي: '+totalIn.toLocaleString()+'</div></div>'+
+      '<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'out\'?\'\':\'out\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--yellow);'+(window._whKpiTab==='out'?'outline:2px solid var(--yellow);':'')+'"><div class="kpi-val" style="color:var(--yellow)">'+_WAREHOUSE_DATA.filter(d=>d.type==='صرف').length+'</div><div class="kpi-lbl">📤 صرف للمشاريع</div><div class="kpi-sub">إجمالي: '+totalOut.toLocaleString()+'</div></div>'+
+      '<div class="kpi orange" onclick="window._whKpiTab=(window._whKpiTab===\'stock\'?\'\':\'stock\');renderWarehouse()" style="cursor:pointer;'+(window._whKpiTab==='stock'?'outline:2px solid var(--accent2);':'')+'"><div class="kpi-val" style="color:var(--accent2)">'+uniqueItems+'</div><div class="kpi-lbl">📦 أصناف مختلفة</div></div>'+
+      (totalStockVal>0?'<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'stock_val\'?\'\':\'stock_val\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--green);'+(window._whKpiTab==='stock_val'?'outline:2px solid var(--green);':'')+'"><div class="kpi-val" style="color:var(--green);font-size:1.1rem">'+totalStockVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">💰 قيمة المخزون الحالي</div><div class="kpi-sub">ج.م</div></div>':'')+
+      (totalIssuedVal>0?'<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'issued_val\'?\'\':\'issued_val\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--orange);'+(window._whKpiTab==='issued_val'?'outline:2px solid var(--orange);':'')+'"><div class="kpi-val" style="color:var(--orange);font-size:1.1rem">'+totalIssuedVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">📤 قيمة المصروف للمشاريع</div><div class="kpi-sub">ج.م</div></div>':'')+
+      (lowStock>0?'<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'negative\'?\'\':\'negative\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--red);'+(window._whKpiTab==='negative'?'outline:2px solid var(--red);':'')+'"><div class="kpi-val" style="color:var(--red)">'+lowStock+'</div><div class="kpi-lbl">🔴 أصناف نفدت / سالبة</div></div>':'')+
     '</div>'+
 
     // Entry form
@@ -4630,7 +4636,7 @@ function renderWarehouse(){
         '<div class="form-group" style="min-width:130px"><label>نوع الحركة *</label><select id="whType" onchange="checkWhStockWarning()"><option value="توريد">📥 توريد (وارد)</option><option value="صرف">📤 صرف (خروج)</option></select></div>'+
         '<div class="form-group" style="min-width:200px"><label>اسم الصنف *</label><input type="text" id="whItem" list="whItemsList" placeholder="مثال: حديد 12مم، أسمنت، رمل..." autocomplete="off" oninput="checkWhStockWarning()"><datalist id="whItemsList">'+stockArr.map(s=>'<option value="'+s.item+'">').join('')+'</datalist></div>'+
         '<div class="form-group" style="min-width:110px"><label>الكمية *</label><input type="number" id="whQty" placeholder="0" min="0" step="0.01" oninput="checkWhStockWarning()"></div>'+
-        '<div class="form-group" style="min-width:100px"><label>الوحدة</label><select id="whUnit" onchange="checkWhStockWarning()"><option value="طن">طن</option><option value="م³">م³</option><option value="م²">م²</option><option value="كجم">كجم</option><option value="عدد">عدد</option><option value="لتر">لتر</option><option value="كيس">كيس</option><option value="م.ط">م.ط</option><option value="صفيحة">صفيحة</option></select></div>'+
+        '<div class="form-group" style="min-width:100px"><label>الوحدة</label><select id="whUnit" onchange="checkWhStockWarning()"><option value="طن">طن</option><option value="م³">م³</option><option value="م²">م²</option><option value="كجم">كجم</option><option value="عدد">عدد</option><option value="لتر">لتر</option><option value="كيس">كيس</option><option value="م.ط">م.ط</option><option value="صفيحة">صفيحة</option><option value="لفة">لفة</option></select></div>'+
         '<div class="form-group" style="min-width:160px"><label>المشروع (للصرف)</label><select id="whProject"><option value="">— عام —</option>'+projOpts+'</select></div>'+
       '</div>'+
       '<div class="form-row">'+
