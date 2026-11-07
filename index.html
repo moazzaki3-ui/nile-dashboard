@@ -892,7 +892,7 @@ function _getSectPerm(){
   Object.keys(_SECTION_DEFS).forEach(function(tabId){
     def[tabId]={};
     _SECTION_DEFS[tabId].forEach(function(s){
-      def[tabId][s.id]={admin:true,chairman:true,editor:true,engineer:true,supervisor:true,sitemanager:true,foreman:true,storekeeper:true,finance:true,customerservice:true,procurement:true,viewer:true};
+      def[tabId][s.id]={admin:true,chairman:true,editor:true,engineer:true,supervisor:true,sitemanager:true,foreman:true,storekeeper:true,finance:true,customerservice:true,procurement:true,viewer:true,nile_purchasing:true,nile_storekeeper:true};
     });
   });
   return def;
@@ -934,7 +934,7 @@ function saveSectionPermissions(){
     p[tabId]={};
     _SECTION_DEFS[tabId].forEach(function(s){
       p[tabId][s.id]={admin:true};
-      ['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer'].forEach(function(r){
+      ['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].forEach(function(r){
         const cb=document.getElementById('sp_'+s.id+'_'+r);
         p[tabId][s.id][r]=cb?cb.checked:true;
       });
@@ -947,7 +947,7 @@ function saveSectionPermissions(){
 }
 function renderSectionPermissions(){
   const p=_getSectPerm();
-  const roles=['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer'].map(function(id){return{id:id,label:_getRoleLabel(id)};});
+  const roles=['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].map(function(id){return{id:id,label:_getRoleLabel(id)};});
   let html='<div id="sectPermNotice" style="display:none;background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:.8rem">✅ تم حفظ إعدادات الأقسام</div>';
   Object.keys(_SECTION_DEFS).forEach(function(tabId){
     const tabCfg=_TABS_CONFIG.find(function(t){return t.id===tabId;});
@@ -8195,11 +8195,12 @@ function renderNilePR(){
   var canApprove=br==='admin'||br==='finance'||role==='nile_purchasing'||role==='nile_storekeeper';
   var canDelete=br==='admin'||br==='finance'||role==='nile_purchasing'||role==='nile_storekeeper';
   var entries=Object.values(_NILE_PR_DATA).sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');});
-  var statusColor=function(s){if(s==='موافق')return 'var(--green)';if(s==='مرفوض')return 'var(--red)';if(s==='منفذ')return 'var(--blue)';return 'var(--muted)';};
+  var statusColor=function(s){if(s==='موافق')return 'var(--green)';if(s==='مرفوض')return 'var(--red)';if(s==='منفذ')return 'var(--blue)';if(s==='جارى التوريد')return 'var(--orange)';return 'var(--muted)';};
   var kpiHtml='<div class="kpi-grid" style="margin-bottom:16px">'
     +'<div class="kpi-card"><div class="kpi-label">إجمالي الطلبات</div><div class="kpi-value">'+entries.length+'</div></div>'
     +'<div class="kpi-card"><div class="kpi-label">جديد</div><div class="kpi-value" style="color:var(--muted)">'+entries.filter(function(e){return e.status==='جديد';}).length+'</div></div>'
     +'<div class="kpi-card"><div class="kpi-label">موافق</div><div class="kpi-value" style="color:var(--green)">'+entries.filter(function(e){return e.status==='موافق';}).length+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">جارى التوريد</div><div class="kpi-value" style="color:var(--orange)">'+entries.filter(function(e){return e.status==='جارى التوريد';}).length+'</div></div>'
     +'<div class="kpi-card"><div class="kpi-label">منفذ</div><div class="kpi-value" style="color:var(--blue)">'+entries.filter(function(e){return e.status==='منفذ';}).length+'</div></div>'
     +'</div>';
   var formHtml='';
@@ -8230,9 +8231,17 @@ function renderNilePR(){
       var daysTxt=days===null?'—':days===0?'اليوم':days+' يوم';
       var daysColor=e.status==='منفذ'||e.status==='مرفوض'?'var(--muted)':(days===null?'var(--muted)':days<=2?'var(--green)':days<=5?'var(--yellow)':'var(--red)');
       var actions='';
-      if(canApprove&&e.status==='جديد'){
-        actions='<button onclick="approveNilePR(\''+e.id+'\',\'موافق\')" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:var(--green);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:Cairo;font-size:.72rem;margin-left:4px">✓ موافق</button>'
-          +'<button onclick="approveNilePR(\''+e.id+'\',\'مرفوض\')" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:var(--red);border-radius:6px;padding:3px 10px;cursor:pointer;font-family:Cairo;font-size:.72rem">✗ رفض</button>';
+      if(canApprove){
+        var nextSt=[];
+        if(e.status==='جديد')nextSt=['موافق','مرفوض'];
+        else if(e.status==='موافق')nextSt=['جارى التوريد','مرفوض'];
+        else if(e.status==='جارى التوريد')nextSt=['منفذ','مرفوض'];
+        if(nextSt.length){
+          actions='<select onchange="approveNilePR(\''+e.id+'\',this.value);this.value=\'\';" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:3px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">'
+            +'<option value="">-- تغيير الحالة --</option>'
+            +nextSt.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('')
+            +'</select>';
+        }
       }
       if(canDelete){actions+='<td class="npr-del-cell" style="display:contents"><button onclick="deleteNilePR(\''+e.id+'\')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:Cairo;font-size:.7rem;margin-right:4px">🗑</button></td>';}
       var actionCell=(canApprove||canDelete)?'<td class="npr-del-cell">'+actions+'</td>':'';
