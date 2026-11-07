@@ -4436,7 +4436,8 @@ function renderWarehouse(){
   const totalStockVal=stockArr.reduce((s,r)=>s+(r.stockVal||0),0);
   const totalIssuedVal=stockArr.reduce((s,r)=>s+(r.issuedVal||0),0);
 
-  const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
+  const _EXCL_ST=new Set(['تحت الترخيص','جارى الترخيص']);
+  const projOpts=PROJECTS.filter(p=>!_EXCL_ST.has(p.status)).map(p=>'<option value="'+p.code+'">'+p.code+' — '+p.name+'</option>').join('');
 
   // ===== أرصدة المخزن المصنّفة =====
   const _minMapStock={};
