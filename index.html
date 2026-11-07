@@ -744,6 +744,9 @@ function _applyTabVisibility(role){
     const allowed=forced.includes(t.id)||!pr||pr[role]!==false;
     btn.style.display=allowed?'':'none';
   });
+  // Always hide admin tab for non-admin roles
+  const adminBtn=document.getElementById('adminTab');
+  if(adminBtn&&role!=='admin'){adminBtn.style.display='none';}
 }
 function saveTabPermissions(){
   const p={};
