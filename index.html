@@ -4409,8 +4409,8 @@ function renderWarehouse(){
   sorted.forEach(d=>{
     const key=d.item+'|'+(d.unit||'');
     if(!stock[key])stock[key]={item:d.item,unit:d.unit||'',in:0,out:0};
-    if(d.type==='توريد')stock[key].in+=d.qty;
-    else stock[key].out+=d.qty;
+    if(d.type==='توريد')stock[key].in+=(parseFloat(d.qty)||0);
+    else stock[key].out+=(parseFloat(d.qty)||0);
   });
 
   // Build weighted average cost per item from توريد entries that have avgCost
@@ -4419,8 +4419,8 @@ function renderWarehouse(){
     if(d.type==='توريد'&&d.avgCost>0){
       const key=d.item+'|'+(d.unit||'');
       if(!itemCost[key])itemCost[key]={totalVal:0,totalQty:0};
-      itemCost[key].totalVal+=d.avgCost*d.qty;
-      itemCost[key].totalQty+=d.qty;
+      itemCost[key].totalVal+=(parseFloat(d.avgCost)||0)*(parseFloat(d.qty)||0);
+      itemCost[key].totalQty+=(parseFloat(d.qty)||0);
     }
   });
   // avgCost per key
@@ -4434,8 +4434,8 @@ function renderWarehouse(){
     const uc=avgCostMap[key]||0;
     return {...s,balance:s.in-s.out,unitCost:uc,stockVal:(s.in-s.out)*uc,issuedVal:s.out*uc};
   });
-  const totalIn=_WAREHOUSE_DATA.filter(d=>d.type==='توريد').reduce((s,d)=>s+d.qty,0);
-  const totalOut=_WAREHOUSE_DATA.filter(d=>d.type==='صرف').reduce((s,d)=>s+d.qty,0);
+  const totalIn=_WAREHOUSE_DATA.filter(d=>d.type==='توريد').reduce((s,d)=>s+(parseFloat(d.qty)||0),0);
+  const totalOut=_WAREHOUSE_DATA.filter(d=>d.type==='صرف').reduce((s,d)=>s+(parseFloat(d.qty)||0),0);
   const uniqueItems=stockArr.length;
   const lowStock=stockArr.filter(s=>s.balance<=0).length;
   const totalStockVal=stockArr.reduce((s,r)=>s+(r.stockVal||0),0);
@@ -4600,6 +4600,72 @@ function renderWarehouse(){
     '</div>';
   }
 
+  // === KPI Detail Panel ===
+  var _kpiDetailHtml='';
+  if(window._whKpiTab){
+    var _kpiPanelTitles={'all':'📋 جميع الحركات','in':'📥 سجل التوريدات الواردة','out':'📤 سجل الصرف للمشاريع','stock':'📦 أرصدة الأصناف','stock_val':'💰 أرصدة الأصناف بالقيمة','negative':'🔴 الأصناف النافدة والسالبة','issued_val':'📊 ملخص المصروف بالمشاريع'};
+    var _kpiPanelTitle=_kpiPanelTitles[window._whKpiTab]||'';
+    if(window._whKpiTab==='issued_val'){
+      var _projIssued={};
+      _WAREHOUSE_DATA.filter(function(d){return d.type==='صرف';}).forEach(function(d){
+        var proj=d.project||'عام';
+        if(!_projIssued[proj])_projIssued[proj]={count:0,val:0};
+        _projIssued[proj].count++;
+        _projIssued[proj].val+=(parseFloat(d.avgCost)||0)*(parseFloat(d.qty)||0);
+      });
+      var _projIssRows=Object.keys(_projIssued).sort().map(function(proj){
+        var r=_projIssued[proj];
+        return '<tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px">'+proj+'</td><td style="padding:7px 12px;text-align:center">'+r.count+'</td><td style="padding:7px 12px;text-align:center;color:var(--orange)">'+(r.val>0?r.val.toLocaleString('ar-EG',{maximumFractionDigits:0})+' ج.م':'—')+'</td></tr>';
+      }).join('');
+      _kpiDetailHtml='<div style="margin-bottom:16px;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid rgba(249,115,22,.3)">'+
+        '<div style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:700;color:var(--orange);font-family:Cairo,sans-serif">'+_kpiPanelTitle+'</div>'+
+        '<div style="max-height:300px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem;font-family:Cairo,sans-serif">'+
+        '<thead><tr style="background:var(--card)"><th style="padding:7px 12px;text-align:right">المشروع</th><th style="padding:7px 12px;text-align:center">عدد حركات الصرف</th><th style="padding:7px 12px;text-align:center">القيمة المصروفة</th></tr></thead>'+
+        '<tbody>'+_projIssRows+'</tbody></table></div></div>';
+    } else if(window._whKpiTab==='negative'){
+      var _negRows2=stockArrE.map(function(s){
+        return '<tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px">'+s.item+'</td><td style="padding:7px 12px;text-align:center;color:var(--muted)">'+s.unit+'</td><td style="padding:7px 12px;text-align:center;font-weight:700;color:var(--red)">'+s.balance+'</td><td style="padding:7px 12px;text-align:center;color:var(--green)">'+s.in+'</td><td style="padding:7px 12px;text-align:center;color:var(--yellow)">'+s.out+'</td></tr>';
+      }).join('');
+      _kpiDetailHtml='<div style="margin-bottom:16px;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid rgba(239,68,68,.3)">'+
+        '<div style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:700;color:var(--red);font-family:Cairo,sans-serif">'+_kpiPanelTitle+'</div>'+
+        (_negRows2?'<div style="max-height:300px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem;font-family:Cairo,sans-serif">'+
+        '<thead><tr style="background:var(--card)"><th style="padding:7px 12px;text-align:right">الصنف</th><th style="padding:7px 12px;text-align:center">الوحدة</th><th style="padding:7px 12px;text-align:center">الرصيد</th><th style="padding:7px 12px;text-align:center">وارد</th><th style="padding:7px 12px;text-align:center">صرف</th></tr></thead>'+
+        '<tbody>'+_negRows2+'</tbody></table></div>':
+        '<div style="padding:16px;color:var(--green);text-align:center;font-family:Cairo,sans-serif">✅ لا توجد أصناف سالبة أو منتهية</div>')+
+        '</div>';
+    } else if(window._whKpiTab==='stock'||window._whKpiTab==='stock_val'){
+      var _stockDisp=[].concat(stockArrE).sort(function(a,b){return (b.stockVal||0)-(a.stockVal||0);});
+      var _stockPanRows=_stockDisp.map(function(s){
+        return '<tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px">'+s.item+'</td><td style="padding:7px 12px;text-align:center;color:var(--muted)">'+s.unit+'</td><td style="padding:7px 12px;text-align:center;font-weight:700;'+(s.balance<=0?'color:var(--red)':'color:var(--green)')+'">'+s.balance+'</td>'+(s.stockVal>0?'<td style="padding:7px 12px;text-align:center;color:var(--green)">'+s.stockVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+' ج.م</td>':'<td style="padding:7px 12px;text-align:center;color:var(--muted)">—</td>')+'</tr>';
+      }).join('');
+      _kpiDetailHtml='<div style="margin-bottom:16px;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid rgba(129,140,248,.3)">'+
+        '<div style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:700;color:var(--accent2);font-family:Cairo,sans-serif">'+_kpiPanelTitle+'</div>'+
+        '<div style="max-height:300px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem;font-family:Cairo,sans-serif">'+
+        '<thead><tr style="background:var(--card)"><th style="padding:7px 12px;text-align:right">الصنف</th><th style="padding:7px 12px;text-align:center">الوحدة</th><th style="padding:7px 12px;text-align:center">الرصيد الحالي</th><th style="padding:7px 12px;text-align:center">قيمة المخزون</th></tr></thead>'+
+        '<tbody>'+_stockPanRows+'</tbody></table></div></div>';
+    } else {
+      var _movColor2=window._whKpiTab==='in'?'var(--green)':window._whKpiTab==='out'?'var(--yellow)':'var(--blue)';
+      var _movBorder2=window._whKpiTab==='in'?'rgba(34,197,94,.3)':window._whKpiTab==='out'?'rgba(234,179,8,.3)':'rgba(56,189,248,.3)';
+      var _movRows2=filtered.slice(0,100).map(function(d){
+        var _ds='';try{_ds=new Date(d.id).toLocaleDateString('ar-EG',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch(e){}
+        return '<tr style="border-top:1px solid var(--border)">'+
+          '<td style="padding:6px 10px;font-size:.75rem;color:var(--muted)">'+_ds+'</td>'+
+          '<td style="padding:6px 10px"><span style="background:'+(d.type==='توريد'?'rgba(34,197,94,.12)':'rgba(234,179,8,.12)')+';color:'+(d.type==='توريد'?'var(--green)':'var(--yellow)')+';border-radius:4px;padding:1px 8px;font-size:.75rem">'+d.type+'</span></td>'+
+          '<td style="padding:6px 10px">'+d.item+'</td>'+
+          '<td style="padding:6px 10px;text-align:center">'+(parseFloat(d.qty)||0)+' '+(d.unit||'')+'</td>'+
+          '<td style="padding:6px 10px;color:var(--accent2)">'+(d.project||'—')+'</td>'+
+          '<td style="padding:6px 10px;color:var(--muted)">'+(d.supplier||'—')+'</td>'+
+          '</tr>';
+      }).join('');
+      var _moreTxt2=filtered.length>100?'<div style="padding:8px 16px;color:var(--muted);font-size:.75rem;text-align:center">... و '+(filtered.length-100)+' سجل آخر</div>':'';
+      _kpiDetailHtml='<div style="margin-bottom:16px;background:var(--panel);border-radius:12px;overflow:hidden;border:1px solid '+_movBorder2+'">'+
+        '<div style="padding:10px 16px;border-bottom:1px solid var(--border);font-weight:700;color:'+_movColor2+';font-family:Cairo,sans-serif">'+_kpiPanelTitle+' — '+filtered.length+' سجل</div>'+
+        '<div style="max-height:320px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem;font-family:Cairo,sans-serif">'+
+        '<thead><tr style="background:var(--card)"><th style="padding:6px 10px;text-align:right">التاريخ</th><th style="padding:6px 10px;text-align:right">النوع</th><th style="padding:6px 10px;text-align:right">الصنف</th><th style="padding:6px 10px;text-align:center">الكمية</th><th style="padding:6px 10px;text-align:right">المشروع</th><th style="padding:6px 10px;text-align:right">المورد</th></tr></thead>'+
+        '<tbody>'+_movRows2+'</tbody></table></div>'+_moreTxt2+'</div>';
+    }
+  }
+
   document.getElementById('tab-warehouse').innerHTML=
     '<div class="section-title">🏭 المخازن — صرف وتوريد ورصيد</div>'+
 
@@ -4619,13 +4685,14 @@ function renderWarehouse(){
     (window._whKpiTab?'<div style="margin-bottom:8px"><button onclick="window._whKpiTab=\'\';renderWarehouse()" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:20px;padding:4px 14px;font-family:Cairo,sans-serif;font-size:.78rem">✕ عرض الكل</button></div>':'')+
     '<div class="kpi-grid" style="margin-bottom:16px">'+
       '<div class="kpi blue" onclick="window._whKpiTab=(window._whKpiTab===\'all\'?\'\':\'all\');renderWarehouse()" style="cursor:pointer;'+(window._whKpiTab==='all'?'outline:2px solid var(--blue);':'')+'"><div class="kpi-val">'+_WAREHOUSE_DATA.length+'</div><div class="kpi-lbl">إجمالي الحركات</div></div>'+
-      '<div class="kpi green" onclick="window._whKpiTab=(window._whKpiTab===\'in\'?\'\':\'in\');renderWarehouse()" style="cursor:pointer;'+(window._whKpiTab==='in'?'outline:2px solid var(--green);':'')+'"><div class="kpi-val" style="color:var(--green)">'+_WAREHOUSE_DATA.filter(d=>d.type==='توريد').length+'</div><div class="kpi-lbl">📥 توريدات واردة</div><div class="kpi-sub">إجمالي: '+totalIn.toLocaleString()+'</div></div>'+
-      '<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'out\'?\'\':\'out\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--yellow);'+(window._whKpiTab==='out'?'outline:2px solid var(--yellow);':'')+'"><div class="kpi-val" style="color:var(--yellow)">'+_WAREHOUSE_DATA.filter(d=>d.type==='صرف').length+'</div><div class="kpi-lbl">📤 صرف للمشاريع</div><div class="kpi-sub">إجمالي: '+totalOut.toLocaleString()+'</div></div>'+
+      '<div class="kpi green" onclick="window._whKpiTab=(window._whKpiTab===\'in\'?\'\':\'in\');renderWarehouse()" style="cursor:pointer;'+(window._whKpiTab==='in'?'outline:2px solid var(--green);':'')+'"><div class="kpi-val" style="color:var(--green)">'+_WAREHOUSE_DATA.filter(d=>d.type==='توريد').length+'</div><div class="kpi-lbl">📥 توريدات واردة</div><div class="kpi-sub">اضغط للتفاصيل</div></div>'+
+      '<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'out\'?\'\':\'out\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--yellow);'+(window._whKpiTab==='out'?'outline:2px solid var(--yellow);':'')+'"><div class="kpi-val" style="color:var(--yellow)">'+_WAREHOUSE_DATA.filter(d=>d.type==='صرف').length+'</div><div class="kpi-lbl">📤 صرف للمشاريع</div><div class="kpi-sub">اضغط للتفاصيل</div></div>'+
       '<div class="kpi orange" onclick="window._whKpiTab=(window._whKpiTab===\'stock\'?\'\':\'stock\');renderWarehouse()" style="cursor:pointer;'+(window._whKpiTab==='stock'?'outline:2px solid var(--accent2);':'')+'"><div class="kpi-val" style="color:var(--accent2)">'+uniqueItems+'</div><div class="kpi-lbl">📦 أصناف مختلفة</div></div>'+
       (totalStockVal>0?'<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'stock_val\'?\'\':\'stock_val\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--green);'+(window._whKpiTab==='stock_val'?'outline:2px solid var(--green);':'')+'"><div class="kpi-val" style="color:var(--green);font-size:1.1rem">'+totalStockVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">💰 قيمة المخزون الحالي</div><div class="kpi-sub">ج.م</div></div>':'')+
       (totalIssuedVal>0?'<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'issued_val\'?\'\':\'issued_val\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--orange);'+(window._whKpiTab==='issued_val'?'outline:2px solid var(--orange);':'')+'"><div class="kpi-val" style="color:var(--orange);font-size:1.1rem">'+totalIssuedVal.toLocaleString('ar-EG',{maximumFractionDigits:0})+'</div><div class="kpi-lbl">📤 قيمة المصروف للمشاريع</div><div class="kpi-sub">ج.م</div></div>':'')+
       (lowStock>0?'<div class="kpi" onclick="window._whKpiTab=(window._whKpiTab===\'negative\'?\'\':\'negative\');renderWarehouse()" style="cursor:pointer;border-right-color:var(--red);'+(window._whKpiTab==='negative'?'outline:2px solid var(--red);':'')+'"><div class="kpi-val" style="color:var(--red)">'+lowStock+'</div><div class="kpi-lbl">🔴 أصناف نفدت / سالبة</div></div>':'')+
     '</div>'+
+    _kpiDetailHtml+
 
     // Entry form
     (canEdit?
