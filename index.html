@@ -218,7 +218,6 @@ header .sub{font-size:.72rem;color:#a5b4fc;margin-top:1px}
   <div class="tab" onclick="showTab('cs')">📞 خدمة العملاء</div>
   <div class="tab" onclick="showTab('nile_wh')">🏭 مخازن نايل</div>
   <div class="tab" onclick="showTab('nile_pr')">🛒 طلبات شراء نايل</div>
-  <div class="tab" onclick="showTab('nile_del')">📦 توريدات نايل</div>
   <div class="tab" id="adminTab" onclick="showTab('admin')" style="display:none">⚙️ الإدارة</div>
 </div>
 
@@ -706,7 +705,6 @@ const _TABS_CONFIG=[
   {id:'cs',label:'📞 خدمة العملاء'},
   {id:'nile_wh',label:'🏭 مخازن نايل'},
   {id:'nile_pr',label:'🛒 طلبات شراء نايل'},
-  {id:'nile_del',label:'📦 توريدات نايل'},
 ];
 let _TAB_PERM_CACHE=null;let _fbTabPermInit=false;
 function _getTabPerm(){
@@ -731,8 +729,8 @@ function _initTabPermListener(){
   });
 }
 const _ROLE_FORCED_TABS={
-  nile_purchasing:['warehouse','purchases','nile_wh','nile_pr','nile_del'],
-  nile_storekeeper:['warehouse','purchases','nile_wh','nile_pr','nile_del']
+  nile_purchasing:['warehouse','purchases','nile_wh','nile_pr'],
+  nile_storekeeper:['warehouse','purchases','nile_wh','nile_pr']
 };
 function _applyTabVisibility(role){
   const perm=_getTabPerm();
@@ -796,7 +794,6 @@ function applyRecommendedTabPerms(){
     cs:['procurement','storekeeper','foreman'],
     nile_wh:['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','customerservice','procurement','viewer'],
     nile_pr:['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','customerservice','procurement','viewer'],
-    nile_del:['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','customerservice','procurement','viewer'],
   };
   const p=_getTabPerm();
   Object.entries(hide).forEach(([tabId,roles])=>{
@@ -1069,9 +1066,8 @@ function showTab(t){
   if(t==='estimated'){renderEstimated();}
   if(t==='nile_wh'){renderNileWarehouse();}
   if(t==='nile_pr'){renderNilePR();}
-  if(t==='nile_del'){renderNileDel();}
   if(typeof _applySectionPerms==='function')_applySectionPerms(t);
-  ['portfolio','projects','updates','cashflow','financial','rates','developed','estimated','deviations','chat','deliveries','warehouse','invoices','balances','stdboq','purchases','costs','schedule','cs','admin','nile_wh','nile_pr','nile_del'].forEach(id=>{
+  ['portfolio','projects','updates','cashflow','financial','rates','developed','estimated','deviations','chat','deliveries','warehouse','invoices','balances','stdboq','purchases','costs','schedule','cs','admin','nile_wh','nile_pr'].forEach(id=>{
     const el=document.getElementById('tab-'+id);if(el)el.classList.toggle('hidden',id!==t);
   });
   document.querySelectorAll('.tab').forEach(el=>{
@@ -8217,30 +8213,41 @@ function addNilePR(){
   var br=_getBaseRole(role);
   var canAdd=br==='admin'||br==='finance'||role==='nile_storekeeper'||role==='nile_purchasing';
   if(!canAdd){_sn('لا تملك صلاحية إضافة طلب شراء','var(--red)');return;}
+  var project=((document.getElementById('npr_project')||{}).value||'').trim();
   var item=((document.getElementById('npr_item')||{}).value||'').trim();
   var qty=((document.getElementById('npr_qty')||{}).value||'').trim();
   var unit=(document.getElementById('npr_unit')||{}).value||'';
   var supplier=((document.getElementById('npr_supplier')||{}).value||'').trim();
   var notes=((document.getElementById('npr_notes')||{}).value||'').trim();
+  var statusVal=(document.getElementById('npr_status')||{}).value||'جديد';
+  var deliveryDateVal=((document.getElementById('npr_delivery_date')||{}).value||'').trim();
   var dateVal=((document.getElementById('npr_date')||{}).value||'').trim();
   var m=document.getElementById('nprMsg');
   if(!item){if(m){m.style.color='var(--red)';m.textContent='⚠ يجب إدخال البند';setTimeout(function(){m.textContent='';},3000);}return;}
   var sess=window._CURRENT_SESSION||{};
   var id='NPR-'+Date.now();
-  // استخدم التاريخ المحدد — لو مفيش استخدم اليوم
   var entryDate, entryTs;
   if(dateVal){
     var parts=dateVal.split('-');
     entryDate=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])).toLocaleDateString('ar-EG');
-    // ts = بداية اليوم المحدد (للحساب الصحيح لعمر الطلب)
     entryTs=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]),0,0,0).toISOString();
   } else {
     entryDate=new Date().toLocaleDateString('ar-EG');
     entryTs=new Date().toISOString();
   }
-  var entry={id:id,item:item,qty:qty,unit:unit,supplier:supplier,notes:notes,status:'جديد',requestedBy:sess.name||sess.username||'—',date:entryDate,ts:entryTs};
+  var deliveryDate='';
+  if(deliveryDateVal){
+    var dp=deliveryDateVal.split('-');
+    deliveryDate=new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2])).toLocaleDateString('ar-EG');
+  }
+  var entry={id:id,project:project,item:item,qty:qty,unit:unit,supplier:supplier,notes:notes,status:statusVal,deliveryDate:deliveryDate,requestedBy:sess.name||sess.username||'—',date:entryDate,ts:entryTs};
   _saveNilePrEntry(id,entry);
-  ['npr_item','npr_qty','npr_supplier','npr_notes'].forEach(function(eid){var el=document.getElementById(eid);if(el)el.value='';});
+  if(statusVal==='منفذ'){
+    var whId=Date.now()+1;
+    _NILE_WH_DATA.unshift({id:whId,type:'توريد',item:item,qty:qty,unit:unit,supplier:supplier||'—',note:'من طلبات الشراء — '+id,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+    _saveNileWhData();
+  }
+  ['npr_project','npr_item','npr_qty','npr_supplier','npr_notes','npr_delivery_date'].forEach(function(eid){var el=document.getElementById(eid);if(el)el.value='';});
   if(m){m.style.color='var(--green)';m.textContent='✅ تم إضافة طلب الشراء';setTimeout(function(){m.textContent='';},2500);}
   renderNilePR();
 }
@@ -8308,11 +8315,10 @@ function importNilePRFromExcel(){
         // --- build notes from extra fields ---
         var notesArr=[];
         if(prNum)notesArr.push('رقم الطلب: '+prNum);
-        if(project)notesArr.push('المشروع: '+project);
         if(category)notesArr.push('التصنيف: '+category);
         var notes=notesArr.join(' | ');
         var id='EXCEL-'+(baseTs+idx);
-        var entry={id:id,item:item,qty:qty,unit:unit,supplier:dept,notes:notes,status:'جديد',requestedBy:requester||sess.name||sess.username||'—',date:entryDate,ts:entryTs};
+        var entry={id:id,project:project,item:item,qty:qty,unit:unit,supplier:dept,notes:notes,status:'جديد',deliveryDate:'',requestedBy:requester||sess.name||sess.username||'—',date:entryDate,ts:entryTs};
         _saveNilePrEntry(id,entry);
         added++;
       });
@@ -8330,6 +8336,19 @@ function importNilePRFromExcel(){
   };
   reader.readAsArrayBuffer(file);
 }
+function exportNilePRToExcel(){
+  var entries=Object.values(_NILE_PR_DATA).sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');});
+  var header=['#','المشروع','البند / الصنف','الكمية','الوحدة','المورد','تاريخ الطلب','تاريخ التوريد','عمر الطلب (يوم)','الحالة','ملاحظات','المسجل'];
+  var statusLabel=function(s){if(s==='جديد')return 'تم الطلب';if(s==='منفذ')return 'تم التوريد';return s||'';};
+  var data=entries.map(function(e,i){
+    var days=e.ts?Math.floor((Date.now()-new Date(e.ts).getTime())/86400000):0;
+    return [i+1,e.project||'',e.item||'',e.qty||'',e.unit||'',e.supplier||'',e.date||'',e.deliveryDate||'',days,statusLabel(e.status),e.notes||'',e.requestedBy||''];
+  });
+  var ws=XLSX.utils.aoa_to_sheet([header].concat(data));
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'طلبات الشراء');
+  XLSX.writeFile(wb,'طلبات_الشراء_نايل_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
 function approveNilePR(id,action){
   var role=window._CURRENT_ROLE||'viewer';
   var br=_getBaseRole(role);
@@ -8340,6 +8359,12 @@ function approveNilePR(id,action){
   d.approvedBy=(window._CURRENT_SESSION||{}).name||(window._CURRENT_SESSION||{}).username||'—';
   d.approvalDate=new Date().toLocaleDateString('ar-EG');
   _saveNilePrEntry(id,d);
+  if(action==='منفذ'){
+    var sess=window._CURRENT_SESSION||{};
+    var whId=Date.now()+1;
+    _NILE_WH_DATA.unshift({id:whId,type:'توريد',item:d.item,qty:d.qty,unit:d.unit||'',supplier:d.supplier||'—',note:'من طلبات الشراء — '+id,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+    _saveNileWhData();
+  }
   renderNilePR();
 }
 function deleteNilePR(id){
@@ -8367,8 +8392,9 @@ function renderNilePR(){
   var canDelete=br==='admin'||br==='finance'||role==='nile_purchasing'||role==='nile_storekeeper';
   var entries=Object.values(_NILE_PR_DATA).sort(function(a,b){return (b.ts||'').localeCompare(a.ts||'');});
   var statusColor=function(s){if(s==='موافق')return 'var(--green)';if(s==='مرفوض')return 'var(--red)';if(s==='منفذ')return 'var(--blue)';if(s==='جارى التوريد')return 'var(--orange)';return 'var(--yellow)';};
+  var statusLabel=function(s){if(s==='جديد')return 'تم الطلب';if(s==='منفذ')return 'تم التوريد';return s||'';};
 
-  // ===== KPI — like renderPurchases style =====
+  // ===== KPIs =====
   var lateEntries=entries.filter(function(e){
     if(e.status==='منفذ'||e.status==='مرفوض')return false;
     var d=e.ts?Math.floor((Date.now()-new Date(e.ts).getTime())/86400000):0;
@@ -8382,7 +8408,7 @@ function renderNilePR(){
     +'<div class="kpi-card" style="border:1px solid rgba(239,68,68,.5);background:rgba(239,68,68,.1)"><div class="kpi-label" style="color:var(--red)">🔥 متأخرة +7 يوم</div><div class="kpi-value" style="color:var(--red)">'+lateEntries.length+'</div></div>'
     +'</div>';
 
-  // ===== FORM — like renderPurchases style =====
+  // ===== FORM =====
   var todayISO=(function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
   var formPR='';
   if(canAdd){
@@ -8390,13 +8416,19 @@ function renderNilePR(){
       +'<div class="section-title">➕ طلب شراء جديد</div>'
       +'<span id="nprMsg" style="font-size:.8rem;min-height:1.2em;display:block;margin-bottom:6px"></span>'
       +'<div class="form-row">'
-      +'<input id="npr_item" class="form-control" placeholder="البند / الصنف المطلوب" style="flex:2" />'
+      +'<input id="npr_project" class="form-control" placeholder="المشروع" />'
+      +'<input id="npr_item" class="form-control" placeholder="البند / الصنف المطلوب *" style="flex:2" />'
       +'<input id="npr_qty" class="form-control" placeholder="الكمية" />'
       +'<select id="npr_unit" class="form-control"><option value="">-- الوحدة --</option><option>طن</option><option>كيلو</option><option>متر</option><option>م²</option><option>م³</option><option>عبوة</option><option>قطعة</option><option>لتر</option><option>كيس</option></select>'
       +'<input id="npr_supplier" class="form-control" placeholder="المورد المقترح" />'
       +'</div>'
       +'<div class="form-row">'
       +'<input id="npr_notes" class="form-control" placeholder="ملاحظات" style="flex:2" />'
+      +'<select id="npr_status" class="form-control" style="min-width:130px"><option value="جديد">📋 تم الطلب</option><option value="جارى التوريد">🔄 جارى التوريد</option><option value="منفذ">✔ تم التوريد</option></select>'
+      +'<div style="display:flex;align-items:center;gap:6px;white-space:nowrap">'
+      +'<label style="font-size:.78rem;color:var(--muted)">📅 تاريخ التوريد</label>'
+      +'<input type="date" id="npr_delivery_date" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;cursor:pointer" />'
+      +'</div>'
       +'<div style="display:flex;align-items:center;gap:6px;white-space:nowrap">'
       +'<label style="font-size:.78rem;color:var(--muted)">📅 تاريخ الطلب</label>'
       +'<input type="date" id="npr_date" value="'+todayISO+'" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;cursor:pointer" />'
@@ -8404,8 +8436,9 @@ function renderNilePR(){
       +'</div>'
       +'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">'
       +'<button class="form-btn form-btn-primary" onclick="addNilePR()">📋 إضافة طلب</button>'
-      +'<button class="form-btn" onclick="document.getElementById(\'nilePrImportFile\').click()" style="background:var(--card);color:var(--accent2);border:1px solid var(--accent2);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.82rem">📤 استيراد من Excel</button>'
+      +'<button class="form-btn" onclick="document.getElementById(\'nilePrImportFile\').click()" style="background:var(--card);color:var(--accent2);border:1px solid var(--accent2);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.82rem">📤 استيراد Excel</button>'
       +'<input type="file" id="nilePrImportFile" accept=".xlsx,.xls" style="display:none" onchange="importNilePRFromExcel()">'
+      +'<button class="form-btn" onclick="exportNilePRToExcel()" style="background:var(--card);color:var(--green);border:1px solid var(--green);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.82rem">📊 تصدير Excel</button>'
       +'<span id="nilePrImportMsg" style="font-size:.8rem;color:var(--muted)"></span>'
       +'</div>'
       +'</div>';
@@ -8416,11 +8449,14 @@ function renderNilePR(){
   var filterSearch=((document.getElementById('nilePrFilterSearch')||{}).value||'').toLowerCase();
   var filtered=entries.filter(function(e){
     if(filterStat&&e.status!==filterStat)return false;
-    if(filterSearch&&!(e.item||'').toLowerCase().includes(filterSearch)&&!(e.supplier||'').toLowerCase().includes(filterSearch))return false;
+    if(filterSearch&&
+       !(e.item||'').toLowerCase().includes(filterSearch)&&
+       !(e.supplier||'').toLowerCase().includes(filterSearch)&&
+       !(e.project||'').toLowerCase().includes(filterSearch))return false;
     return true;
   });
   var filtersPR='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">'
-    +'<input type="text" id="nilePrFilterSearch" value="'+filterSearch+'" placeholder="🔍 بحث بالصنف أو البند..." oninput="renderNilePR()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;min-width:200px">'
+    +'<input type="text" id="nilePrFilterSearch" value="'+filterSearch+'" placeholder="🔍 بحث بالمشروع أو البند..." oninput="renderNilePR()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;min-width:220px">'
     +'<select id="nilePrFilterStatus" onchange="renderNilePR()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">'
     +'<option value="" '+(filterStat===''?'selected':'')+'>كل الحالات</option>'
     +'<option value="جديد" '+(filterStat==='جديد'?'selected':'')+'>📋 تم الطلب</option>'
@@ -8431,16 +8467,18 @@ function renderNilePR(){
     +'</select>'
     +'</div>';
 
-  // ===== TABLE — like renderPurchases columns =====
-  var colPR=9+(canApprove||canDelete?1:0);
+  // ===== TABLE =====
+  var colPR=11+(canApprove||canDelete?1:0);
   var tablePR='<div style="overflow-x:auto">'
     +'<table style="width:100%;border-collapse:collapse;font-size:.8rem">'
     +'<thead><tr style="background:var(--panel)">'
     +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">#</th>'
+    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">المشروع</th>'
     +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600">البند / الصنف</th>'
     +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">الكمية</th>'
     +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">المورد</th>'
     +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">تاريخ الطلب</th>'
+    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">تاريخ التوريد</th>'
     +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:600;white-space:nowrap">عمر الطلب</th>'
     +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:600;white-space:nowrap">الحالة</th>'
     +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600">ملاحظات</th>'
@@ -8463,28 +8501,30 @@ function renderNilePR(){
       var statusCell='';
       if(canApprove&&!isDone){
         var nextSt=[];
-        if(e.status==='جديد')nextSt=['موافق','مرفوض'];
-        else if(e.status==='موافق')nextSt=['جارى التوريد','مرفوض'];
+        if(e.status==='جديد')nextSt=['موافق','جارى التوريد','منفذ','مرفوض'];
+        else if(e.status==='موافق')nextSt=['جارى التوريد','منفذ','مرفوض'];
         else if(e.status==='جارى التوريد')nextSt=['منفذ','مرفوض'];
         if(nextSt.length){
           statusCell='<select onchange="approveNilePR(\''+e.id+'\',this.value);this.value=\'\';" style="background:transparent;border:none;color:'+sc+';font-size:.75rem;font-family:Cairo,sans-serif;cursor:pointer;outline:none;direction:rtl">'
-            +'<option value="">'+e.status+'</option>'
-            +nextSt.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('')
+            +'<option value="">'+statusLabel(e.status)+'</option>'
+            +nextSt.map(function(s){return '<option value="'+s+'">'+statusLabel(s)+'</option>';}).join('')
             +'</select>';
-        } else {statusCell='<span style="color:'+sc+';font-weight:700">'+e.status+'</span>';}
-      } else {statusCell='<span style="color:'+sc+';font-weight:700">'+e.status+'</span>';}
+        } else {statusCell='<span style="color:'+sc+';font-weight:700">'+statusLabel(e.status)+'</span>';}
+      } else {statusCell='<span style="color:'+sc+';font-weight:700">'+statusLabel(e.status)+'</span>';}
       var actionCell='';
       if(canApprove||canDelete){
-        actionCell='<td style="padding:8px 10px;text-align:center;white-space:nowrap">'
+        actionCell='<td class="npr-del-cell" style="padding:8px 10px;text-align:center;white-space:nowrap">'
           +(canDelete?'<button onclick="deleteNilePR(\''+e.id+'\')" style="background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">🗑</button>':'')
           +'</td>';
       }
       return '<tr id="nprRow_'+e.id+'" style="border-bottom:1px solid var(--border);'+rowBg+'">'
         +'<td style="padding:8px 10px;color:var(--muted)">'+(i+1)+(isLate?'<span style="color:var(--red);margin-right:3px" title="متأخر">⚠</span>':'')+'</td>'
+        +'<td style="padding:8px 10px;color:var(--accent2);white-space:nowrap">'+(e.project||'—')+'</td>'
         +'<td style="padding:8px 10px;font-weight:600">'+e.item+'</td>'
         +'<td style="padding:8px 10px;color:var(--muted);white-space:nowrap">'+(e.qty||'–')+' '+(e.unit||'')+'</td>'
         +'<td style="padding:8px 10px;color:var(--muted);white-space:nowrap">'+(e.supplier||'–')+'</td>'
         +'<td style="padding:8px 10px;color:var(--muted);white-space:nowrap">'+e.date+'</td>'
+        +'<td style="padding:8px 10px;color:var(--muted);white-space:nowrap">'+(e.deliveryDate||'—')+'</td>'
         +'<td style="padding:8px 10px;text-align:center;white-space:nowrap">'+daysHtml+'</td>'
         +'<td style="padding:8px 10px;text-align:center">'+statusCell+'</td>'
         +'<td style="padding:8px 10px;color:var(--muted);font-size:.75rem">'+(e.notes||'')+'</td>'
@@ -8495,98 +8535,12 @@ function renderNilePR(){
   }
   tablePR+='</tbody></table></div>';
 
-  // ===== SECTION 2: DELIVERIES — like renderDeliveries style =====
-  var kpiDel='<div class="kpi-grid" style="margin-bottom:16px">'
-    +'<div class="kpi-card"><div class="kpi-label">إجمالي الاستلامات</div><div class="kpi-value">'+_NILE_DEL_DATA.length+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">بنود مسجلة</div><div class="kpi-value" style="color:var(--green)">'+(function(){var s={};_NILE_DEL_DATA.forEach(function(d){s[d.item]=1;});return Object.keys(s).length;})()+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">مرتبطة بطلب</div><div class="kpi-value" style="color:var(--accent2)">'+_NILE_DEL_DATA.filter(function(d){return !!d.prId;}).length+'</div></div>'
-    +(_NILE_DEL_DATA.length?'<div class="kpi-card"><div class="kpi-label">آخر استلام</div><div class="kpi-value" style="font-size:.88rem;color:var(--blue)">'+(_NILE_DEL_DATA[0].date||'—')+'</div></div>':'')
-    +'</div>';
-  var tableDel='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem">'
-    +'<thead><tr style="background:var(--panel)">'
-    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600">الصنف</th>'
-    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">الكمية</th>'
-    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">المورد</th>'
-    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600">ملاحظات</th>'
-    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">طلب مرتبط</th>'
-    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">التاريخ</th>'
-    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600;white-space:nowrap">المستخدم</th>'
-    +'</tr></thead><tbody>';
-  if(!_NILE_DEL_DATA.length){
-    tableDel+='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">لا توجد توريدات مسجلة</td></tr>';
-  } else {
-    tableDel+=_NILE_DEL_DATA.slice(0,30).map(function(d){
-      var prBadge=d.prId?'<span style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:var(--accent2);border-radius:5px;padding:1px 7px;font-size:.72rem">'+d.prId+'</span>':'<span style="color:var(--muted);font-size:.75rem">—</span>';
-      return '<tr style="border-bottom:1px solid var(--border)">'
-        +'<td style="padding:8px 10px;font-weight:600">'+d.item+'</td>'
-        +'<td style="padding:8px 10px;color:var(--muted);white-space:nowrap">'+d.qty+' '+(d.unit||'')+'</td>'
-        +'<td style="padding:8px 10px;color:var(--muted)">'+d.supplier+'</td>'
-        +'<td style="padding:8px 10px;color:var(--muted);font-size:.75rem">'+(d.note||'—')+'</td>'
-        +'<td style="padding:8px 10px">'+prBadge+'</td>'
-        +'<td style="padding:8px 10px;font-size:.75rem;color:var(--muted)">'+d.date+'</td>'
-        +'<td style="padding:8px 10px;font-size:.75rem;color:var(--muted)">'+d.user+'</td>'
-        +'</tr>';
-    }).join('');
-    if(_NILE_DEL_DATA.length>30){tableDel+='<tr><td colspan="7" style="padding:8px;text-align:center;color:var(--muted);font-size:.75rem">... و '+(_NILE_DEL_DATA.length-30)+' توريد آخر — اذهب لتبويب التوريدات للعرض الكامل</td></tr>';}
-  }
-  tableDel+='</tbody></table></div>';
-  var delSection='<div style="margin-top:28px">'
-    +'<div class="section-title">📦 التوريدات</div>'
-    +kpiDel+tableDel+'</div>';
-
-  // ===== SECTION 3: WAREHOUSE BALANCE — like renderWarehouse KPI style =====
-  var invWH={};
-  _NILE_WH_DATA.forEach(function(d){
-    var k=d.item+'|'+(d.unit||'');
-    if(!invWH[k])invWH[k]={item:d.item,unit:d.unit||'',bal:0,inQty:0,outQty:0};
-    if(d.type==='توريد'){invWH[k].bal+=parseFloat(d.qty)||0;invWH[k].inQty+=parseFloat(d.qty)||0;}
-    else{invWH[k].bal-=parseFloat(d.qty)||0;invWH[k].outQty+=parseFloat(d.qty)||0;}
-  });
-  var invRows=Object.values(invWH).sort(function(a,b){return b.bal-a.bal;});
-  var negCount=invRows.filter(function(r){return r.bal<=0;}).length;
-  var kpiWH='<div class="kpi-grid" style="margin-bottom:16px">'
-    +'<div class="kpi-card"><div class="kpi-label">إجمالي الحركات</div><div class="kpi-value">'+_NILE_WH_DATA.length+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">توريدات واردة</div><div class="kpi-value" style="color:var(--green)">'+_NILE_WH_DATA.filter(function(d){return d.type==='توريد';}).length+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">صرف</div><div class="kpi-value" style="color:var(--orange)">'+_NILE_WH_DATA.filter(function(d){return d.type==='صرف';}).length+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">أصناف مختلفة</div><div class="kpi-value" style="color:var(--blue)">'+invRows.length+'</div></div>'
-    +(negCount?'<div class="kpi-card" style="border:1px solid rgba(239,68,68,.5);background:rgba(239,68,68,.1)"><div class="kpi-label" style="color:var(--red)">🔴 أصناف نقدت / سالبة</div><div class="kpi-value" style="color:var(--red)">'+negCount+'</div></div>':'')
-    +'</div>';
-  var tableWH='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem">'
-    +'<thead><tr style="background:var(--panel)">'
-    +'<th style="padding:8px 10px;text-align:right;color:var(--muted);font-weight:600">الصنف</th>'
-    +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:600;white-space:nowrap">الوحدة</th>'
-    +'<th style="padding:8px 10px;text-align:center;color:var(--green);font-weight:600;white-space:nowrap">📥 وارد</th>'
-    +'<th style="padding:8px 10px;text-align:center;color:var(--orange);font-weight:600;white-space:nowrap">📤 صادر</th>'
-    +'<th style="padding:8px 10px;text-align:center;color:var(--muted);font-weight:600;white-space:nowrap">الرصيد</th>'
-    +'</tr></thead><tbody>';
-  if(!invRows.length){
-    tableWH+='<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--muted)">لا توجد حركات مخزن مسجلة</td></tr>';
-  } else {
-    tableWH+=invRows.map(function(r){
-      var c=r.bal>0?'var(--green)':(r.bal<0?'var(--red)':'var(--muted)');
-      var rowBg=r.bal<=0?'background:rgba(239,68,68,.07);':'';
-      return '<tr style="border-bottom:1px solid var(--border);'+rowBg+'">'
-        +'<td style="padding:8px 10px;font-weight:600">'+r.item+'</td>'
-        +'<td style="padding:8px 10px;text-align:center;color:var(--muted)">'+r.unit+'</td>'
-        +'<td style="padding:8px 10px;text-align:center;color:var(--green)">'+r.inQty.toLocaleString()+'</td>'
-        +'<td style="padding:8px 10px;text-align:center;color:var(--orange)">'+r.outQty.toLocaleString()+'</td>'
-        +'<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+c+'">'+(r.bal>0?'+':'')+r.bal.toLocaleString()+'</td>'
-        +'</tr>';
-    }).join('');
-  }
-  tableWH+='</tbody></table></div>';
-  var whSection='<div style="margin-top:28px">'
-    +'<div class="section-title">🏭 المخزن</div>'
-    +kpiWH+tableWH+'</div>';
-
-  tab.innerHTML='<div class="section-title">🛒 عمليات نايل — طلبات الشراء والتوريدات والمخزن</div>'
+  tab.innerHTML='<div class="section-title">🛒 طلبات الشراء — نايل</div>'
     +kpiPR
     +formPR
-    +'<div class="section-title" style="margin-top:4px">📋 طلبات الشراء</div>'
+    +'<div class="section-title" style="margin-top:4px">📋 قائمة طلبات الشراء</div>'
     +filtersPR
-    +tablePR
-    +delSection
-    +whSection;
+    +tablePR;
 }
 // ===== / NILE PURCHASE REQUESTS =====
 
@@ -8736,7 +8690,6 @@ function startApp(){
   _initSectionPermListener();
   _initNileWhListener();
   _initNilePrListener();
-  _initNileDelListener();
   _initNileItemsListener();
   populateFormDropdowns();
   renderChangelog();
@@ -8947,7 +8900,6 @@ function startApp(){
 <div id="tab-cs" class="content hidden"></div>
 <div id="tab-nile_wh" class="content hidden"></div>
 <div id="tab-nile_pr" class="content hidden"></div>
-<div id="tab-nile_del" class="content hidden"></div>
 
 <!-- ADMIN PANEL TAB -->
 <div id="tab-admin" class="content hidden">
