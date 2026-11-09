@@ -8222,11 +8222,23 @@ function addNilePR(){
   var unit=(document.getElementById('npr_unit')||{}).value||'';
   var supplier=((document.getElementById('npr_supplier')||{}).value||'').trim();
   var notes=((document.getElementById('npr_notes')||{}).value||'').trim();
+  var dateVal=((document.getElementById('npr_date')||{}).value||'').trim();
   var m=document.getElementById('nprMsg');
   if(!item){if(m){m.style.color='var(--red)';m.textContent='⚠ يجب إدخال البند';setTimeout(function(){m.textContent='';},3000);}return;}
   var sess=window._CURRENT_SESSION||{};
   var id='NPR-'+Date.now();
-  var entry={id:id,item:item,qty:qty,unit:unit,supplier:supplier,notes:notes,status:'جديد',requestedBy:sess.name||sess.username||'—',date:new Date().toLocaleDateString('ar-EG'),ts:new Date().toISOString()};
+  // استخدم التاريخ المحدد — لو مفيش استخدم اليوم
+  var entryDate, entryTs;
+  if(dateVal){
+    var parts=dateVal.split('-');
+    entryDate=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])).toLocaleDateString('ar-EG');
+    // ts = بداية اليوم المحدد (للحساب الصحيح لعمر الطلب)
+    entryTs=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]),0,0,0).toISOString();
+  } else {
+    entryDate=new Date().toLocaleDateString('ar-EG');
+    entryTs=new Date().toISOString();
+  }
+  var entry={id:id,item:item,qty:qty,unit:unit,supplier:supplier,notes:notes,status:'جديد',requestedBy:sess.name||sess.username||'—',date:entryDate,ts:entryTs};
   _saveNilePrEntry(id,entry);
   ['npr_item','npr_qty','npr_supplier','npr_notes'].forEach(function(eid){var el=document.getElementById(eid);if(el)el.value='';});
   if(m){m.style.color='var(--green)';m.textContent='✅ تم إضافة طلب الشراء';setTimeout(function(){m.textContent='';},2500);}
@@ -8285,6 +8297,7 @@ function renderNilePR(){
     +'</div>';
 
   // ===== FORM — like renderPurchases style =====
+  var todayISO=(function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
   var formPR='';
   if(canAdd){
     formPR='<div class="project-form" style="margin-bottom:20px">'
@@ -8298,6 +8311,10 @@ function renderNilePR(){
       +'</div>'
       +'<div class="form-row">'
       +'<input id="npr_notes" class="form-control" placeholder="ملاحظات" style="flex:2" />'
+      +'<div style="display:flex;align-items:center;gap:6px;white-space:nowrap">'
+      +'<label style="font-size:.78rem;color:var(--muted)">📅 تاريخ الطلب</label>'
+      +'<input type="date" id="npr_date" value="'+todayISO+'" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;cursor:pointer" />'
+      +'</div>'
       +'</div>'
       +'<button class="form-btn form-btn-primary" onclick="addNilePR()">📋 إضافة طلب</button>'
       +'</div>';
