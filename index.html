@@ -8244,6 +8244,92 @@ function addNilePR(){
   if(m){m.style.color='var(--green)';m.textContent='✅ تم إضافة طلب الشراء';setTimeout(function(){m.textContent='';},2500);}
   renderNilePR();
 }
+function importNilePRFromExcel(){
+  var input=document.getElementById('nilePrImportFile');
+  if(!input||!input.files.length)return;
+  var role=window._CURRENT_ROLE||'viewer';
+  var br=_getBaseRole(role);
+  var canAdd=br==='admin'||br==='finance'||role==='nile_storekeeper'||role==='nile_purchasing';
+  if(!canAdd){_sn('لا تملك صلاحية استيراد طلبات الشراء','var(--red)');return;}
+  var file=input.files[0];
+  var msgEl=document.getElementById('nilePrImportMsg');
+  if(msgEl){msgEl.style.color='var(--muted)';msgEl.textContent='⏳ جارى قراءة الملف...';}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(rows.length<2){
+        if(msgEl){msgEl.style.color='var(--yellow)';msgEl.textContent='⚠ الملف فارغ أو لا يحتوي على بيانات';}
+        input.value='';return;
+      }
+      var dataRows=rows.slice(1); // skip header row
+      var added=0,skipped=0;
+      var sess=window._CURRENT_SESSION||{};
+      var baseTs=Date.now();
+      dataRows.forEach(function(r,idx){
+        // Col 0=رقم الطلب, 1=تاريخ, 2=مشروع, 3=جهة طالبة, 4=مقدم الطلب, 5=وصف الصنف, 6=تصنيف, 7=وحدة, 8=كمية
+        var prNum=(r[0]||'').toString().trim();
+        var dateVal=r[1];
+        var project=(r[2]||'').toString().trim();
+        var dept=(r[3]||'').toString().trim();
+        var requester=(r[4]||'').toString().trim();
+        var item=(r[5]||'').toString().trim();
+        var category=(r[6]||'').toString().trim();
+        var unit=(r[7]||'').toString().trim();
+        var qty=(r[8]!==''&&r[8]!==null&&r[8]!==undefined)?r[8].toString().trim():'';
+        if(!item){skipped++;return;}
+        // --- parse date ---
+        var entryTs,entryDate;
+        if(dateVal instanceof Date&&!isNaN(dateVal.getTime())){
+          var dObj=new Date(dateVal.getFullYear(),dateVal.getMonth(),dateVal.getDate(),0,0,0);
+          entryTs=dObj.toISOString();
+          entryDate=new Date(dateVal.getFullYear(),dateVal.getMonth(),dateVal.getDate()).toLocaleDateString('ar-EG');
+        } else if(typeof dateVal==='number'&&dateVal>0){
+          var dRaw=new Date(Math.round((dateVal-25569)*86400000));
+          var dObj2=new Date(dRaw.getFullYear(),dRaw.getMonth(),dRaw.getDate(),0,0,0);
+          entryTs=dObj2.toISOString();
+          entryDate=new Date(dRaw.getFullYear(),dRaw.getMonth(),dRaw.getDate()).toLocaleDateString('ar-EG');
+        } else if(typeof dateVal==='string'&&dateVal.trim()){
+          var dParsed=new Date(dateVal.trim());
+          if(!isNaN(dParsed.getTime())){
+            var dObj3=new Date(dParsed.getFullYear(),dParsed.getMonth(),dParsed.getDate(),0,0,0);
+            entryTs=dObj3.toISOString();
+            entryDate=new Date(dParsed.getFullYear(),dParsed.getMonth(),dParsed.getDate()).toLocaleDateString('ar-EG');
+          } else {
+            entryTs=new Date().toISOString();
+            entryDate=new Date().toLocaleDateString('ar-EG');
+          }
+        } else {
+          entryTs=new Date().toISOString();
+          entryDate=new Date().toLocaleDateString('ar-EG');
+        }
+        // --- build notes from extra fields ---
+        var notesArr=[];
+        if(prNum)notesArr.push('رقم الطلب: '+prNum);
+        if(project)notesArr.push('المشروع: '+project);
+        if(category)notesArr.push('التصنيف: '+category);
+        var notes=notesArr.join(' | ');
+        var id='EXCEL-'+(baseTs+idx);
+        var entry={id:id,item:item,qty:qty,unit:unit,supplier:dept,notes:notes,status:'جديد',requestedBy:requester||sess.name||sess.username||'—',date:entryDate,ts:entryTs};
+        _saveNilePrEntry(id,entry);
+        added++;
+      });
+      if(msgEl){
+        var msg=added>0?'✅ تم استيراد '+added+' طلب'+(skipped?' ('+skipped+' سطر فارغ)':''):'⚠ لا بيانات صالحة'+(skipped?' — '+skipped+' سطر فارغ':'');
+        msgEl.style.color=added>0?'var(--green)':'var(--yellow)';
+        msgEl.textContent=msg;
+        setTimeout(function(){if(msgEl)msgEl.textContent='';},6000);
+      }
+      if(added>0)setTimeout(function(){renderNilePR();},600);
+    }catch(ex){
+      if(msgEl){msgEl.style.color='var(--red)';msgEl.textContent='⚠ خطأ في الملف: '+ex.message;}
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
 function approveNilePR(id,action){
   var role=window._CURRENT_ROLE||'viewer';
   var br=_getBaseRole(role);
@@ -8316,7 +8402,12 @@ function renderNilePR(){
       +'<input type="date" id="npr_date" value="'+todayISO+'" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;cursor:pointer" />'
       +'</div>'
       +'</div>'
+      +'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">'
       +'<button class="form-btn form-btn-primary" onclick="addNilePR()">📋 إضافة طلب</button>'
+      +'<button class="form-btn" onclick="document.getElementById(\'nilePrImportFile\').click()" style="background:var(--card);color:var(--accent2);border:1px solid var(--accent2);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.82rem">📤 استيراد من Excel</button>'
+      +'<input type="file" id="nilePrImportFile" accept=".xlsx,.xls" style="display:none" onchange="importNilePRFromExcel()">'
+      +'<span id="nilePrImportMsg" style="font-size:.8rem;color:var(--muted)"></span>'
+      +'</div>'
       +'</div>';
   }
 
