@@ -5306,7 +5306,11 @@ function renderBalances(){
   const filterProj=(document.getElementById('boqFilterProj')||{}).value||'';
   const filtered=_BOQ_DATA.filter(d=>(!filterProj||d.project===filterProj));
 
-  const projOpts=ACTIVE_CODES.map(c=>'<option value="'+c+'">'+c+' — '+(ACTIVE_NAMES[c]||'')+'</option>').join('');
+  const _actSet=new Set(ACTIVE_CODES);
+  const _nm=c=>(ACTIVE_NAMES[c]||(PROJECTS.find(p=>p.code===c)||{}).name||'');
+  const _opt=c=>'<option value="'+c+'">'+c+' — '+_nm(c)+'</option>';
+  const _others=PROJECTS.map(p=>p.code).filter(c=>!_actSet.has(c)).sort((x,y)=>String(x).localeCompare(String(y),undefined,{numeric:true}));
+  const projOpts='<optgroup label="🏗 المشاريع النشطة">'+ACTIVE_CODES.map(_opt).join('')+'</optgroup>'+(_others.length?'<optgroup label="📋 باقي المشاريع">'+_others.map(_opt).join('')+'</optgroup>':'');
 
   function devColor(p){return p>=0?'var(--green)':p>-5?'var(--yellow)':'var(--red)';}
   function _matType(name){
@@ -5425,7 +5429,7 @@ function renderBalances(){
       '</div>'+
       '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
         '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع من Excel <input type="file" id="boqExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadBoqExcel()"></label>'+
-        '<select id="fupProjSel" style="font-size:.75rem;background:var(--card);border:1px solid rgba(99,102,241,.35);color:#e2e8f0;border-radius:8px;padding:5px 10px;direction:rtl;max-width:165px"><option value="">— المشروع (اختياري) —</option>'+projOpts+'</select>'+
+        '<select id="fupProjSel" style="font-size:.75rem;background:var(--card);border:1px solid rgba(99,102,241,.35);color:#e2e8f0;border-radius:8px;padding:5px 10px;direction:rtl;max-width:165px"><option value="">— المشروع (اختياري) —</option>'+PROJECTS.slice().sort(function(a,b){return String(a.code).localeCompare(String(b.code),undefined,{numeric:true});}).map(function(p){return '<option value="'+p.code+'">'+p.code+' — '+p.name+'</option>';}).join('')+'</select>'+
         '<label style="font-size:.78rem;color:var(--accent2);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.35);border-radius:8px;padding:6px 14px">📋 رفع تقرير المتابعة <input type="file" id="boqFollowUpFile" accept=".xlsx,.xls" style="display:none" onchange="uploadFollowUpExcel()"></label>'+
         '<span style="font-size:.67rem;color:var(--muted)">📥 Excel بسيط: المشروع، البند، التوريد، الرصيد… &nbsp;|&nbsp; 📋 تقرير المتابعة: شيت اسمه كود المشروع، Standard/Actual في عمود F</span>'+
       '</div>'+
