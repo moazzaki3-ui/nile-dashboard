@@ -2178,6 +2178,8 @@ function _phSel(code, field, val, lbl){
 let _PURCHASES_DATA={};
 let _PO_EDIT_ID=null;
 let _PO_FILTERED_CACHE=[];
+let _PO_KPI='';
+function _poSetKpi(k){_PO_KPI=(_PO_KPI===k)?'':k;const sel=document.getElementById('poFilterStatus');if(sel)sel.value='';renderPurchases();}
 
 function _initPurchasesListener(){
   _DB.ref('/purchase_orders').on('value',snap=>{
@@ -2334,7 +2336,9 @@ function renderPurchases(){
   const filterStat=(document.getElementById('poFilterStatus')||{}).value||'';
   const filterProj=(_poActiveId==='poFilterProj'?_poActiveVal:(document.getElementById('poFilterProj')||{}).value||'');
   const filtered=orders.filter(o=>{
-    if(filterStat&&o.status!==filterStat)return false;
+    if(_PO_KPI==='late'){if(!_poIsLate(o))return false;}
+    else if(_PO_KPI){if(o.status!==_PO_KPI)return false;}
+    else if(filterStat&&o.status!==filterStat)return false;
     if(filterProj&&!(o.project||'').includes(filterProj)&&!(o.item||'').includes(filterProj))return false;
     return true;
   });
@@ -2349,23 +2353,23 @@ function renderPurchases(){
 
 <!-- KPI row -->
 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  <div onclick="_poSetKpi('')" style="cursor:pointer;${_PO_KPI===''?'box-shadow:0 0 0 2px var(--accent2);':''}background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--accent2)">${orders.length}</div>
     <div style="font-size:.72rem;color:var(--muted)">إجمالي الطلبات</div>
   </div>
-  <div style="background:var(--card);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  <div onclick="_poSetKpi('تم الطلب')" style="cursor:pointer;${_PO_KPI==='تم الطلب'?'box-shadow:0 0 0 2px var(--yellow);':''}background:var(--card);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--yellow)">${pendCount}</div>
     <div style="font-size:.72rem;color:var(--muted)">تم الطلب</div>
   </div>
-  <div style="background:var(--card);border:1px solid rgba(56,189,248,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  <div onclick="_poSetKpi('جارى التوريد')" style="cursor:pointer;${_PO_KPI==='جارى التوريد'?'box-shadow:0 0 0 2px var(--blue);':''}background:var(--card);border:1px solid rgba(56,189,248,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--blue)">${inprogCount}</div>
     <div style="font-size:.72rem;color:var(--muted)">جارى التوريد</div>
   </div>
-  <div style="background:var(--card);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  <div onclick="_poSetKpi('تم التوريد')" style="cursor:pointer;${_PO_KPI==='تم التوريد'?'box-shadow:0 0 0 2px var(--green);':''}background:var(--card);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--green)">${doneCount}</div>
     <div style="font-size:.72rem;color:var(--muted)">تم التوريد</div>
   </div>
-  ${lateCount>0?`<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  ${lateCount>0?`<div onclick="_poSetKpi('late')" style="cursor:pointer;${_PO_KPI==='late'?'box-shadow:0 0 0 2px var(--red);':''}background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--red)">${lateCount}</div>
     <div style="font-size:.72rem;color:var(--red)">⚠ متأخرة +7 يوم</div>
   </div>`:''}
@@ -2433,7 +2437,7 @@ ${canAdd?`
 <!-- Filters -->
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
   <input type="text" id="poFilterProj" value="${filterProj}" placeholder="🔍 بحث بالمشروع أو البند..." oninput="renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;min-width:200px">
-  <select id="poFilterStatus" onchange="renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">
+  <select id="poFilterStatus" onchange="_PO_KPI='';renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">
     <option value="" ${filterStat===''?'selected':''}>كل الحالات</option>
     <option value="تم الطلب" ${filterStat==='تم الطلب'?'selected':''}>📋 تم الطلب</option>
     <option value="جارى التوريد" ${filterStat==='جارى التوريد'?'selected':''}>🔄 جارى التوريد</option>
@@ -2441,6 +2445,7 @@ ${canAdd?`
   </select>
 </div>
 
+${_PO_KPI?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:.8rem;color:var(--muted)">عرض: <b style="color:#e2e8f0">${_PO_KPI==='late'?'⚠ المتأخرة +7 يوم':_PO_KPI}</b> — ${filtered.length} طلب <button onclick="_poSetKpi('${_PO_KPI}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 10px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">✕ إلغاء الفلتر</button></div>`:''}
 <!-- Table -->
 <div style="overflow-x:auto">
 <table style="width:100%;border-collapse:collapse;font-size:.8rem">
