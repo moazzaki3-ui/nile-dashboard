@@ -734,28 +734,35 @@ const _ROLE_FORCED_TABS={
   nile_purchasing:['warehouse','purchases','nile_wh','nile_pr'],
   nile_storekeeper:['warehouse','purchases','nile_wh','nile_pr']
 };
+const _ROLE_ONLY_TABS={
+  ceo:['nile_wh','nile_pr'],
+  hcc:['nile_wh','nile_pr']
+};
 function _applyTabVisibility(role){
   const perm=_getTabPerm();
   const forced=_ROLE_FORCED_TABS[role]||[];
+  const only=_ROLE_ONLY_TABS[role]||null;
   _TABS_CONFIG.forEach(t=>{
     const btn=document.querySelector('.tab[onclick*="\''+t.id+'\'"]');
     if(!btn)return;
     const pr=perm[t.id];
     let allowed=forced.includes(t.id)||!pr||pr[role]!==false;
     if(t.id==='portfolio')allowed=(role==='admin')||!!(pr&&pr[role]===true); // المحفظة: للمسموح لهم صراحةً فقط
+    if(only)allowed=only.includes(t.id); // أدوار مقيّدة: تابات محددة فقط
     btn.style.display=allowed?'':'none';
-    if(t.id==='portfolio'&&!allowed){
-      const tp=document.getElementById('tab-portfolio');
-      if(tp&&!tp.classList.contains('hidden')){
-        tp.classList.add('hidden');
-        const nb=Array.from(document.querySelectorAll('.tab')).find(b=>b.style.display!=='none'&&b.id!=='adminTab'&&(b.getAttribute('onclick')||'').indexOf("'portfolio'")<0);
-        if(nb)nb.click();
-      }
-    }
   });
   // Always hide admin tab for non-admin roles
   const adminBtn=document.getElementById('adminTab');
   if(adminBtn&&role!=='admin'){adminBtn.style.display='none';}
+  // لو التاب المفتوح حالياً مش مسموح → انقل لأول تاب مسموح
+  const visBtns=Array.from(document.querySelectorAll('.tab')).filter(b=>b.style.display!=='none');
+  const cur=_TABS_CONFIG.find(t=>{const el=document.getElementById('tab-'+t.id);return el&&!el.classList.contains('hidden');});
+  const curBtn=cur&&document.querySelector('.tab[onclick*="\''+cur.id+'\'"]');
+  if(cur&&curBtn&&curBtn.style.display==='none'){
+    const el=document.getElementById('tab-'+cur.id);if(el)el.classList.add('hidden');
+    const nb=visBtns.find(b=>b.id!=='adminTab');
+    if(nb)nb.click();
+  }
 }
 function saveTabPermissions(){
   const p={};
@@ -1065,6 +1072,7 @@ function showTab(t){
     const _sPr=_sPerm[t];
     if(_sPr&&_sPr[_sRole]===false)return; // silently blocked — stay on current tab
     if(t==='portfolio'&&!(_sPr&&_sPr[_sRole]===true))return; // المحفظة: مسموح صراحةً فقط
+    if(_ROLE_ONLY_TABS[_sRole]&&!_ROLE_ONLY_TABS[_sRole].includes(t))return;
   }
   if(t==='chat'){populateFormDropdowns();renderChangelog();}
   if(t==='admin'){renderAdminPanel();}
