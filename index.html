@@ -2178,6 +2178,8 @@ function _phSel(code, field, val, lbl){
 let _PURCHASES_DATA={};
 let _PO_EDIT_ID=null;
 let _PO_FILTERED_CACHE=[];
+let _PO_KPI='';
+function _poSetKpi(k){_PO_KPI=(_PO_KPI===k)?'':k;const sel=document.getElementById('poFilterStatus');if(sel)sel.value='';renderPurchases();}
 
 function _initPurchasesListener(){
   _DB.ref('/purchase_orders').on('value',snap=>{
@@ -2334,7 +2336,9 @@ function renderPurchases(){
   const filterStat=(document.getElementById('poFilterStatus')||{}).value||'';
   const filterProj=(_poActiveId==='poFilterProj'?_poActiveVal:(document.getElementById('poFilterProj')||{}).value||'');
   const filtered=orders.filter(o=>{
-    if(filterStat&&o.status!==filterStat)return false;
+    if(_PO_KPI==='late'){if(!_poIsLate(o))return false;}
+    else if(_PO_KPI){if(o.status!==_PO_KPI)return false;}
+    else if(filterStat&&o.status!==filterStat)return false;
     if(filterProj&&!(o.project||'').includes(filterProj)&&!(o.item||'').includes(filterProj))return false;
     return true;
   });
@@ -2349,23 +2353,23 @@ function renderPurchases(){
 
 <!-- KPI row -->
 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  <div onclick="_poSetKpi('')" style="cursor:pointer;${_PO_KPI===''?'box-shadow:0 0 0 2px var(--accent2);':''}background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--accent2)">${orders.length}</div>
     <div style="font-size:.72rem;color:var(--muted)">إجمالي الطلبات</div>
   </div>
-  <div style="background:var(--card);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  <div onclick="_poSetKpi('تم الطلب')" style="cursor:pointer;${_PO_KPI==='تم الطلب'?'box-shadow:0 0 0 2px var(--yellow);':''}background:var(--card);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--yellow)">${pendCount}</div>
     <div style="font-size:.72rem;color:var(--muted)">تم الطلب</div>
   </div>
-  <div style="background:var(--card);border:1px solid rgba(56,189,248,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  <div onclick="_poSetKpi('جارى التوريد')" style="cursor:pointer;${_PO_KPI==='جارى التوريد'?'box-shadow:0 0 0 2px var(--blue);':''}background:var(--card);border:1px solid rgba(56,189,248,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--blue)">${inprogCount}</div>
     <div style="font-size:.72rem;color:var(--muted)">جارى التوريد</div>
   </div>
-  <div style="background:var(--card);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  <div onclick="_poSetKpi('تم التوريد')" style="cursor:pointer;${_PO_KPI==='تم التوريد'?'box-shadow:0 0 0 2px var(--green);':''}background:var(--card);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--green)">${doneCount}</div>
     <div style="font-size:.72rem;color:var(--muted)">تم التوريد</div>
   </div>
-  ${lateCount>0?`<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
+  ${lateCount>0?`<div onclick="_poSetKpi('late')" style="cursor:pointer;${_PO_KPI==='late'?'box-shadow:0 0 0 2px var(--red);':''}background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">
     <div style="font-size:1.4rem;font-weight:700;color:var(--red)">${lateCount}</div>
     <div style="font-size:.72rem;color:var(--red)">⚠ متأخرة +7 يوم</div>
   </div>`:''}
@@ -2433,7 +2437,7 @@ ${canAdd?`
 <!-- Filters -->
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
   <input type="text" id="poFilterProj" value="${filterProj}" placeholder="🔍 بحث بالمشروع أو البند..." oninput="renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;min-width:200px">
-  <select id="poFilterStatus" onchange="renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">
+  <select id="poFilterStatus" onchange="_PO_KPI='';renderPurchases()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">
     <option value="" ${filterStat===''?'selected':''}>كل الحالات</option>
     <option value="تم الطلب" ${filterStat==='تم الطلب'?'selected':''}>📋 تم الطلب</option>
     <option value="جارى التوريد" ${filterStat==='جارى التوريد'?'selected':''}>🔄 جارى التوريد</option>
@@ -2441,6 +2445,7 @@ ${canAdd?`
   </select>
 </div>
 
+${_PO_KPI?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:.8rem;color:var(--muted)">عرض: <b style="color:#e2e8f0">${_PO_KPI==='late'?'⚠ المتأخرة +7 يوم':_PO_KPI}</b> — ${filtered.length} طلب <button onclick="_poSetKpi('${_PO_KPI}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 10px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">✕ إلغاء الفلتر</button></div>`:''}
 <!-- Table -->
 <div style="overflow-x:auto">
 <table style="width:100%;border-collapse:collapse;font-size:.8rem">
@@ -6939,7 +6944,7 @@ function _initScheduleListener(){
 function renderScheduleTab(){_showSchedSubTab(_schedSubTab);}
 function _showSchedSubTab(tab){
   _schedSubTab=tab;
-  ['summary','detail','projects','cashplan','baselines'].forEach(function(t){
+  ['summary','detail','cashplan','baselines'].forEach(function(t){
     var el=document.getElementById('schedSub-'+t);
     if(el)el.style.display=(t===tab)?'':'none';
     var btn=document.getElementById('schedBtn-'+t);
@@ -6953,7 +6958,6 @@ function _showSchedSubTab(tab){
   if(lbl){var bl=_getActiveBaseline();lbl.textContent=bl?'📌 '+bl.name:'';}
   if(tab==='summary')_drawSchedSummary();
   if(tab==='detail')_drawSchedDetail();
-  if(tab==='projects')_drawSchedProjects();
   if(tab==='cashplan')_drawCfScheduleGrid();
   if(tab==='baselines')_drawBaselinesMgmt();
 }
@@ -7114,6 +7118,12 @@ function saveProjActualStart(code,blId,startDate){
   if(startDate)_DB.ref('/project_start_dates/'+code).set(startDate).catch(function(){});
   _drawSchedProjects();
 }
+function _projActualPct(code){
+  var u=(typeof UPDATES!=='undefined'?UPDATES:[]).find(function(x){return x.code===code;});
+  if(u&&u.pct!=null)return +u.pct;
+  var pr=PROJECTS.find(function(x){return x.code===code;});
+  return pr&&pr.pct!=null?+pr.pct:null;
+}
 function _drawCfScheduleGrid(){
   var tbody=document.getElementById('cfMonthsBody');if(!tbody)return;
   function _pp(p){return p?(p.plannedPrice||p.unitPrice||0):0;}
@@ -7147,6 +7157,16 @@ function _drawCfScheduleGrid(){
       endD.setMonth(endD.getMonth()+durMonths-1);
       endLabel=_AR_MONTHS[endD.getMonth()]+' '+endD.getFullYear();
     }
+    // === progress analysis (expected from schedule vs actual from site report) ===
+    var anBl=selBl||_getActiveBaseline();
+    var anTotal=(anBl&&anBl.totalDays)||_AHR_TOTAL;
+    var realStart=psch.actualStart||_PROJECT_DATES[p.code]||'';
+    var elapsed=realStart?calcWorkingDays(realStart):null;
+    var expPct=elapsed!==null?Math.max(0,Math.min(100,Math.round(elapsed/anTotal*100))):null;
+    var actPct=_projActualPct(p.code);
+    var delay=(expPct!==null&&actPct!==null)?Math.round((expPct-actPct)/100*anTotal):null;
+    var dc=delay===null?'var(--muted)':delay<=0?'var(--green)':delay<=14?'var(--yellow)':'var(--red)';
+    var dl=delay===null?'—':delay<0?'⬆ مبكر '+Math.abs(delay)+' ي':delay===0?'✔ في الموعد':'⬇ متأخر '+delay+' ي';
     var budgetSrc=fromBOQ>0?'<span style="color:var(--green);font-size:.64rem">●حصر</span>':'<span style="color:var(--muted);font-size:.64rem">●تقدير</span>';
     var selOpts=selBlId?blOptsHtml.replace('value="'+selBlId+'"','value="'+selBlId+'" selected'):blOptsHtml;
     var weightInputs=phasesForWt.map(function(ph,pi){
@@ -7172,9 +7192,12 @@ function _drawCfScheduleGrid(){
         '</button></td>'+
       '<td style="padding:7px 8px">'+budgetSrc+' <span style="color:var(--orange);font-weight:700;font-size:.78rem">'+(displayCost/1000000).toFixed(2)+'م</span></td>'+
       '<td style="padding:7px 8px;color:var(--muted);font-size:.72rem;text-align:center">'+endLabel+'</td>'+
+      '<td style="padding:7px 8px;color:#a78bfa;text-align:center;font-weight:700;font-size:.78rem">'+(expPct!==null?expPct+'%':'—')+'</td>'+
+      '<td style="padding:7px 8px;color:var(--accent2);text-align:center;font-weight:700;font-size:.78rem">'+(actPct!==null?actPct+'%':'—')+'</td>'+
+      '<td style="padding:7px 8px;color:'+dc+';font-weight:700;font-size:.76rem;white-space:nowrap">'+dl+'</td>'+
     '</tr>'+
     '<tr id="cpPhase-'+p.code+'" style="display:none;background:rgba(99,102,241,.04)">'+
-      '<td colspan="8" style="padding:12px 20px">'+
+      '<td colspan="11" style="padding:12px 20px">'+
         '<div style="font-size:.8rem;font-weight:700;color:var(--accent);margin-bottom:8px">نسب الفيزات — '+p.name+' (المجموع يجب = 100%)</div>'+
         weightInputs+
         '<div id="cpWtSum-'+p.code+'" style="font-size:.72rem;color:'+wtColor+';margin-top:6px;font-weight:700">المجموع: '+wtSum.toFixed(1)+'%</div>'+
@@ -9345,8 +9368,7 @@ function startApp(){
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
     <button id="schedBtn-summary" onclick="_showSchedSubTab('summary')" style="background:var(--card);color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif;font-weight:700">📊 ملخص المراحل</button>
     <button id="schedBtn-detail" onclick="_showSchedSubTab('detail')" style="background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif">📋 تفاصيل الأنشطة</button>
-    <button id="schedBtn-projects" onclick="_showSchedSubTab('projects')" style="background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif">⏱ تحليل المشاريع</button>
-    <button id="schedBtn-cashplan" onclick="_showSchedSubTab('cashplan')" style="background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif">💰 برنامج الكاش فلو</button>
+    <button id="schedBtn-cashplan" onclick="_showSchedSubTab('cashplan')" style="background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif">📅 ربط المشاريع والكاش فلو</button>
     <button id="schedBtn-baselines" onclick="_showSchedSubTab('baselines')" style="background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif">📂 البرامج الزمنية</button>
   </div>
 
@@ -9366,40 +9388,11 @@ function startApp(){
     </div>
   </div>
 
-  <!-- PROJECTS sub-tab -->
-  <div id="schedSub-projects" style="display:none">
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:10px">⏱ تحليل التأخير / التقدم — كل المشاريع</div>
-      <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:.78rem">
-          <thead><tr style="background:rgba(255,255,255,.05)">
-            <th style="padding:7px 10px;text-align:right;color:var(--muted);white-space:nowrap">القطعة</th>
-            <th style="padding:7px 8px;text-align:right;color:var(--muted)">كود</th>
-            <th style="padding:7px 8px;text-align:right;color:var(--muted)">البرنامج الزمني</th>
-            <th style="padding:7px 8px;text-align:right;color:var(--muted);white-space:nowrap">بداية فعلية</th>
-            <th style="padding:7px 8px;text-align:center;color:var(--muted)">مضى</th>
-            <th style="padding:7px 8px;text-align:center;color:var(--muted)">متوقع%</th>
-            <th style="padding:7px 8px;text-align:center;color:var(--muted)">فعلي%</th>
-            <th style="padding:7px 8px;text-align:right;color:var(--muted)">المرحلة</th>
-            <th style="padding:7px 8px;text-align:right;color:var(--muted)">التأخير</th>
-          </tr></thead>
-          <tbody id="schedDelayBody"></tbody>
-        </table>
-      </div>
-      <div style="font-size:.68rem;color:var(--muted);margin-top:8px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:6px">
-        * النسبة الفعلية من حالة المشروع |
-        <span style="color:var(--green)">أخضر = في الموعد</span> /
-        <span style="color:var(--yellow)">أصفر = تأخير ≤14 يوم</span> /
-        <span style="color:var(--red)">أحمر = تأخير &gt;14 يوم</span>
-      </div>
-    </div>
-  </div>
-
   <!-- CASHPLAN sub-tab -->
   <div id="schedSub-cashplan" style="display:none">
     <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
-      <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:4px">💰 برنامج مشاريع الكاش فلو — البرنامج الزمني المرجعي</div>
-      <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px">اختر البرنامج الزمني وتاريخ البداية والتكلفة الإجمالية ونسب الفيزات — سيتحدث الكاش فلو تلقائياً | الميزانية: <span style="color:var(--green)">●حصر</span> = من الحصر×الأسعار | <span style="color:var(--muted)">●تقدير</span> = مساحة×معيار</div>
+      <div style="font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:4px">📅 ربط المشاريع بالبرنامج الزمني + تحليل التقدم والكاش فلو</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px">اختر البرنامج وتاريخ البداية والتكلفة ونسب الفيزات — الكاش فلو بيتحدث تلقائياً. <b>متوقع%</b> = أيام العمل المنقضية ÷ مدة البرنامج | <b>فعلي%</b> = من تقرير الموقف (أو نسبة المشروع) | الميزانية: <span style="color:var(--green)">●حصر</span> = من الحصر×الأسعار | <span style="color:var(--muted)">●تقدير</span> = مساحة×معيار</div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:.78rem">
           <thead><tr style="background:rgba(255,255,255,.05)">
@@ -9411,6 +9404,9 @@ function startApp(){
             <th style="padding:7px 8px;text-align:center;color:var(--muted)">نسب الفيزات</th>
             <th style="padding:7px 8px;text-align:right;color:var(--muted)">الميزانية</th>
             <th style="padding:7px 8px;text-align:center;color:var(--muted)">نهاية</th>
+            <th style="padding:7px 8px;text-align:center;color:var(--muted)">متوقع%</th>
+            <th style="padding:7px 8px;text-align:center;color:var(--muted)">فعلي%</th>
+            <th style="padding:7px 8px;text-align:right;color:var(--muted)">التأخير</th>
           </tr></thead>
           <tbody id="cfMonthsBody"></tbody>
         </table>
