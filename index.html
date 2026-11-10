@@ -1537,13 +1537,14 @@ function renderCashFlow(){
     var selBlId=psch.baselineId||null;
     var selBl=selBlId&&(typeof _NILE_BASELINES!=='undefined')&&_NILE_BASELINES[selBlId]?_NILE_BASELINES[selBlId]:null;
     if(psch.actualStart)sd=psch.actualStart;
-    var weights=psch.phaseWeights||{};
+    if(!selBl&&typeof _getActiveBaseline==='function'&&psch.baselineId!==null){var _ab=_getActiveBaseline();if(_ab&&_ab.id!=='_ahr_local'&&_NILE_BASELINES[_activeBlId])selBl=_ab;}
     var phases=selBl?selBl.phases:null;
-    // Sum of phase weights
-    var wSum2=0;
+    var durTot=0,weights={};
     if(phases&&phases.length>0){
-      phases.forEach(function(ph){wSum2+=(weights[ph.id]||0);});
+      phases.forEach(function(ph){durTot+=_phDur(ph);});
+      phases.forEach(function(ph){weights[ph.id]=durTot>0?_phDur(ph)/durTot*100:0;});
     }
+    var wSum2=durTot>0?100:0;
 
     if(phases&&phases.length>0&&wSum2>=5){
       // === Phase-based distribution ===
@@ -2281,7 +2282,7 @@ function updatePoStatus(id,val){
           id:Date.now(),
           type:'توريد',
           item:po.item||'',
-          qty:po.qty||'',
+          qty:parseFloat(po.qty)||0,
           unit:po.unit||'',
           project:po.project||'—',
           supplier:po.supplier||'—',
@@ -4200,7 +4201,7 @@ function _getWhBalance(item,unit){
   var bal=0;
   _WAREHOUSE_DATA.forEach(function(d){
     if(d.item===item&&(d.unit||'')===(unit||'')){
-      if(d.type==='توريد')bal+=d.qty;else bal-=d.qty;
+      if(d.type==='توريد')bal+=(parseFloat(d.qty)||0);else bal-=(parseFloat(d.qty)||0);
     }
   });
   return bal;
@@ -6960,6 +6961,7 @@ function _initScheduleListener(){
   if(_fbSchInit)return;_fbSchInit=true;
   _DB.ref('/project_start_dates').on('value',function(snap){
     _PROJECT_DATES=snap.val()||{};
+    Object.keys(_PROJECT_DATES).forEach(function(c){if(_PROJECT_DATES[c]&&!_validISO(_PROJECT_DATES[c])){delete _PROJECT_DATES[c];_DB.ref('/project_start_dates/'+c).remove().catch(function(){});}});
     if(document.getElementById('schedDelayBody'))_drawSchedProjects();
     if(document.getElementById('cfMonthsBody'))_drawCfScheduleGrid();
   });
@@ -7141,6 +7143,15 @@ function saveProjActualStart(code,blId,startDate){
   if(startDate)_DB.ref('/project_start_dates/'+code).set(startDate).catch(function(){});
   _drawSchedProjects();
 }
+function _validISO(d){return /^\d{4}-\d{2}-\d{2}$/.test(d||'')&&+d.substr(0,4)>=2000&&+d.substr(0,4)<=2100;}
+function _normCost(v){v=+v||0;return (v>0&&v<100000)?v*1e6:v;}
+function _phDur(ph){return +ph.duration||+ph.durationWD||0;}
+function _phaseOverall(phases,prog){
+  var tot=0,acc=0;prog=prog||{};
+  phases.forEach(function(ph){var d=_phDur(ph);tot+=d;acc+=d*Math.max(0,Math.min(100,+prog[ph.id]||0));});
+  return tot>0?acc/tot:0;
+}
+function _schDate(code,el){var v=el.value;if(v&&!_validISO(v))return;saveProjScheduleField(code,'actualStart',v);}
 function _projActualPct(code){
   var u=(typeof UPDATES!=='undefined'?UPDATES:[]).find(function(x){return x.code===code;});
   if(u&&u.pct!=null)return +u.pct;
@@ -7149,6 +7160,7 @@ function _projActualPct(code){
 }
 function _drawCfScheduleGrid(){
   var tbody=document.getElementById('cfMonthsBody');if(!tbody)return;
+  var _ae=document.activeElement;if(_ae&&_ae.getAttribute&&_ae.getAttribute('data-sch')&&tbody.contains(_ae))return; // لا تعيد الرسم أثناء الكتابة
   function _pp(p){return p?(p.plannedPrice||p.unitPrice||0):0;}
   var BASE=11578094/600;
   var _DEF_MONTHS={'P-003':8,'P-004':8,'P-005':8,'P-006':8,'P-014':8,'P-015':8,'P-016':8,'P-017':8,'P-021':8,'P-034':8,'P-035':8,'P-125':3};
@@ -7163,16 +7175,18 @@ function _drawCfScheduleGrid(){
       .reduce(function(s,d){return s+(d.stdQty||0)*(_pp(priceMap[d.item])||0);},0);
     var estBudget=fromBOQ>0?fromBOQ:BASE*(p.area||600);
     var psch=(_NILE_PROJ_SCH||{})[p.code]||{};
-    var selBlId=psch.baselineId||'';
+    var selBlId=psch.baselineId||_activeBlId||'';
     var sd=psch.actualStart||_PROJECT_DATES[p.code]||_DEF_START[p.code]||'';
-    var totalCost=+(psch.totalCost)||0;
+    var totalCost=_normCost(psch.totalCost);
     var displayCost=totalCost>0?totalCost:estBudget;
     var nm=(_CF_MONTHS_DATA[p.code])||(_DEF_MONTHS[p.code]||8);
     var selBl=(selBlId&&_NILE_BASELINES&&_NILE_BASELINES[selBlId])||null;
     var phasesForWt=selBl?(selBl.phases||[]):_AHR_PHASES;
-    var weights=psch.phaseWeights||{};
-    var wtSum=Object.values(weights).reduce(function(a,b){return a+(+b||0);},0);
-    var wtColor=Math.abs(wtSum-100)<1?'var(--green)':wtSum>100?'var(--red)':'var(--yellow)';
+    var prog=psch.phaseProgress||{};
+    var totDur=phasesForWt.reduce(function(a,ph){return a+_phDur(ph);},0)||1;
+    var overall=_phaseOverall(phasesForWt,prog);
+    var wtSum=overall;
+    var wtColor='var(--accent2)';
     var endLabel='—';
     if(sd){
       var endD=new Date(sd);
@@ -7186,7 +7200,7 @@ function _drawCfScheduleGrid(){
     var realStart=psch.actualStart||_PROJECT_DATES[p.code]||'';
     var elapsed=realStart?calcWorkingDays(realStart):null;
     var expPct=elapsed!==null?Math.max(0,Math.min(100,Math.round(elapsed/anTotal*100))):null;
-    var actPct=_projActualPct(p.code);
+    var actPct=overall>0?Math.round(overall):_projActualPct(p.code);
     var delay=(expPct!==null&&actPct!==null)?Math.round((expPct-actPct)/100*anTotal):null;
     var dc=delay===null?'var(--muted)':delay<=0?'var(--green)':delay<=14?'var(--yellow)':'var(--red)';
     var dl=delay===null?'—':delay<0?'⬆ مبكر '+Math.abs(delay)+' ي':delay===0?'✔ في الموعد':'⬇ متأخر '+delay+' ي';
@@ -7194,36 +7208,38 @@ function _drawCfScheduleGrid(){
     var selOpts=selBlId?blOptsHtml.replace('value="'+selBlId+'"','value="'+selBlId+'" selected'):blOptsHtml;
     var weightInputs=phasesForWt.map(function(ph,pi){
       var col=ph.color||PHASE_COLORS[pi%PHASE_COLORS.length];
-      var wt=weights[ph.id]||0;
-      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
+      var pv=+prog[ph.id]||0;
+      var share=(_phDur(ph)/totDur*100);
+      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'+
         '<span style="width:10px;height:10px;border-radius:2px;background:'+col+';flex-shrink:0;display:inline-block"></span>'+
         '<span style="flex:1;font-size:.72rem;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(ph.nameEn||ph.nameAr||ph.id)+'</span>'+
-        '<input type="number" min="0" max="100" step="0.1" value="'+(wt||'')+'" placeholder="%" '+
-        'onchange="saveProjPhaseWeight(\''+p.code+'\',\''+ph.id+'\',+this.value)" '+
-        'style="width:56px;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:.72rem;font-family:inherit;text-align:center">'+
+        '<span style="font-size:.66rem;color:var(--muted);white-space:nowrap">'+_phDur(ph)+' ي — وزنها '+share.toFixed(1)+'%</span>'+
+        '<input type="number" min="0" max="100" step="1" value="'+(pv||'')+'" placeholder="0" '+
+        'onchange="saveProjPhaseProgress(\''+p.code+'\',\''+ph.id+'\',+this.value)" '+
+        'style="width:60px;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:.72rem;font-family:inherit;text-align:center">'+
         '<span style="font-size:.64rem;color:var(--muted)">%</span></div>';
     }).join('');
     return '<tr id="cpRow-'+p.code+'" style="border-bottom:1px solid var(--border)">'+
       '<td style="padding:7px 10px;font-weight:700;font-size:.8rem">'+p.name+'</td>'+
       '<td style="padding:7px 8px;color:var(--muted);font-size:.72rem">'+p.code+'</td>'+
       '<td style="padding:4px 6px;min-width:130px"><select onchange="saveProjScheduleField(\''+p.code+'\',\'baselineId\',this.value)" style="background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 4px;font-size:.7rem;font-family:Cairo,sans-serif;width:100%">'+selOpts+'</select></td>'+
-      '<td style="padding:4px 6px"><input type="date" value="'+sd+'" dir="ltr" onchange="saveProjScheduleField(\''+p.code+'\',\'actualStart\',this.value)" style="background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:.72rem;font-family:inherit;width:130px"></td>'+
-      '<td style="padding:4px 6px"><input type="number" min="0" value="'+(totalCost>0?totalCost:'')+'" placeholder="'+(estBudget/1000000).toFixed(2)+'م" onchange="saveProjScheduleField(\''+p.code+'\',\'totalCost\',+this.value)" style="background:var(--bg);color:var(--orange);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:.75rem;font-family:inherit;width:110px;text-align:left" dir="ltr"></td>'+
+      '<td style="padding:4px 6px"><input type="date" value="'+sd+'" dir="ltr" min="2000-01-01" max="2100-12-31" onchange="_schDate(\''+p.code+'\',this)" onblur="setTimeout(_drawCfScheduleGrid,80)" data-sch="1" style="background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:.72rem;font-family:inherit;width:130px"></td>'+
+      '<td style="padding:4px 6px"><input type="number" min="0" value="'+(totalCost>0?+(totalCost/1e6).toFixed(3):'')+'" placeholder="'+(estBudget/1000000).toFixed(2)+' (مليون)" onchange="saveProjScheduleField(\''+p.code+'\',\'totalCost\',Math.round((+this.value)*1e6))" data-sch="1" style="background:var(--bg);color:var(--orange);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:.75rem;font-family:inherit;width:110px;text-align:left" dir="ltr"></td>'+
       '<td style="padding:4px 6px;text-align:center">'+
         '<button id="cpWtBtn-'+p.code+'" onclick="_togglePhaseWeights(\''+p.code+'\')" style="background:rgba(99,102,241,.12);color:var(--accent2);border:1px solid rgba(99,102,241,.3);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:.7rem;font-family:Cairo,sans-serif">'+
-          (wtSum>0?'<span style="color:'+wtColor+'">'+wtSum.toFixed(0)+'%</span> ':'')+' نسب الفيزات ▾'+
+          (wtSum>0?'<span style="color:'+wtColor+'">'+wtSum.toFixed(0)+'%</span> ':'')+' إنجاز الفيزات ▾'+
         '</button></td>'+
       '<td style="padding:7px 8px">'+budgetSrc+' <span style="color:var(--orange);font-weight:700;font-size:.78rem">'+(displayCost/1000000).toFixed(2)+'م</span></td>'+
       '<td style="padding:7px 8px;color:var(--muted);font-size:.72rem;text-align:center">'+endLabel+'</td>'+
       '<td style="padding:7px 8px;color:#a78bfa;text-align:center;font-weight:700;font-size:.78rem">'+(expPct!==null?expPct+'%':'—')+'</td>'+
-      '<td style="padding:7px 8px;color:var(--accent2);text-align:center;font-weight:700;font-size:.78rem">'+(actPct!==null?actPct+'%':'—')+'</td>'+
+      '<td id="cpAct-'+p.code+'" style="padding:7px 8px;color:var(--accent2);text-align:center;font-weight:700;font-size:.78rem">'+(actPct!==null?actPct+'%':'—')+'</td>'+
       '<td style="padding:7px 8px;color:'+dc+';font-weight:700;font-size:.76rem;white-space:nowrap">'+dl+'</td>'+
     '</tr>'+
     '<tr id="cpPhase-'+p.code+'" style="display:none;background:rgba(99,102,241,.04)">'+
       '<td colspan="11" style="padding:12px 20px">'+
-        '<div style="font-size:.8rem;font-weight:700;color:var(--accent);margin-bottom:8px">نسب الفيزات — '+p.name+' (المجموع يجب = 100%)</div>'+
+        '<div style="font-size:.8rem;font-weight:700;color:var(--accent);margin-bottom:8px">إنجاز الفيزات — '+p.name+' <span style="font-weight:400;color:var(--muted)">(اكتب نسبة إنجاز كل فيز من 0 إلى 100 — الإنجاز الكلي بيتحسب بوزن مدة كل فيز)</span></div>'+
         weightInputs+
-        '<div id="cpWtSum-'+p.code+'" style="font-size:.72rem;color:'+wtColor+';margin-top:6px;font-weight:700">المجموع: '+wtSum.toFixed(1)+'%</div>'+
+        '<div id="cpWtSum-'+p.code+'" style="font-size:.78rem;color:'+wtColor+';margin-top:6px;font-weight:700">الإنجاز الكلي: '+wtSum.toFixed(1)+'%</div>'+
       '</td>'+
     '</tr>';
   }).join('');
@@ -7233,12 +7249,14 @@ function _drawCfScheduleGrid(){
   });
 }
 function _togglePhaseWeights(code){
+  if(_cfExpandedCodes.has(code)){setTimeout(_drawCfScheduleGrid,0);}
   var row=document.getElementById('cpPhase-'+code);
   if(!row)return;
   if(row.style.display){row.style.display='';_cfExpandedCodes.delete(code);}
   else{row.style.display='table-row';_cfExpandedCodes.add(code);}
 }
 function saveProjScheduleField(code,field,val){
+  if(field==='actualStart'&&val&&!_validISO(val))return;
   if(!window._NILE_PROJ_SCH)window._NILE_PROJ_SCH={};
   var psch=Object.assign({},(_NILE_PROJ_SCH[code]||{}));
   psch[field]=val;
@@ -7249,6 +7267,25 @@ function saveProjScheduleField(code,field,val){
   if(field==='baselineId')_drawCfScheduleGrid();
   var cfTab=document.getElementById('tab-cashflow');
   if(cfTab&&!cfTab.classList.contains('hidden'))renderCashFlow();
+}
+function saveProjPhaseProgress(code,phaseId,val){
+  if(!window._NILE_PROJ_SCH)window._NILE_PROJ_SCH={};
+  val=Math.max(0,Math.min(100,+val||0));
+  var psch=Object.assign({},(_NILE_PROJ_SCH[code]||{}));
+  psch.phaseProgress=Object.assign({},psch.phaseProgress||{});
+  psch.phaseProgress[phaseId]=val;
+  _NILE_PROJ_SCH[code]=psch;
+  _DB.ref('/nile_proj_schedules/'+code+'/phaseProgress/'+phaseId).set(val).then(function(){_fbOk();}).catch(function(e){_fbErr('ppg',e);});
+  var blId=psch.baselineId||_activeBlId||'';
+  var bl=(blId&&_NILE_BASELINES[blId])||_getActiveBaseline();
+  var phases=(bl&&bl.phases)||_AHR_PHASES;
+  var ov=_phaseOverall(phases,psch.phaseProgress);
+  var sumEl=document.getElementById('cpWtSum-'+code);
+  if(sumEl)sumEl.textContent='الإنجاز الكلي: '+ov.toFixed(1)+'%';
+  var btnEl=document.getElementById('cpWtBtn-'+code);
+  if(btnEl)btnEl.innerHTML=(ov>0?'<span style="color:var(--accent2)">'+ov.toFixed(0)+'%</span> ':'')+' إنجاز الفيزات ▾';
+  var act=document.getElementById('cpAct-'+code);
+  if(act)act.textContent=Math.round(ov)+'%';
 }
 function saveProjPhaseWeight(code,phaseId,val){
   if(!window._NILE_PROJ_SCH)window._NILE_PROJ_SCH={};
@@ -7334,6 +7371,7 @@ function _initProjSchListener(){
   if(_fbProjSchInit)return;_fbProjSchInit=true;
   _DB.ref('/nile_proj_schedules').on('value',function(snap){
     _NILE_PROJ_SCH=snap.val()||{};
+    Object.keys(_NILE_PROJ_SCH).forEach(function(c){var o=_NILE_PROJ_SCH[c];if(o&&o.actualStart&&!_validISO(o.actualStart)){delete o.actualStart;_DB.ref('/nile_proj_schedules/'+c+'/actualStart').remove().catch(function(){});}});
     if(document.getElementById('schedDelayBody'))_drawSchedProjects();
     if(document.getElementById('cfMonthsBody'))_drawCfScheduleGrid();
     var cfTab=document.getElementById('tab-cashflow');
@@ -7375,6 +7413,61 @@ function _countWD(start,end){
   return cnt;
 }
 
+// --- P6 calendar helpers ---
+function _xerCalendar(tables,projId,taskRows){
+  try{
+    var cals=(tables['CALENDAR']||{}).rows||[];
+    if(!cals.length)return null;
+    var cid=null;
+    var pr=((tables['PROJECT']||{}).rows||[]).filter(function(r){return r.proj_id===projId;})[0];
+    if(pr&&pr.clndr_id)cid=pr.clndr_id;
+    if(!cid){
+      var c={};taskRows.forEach(function(t){if(t.proj_id===projId&&t.clndr_id)c[t.clndr_id]=(c[t.clndr_id]||0)+1;});
+      cid=Object.keys(c).sort(function(a,b){return c[b]-c[a];})[0];
+    }
+    var row=cals.filter(function(r){return r.clndr_id===cid;})[0];
+    if(!row||!row.clndr_data)return null;
+    var d=row.clndr_data;
+    var ex=d.indexOf('Exceptions');
+    var dowBlock=d.substring(d.indexOf('DaysOfWeek'),ex>0?ex:d.length);
+    var work={};var any=false;
+    for(var k=1;k<=7;k++){
+      var st=dowBlock.indexOf('(0||'+k+'(');
+      if(st<0)continue;
+      var en=k<7?dowBlock.indexOf('(0||'+(k+1)+'(',st):-1;
+      var seg=en>0?dowBlock.substring(st,en):dowBlock.substring(st);
+      var isW=seg.indexOf('s|')>=0;
+      work[k-1]=isW; // JS getDay: 0=Sunday == P6 day 1
+      if(isW)any=true;
+    }
+    if(!any)return null;
+    var exc={};
+    if(ex>0){
+      var exStr=d.substring(ex);
+      var re=/\(d\|(\d+)\)/g,m,pos=[];
+      while((m=re.exec(exStr))){pos.push({serial:+m[1],at:m.index});}
+      pos.forEach(function(p,ix){
+        var seg=exStr.substring(p.at,ix<pos.length-1?pos[ix+1].at:exStr.length);
+        var dt=new Date(Date.UTC(1899,11,30)+p.serial*86400000);
+        var key=dt.getUTCFullYear()+'-'+(dt.getUTCMonth()+1)+'-'+dt.getUTCDate();
+        exc[key]=seg.indexOf('s|')>=0?'W':'H';
+      });
+    }
+    return {work:work,exc:exc};
+  }catch(e){return null;}
+}
+function _countWDcal(start,end,cal){
+  if(!start||!end||end<=start)return 0;
+  var d=new Date(start.getFullYear(),start.getMonth(),start.getDate()),n=0;
+  while(d<end){
+    var key=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+    var e=cal.exc[key];
+    var w=e?e==='W':!!cal.work[d.getDay()];
+    if(w)n++;
+    d.setDate(d.getDate()+1);
+  }
+  return n;
+}
 function _xer2Baseline(text,name){
   // Primavera P6 XER (tab-delimited). Phases = top-level WBS nodes (PROJWBS) rolled up from TASK dates.
   var lines=text.split(/\r?\n/);
@@ -7395,14 +7488,17 @@ function _xer2Baseline(text,name){
   function tStart(t){var d=_parseXERDate(t.target_start_date)||_parseXERDate(t.early_start_date)||_parseXERDate(t.act_start_date);return okDate(d)?d:null;}
   function tEnd(t){var d=_parseXERDate(t.target_end_date)||_parseXERDate(t.early_end_date)||_parseXERDate(t.act_end_date);return okDate(d)?d:null;}
   // pick the project with the most tasks (XER may hold several)
-  var cnt={};taskTable.rows.forEach(function(t){cnt[t.proj_id]=(cnt[t.proj_id]||0)+1;});
-  var projId=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];})[0];
+  var pcnt={};taskTable.rows.forEach(function(t){pcnt[t.proj_id]=(pcnt[t.proj_id]||0)+1;});
+  var projId=Object.keys(pcnt).sort(function(a,b){return pcnt[b]-pcnt[a];})[0];
+  // P6 calendar (working days + holidays) — so durations match Primavera
+  var cal=_xerCalendar(tables,projId,taskTable.rows);
+  function wdc(a,b){return cal?_countWDcal(a,b,cal):_countWD(a,b);}
   var tasks=taskTable.rows.filter(function(t){return t.proj_id===projId&&t.task_type!=='TT_WBS'&&tStart(t)&&tEnd(t);});
   if(!tasks.length)return {error:'لا توجد أنشطة بتواريخ صالحة في ملف XER'};
   var earliest=null,latest=null;
   tasks.forEach(function(t){var s=tStart(t),e=tEnd(t);if(!earliest||s<earliest)earliest=s;if(!latest||e>latest)latest=e;});
   function plusDay(d){var x=new Date(d);x.setDate(x.getDate()+1);return x;}
-  var totalDays=Math.max(1,_countWD(earliest,plusDay(latest)));
+  var totalDays=Math.max(1,wdc(earliest,plusDay(latest)));
   function iso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
 
   // WBS tree
@@ -7415,7 +7511,7 @@ function _xer2Baseline(text,name){
   function span(list){var s=null,e=null;list.forEach(function(t){var a=tStart(t),b=tEnd(t);if(!s||a<s)s=a;if(!e||b>e)e=b;});return {s:s,e:e};}
   function actsOf(list){
     return list.sort(function(a,b){return tStart(a)-tStart(b);}).slice(0,80).map(function(t){
-      return {id:t.task_code||'',name:t.task_name||'',duration:Math.max(0,_countWD(tStart(t),plusDay(tEnd(t))))};
+      return {id:t.task_code||'',name:t.task_name||'',duration:Math.max(0,wdc(tStart(t),plusDay(tEnd(t))))};
     });
   }
   var nodes=[];
@@ -7438,12 +7534,12 @@ function _xer2Baseline(text,name){
     var sp=span(list);
     var subs=(kids[n.id]||[]).map(function(k){
       var l=collect(k);if(!l.length)return null;var ss=span(l);
-      return {n:(wbs[k].wbs_name||k),d:_countWD(ss.s,plusDay(ss.e)),acts:actsOf(l)};
+      return {n:(wbs[k].wbs_name||k),d:wdc(ss.s,plusDay(ss.e)),acts:actsOf(l)};
     }).filter(Boolean);
     var ph={
       _n:n,nameAr:n.name,nameEn:n.name,
-      startDay:_countWD(earliest,sp.s),
-      duration:Math.max(1,_countWD(sp.s,plusDay(sp.e))),
+      startDay:wdc(earliest,sp.s),
+      duration:Math.max(1,wdc(sp.s,plusDay(sp.e))),
       startDate:iso(sp.s),endDate:iso(sp.e),
       activities:subs.length?[]:actsOf(list)
     };
@@ -7455,7 +7551,7 @@ function _xer2Baseline(text,name){
   return {
     name:name||'Baseline',source:'xer',phases:phases,totalDays:totalDays,
     startDate:iso(earliest),endDate:iso(latest),
-    createdAt:new Date().toISOString(),taskCount:tasks.length
+    calendar:cal?'P6':'default',createdAt:new Date().toISOString(),taskCount:tasks.length
   };
 }
 
@@ -8379,7 +8475,7 @@ function _getNileWhBalance(item,unit){
   var bal=0;
   _NILE_WH_DATA.forEach(function(d){
     if(d.item===item&&(d.unit||'')===(unit||'')){
-      if(d.type==='توريد')bal+=d.qty;else bal-=d.qty;
+      if(d.type==='توريد')bal+=(parseFloat(d.qty)||0);else bal-=(parseFloat(d.qty)||0);
     }
   });
   return bal;
@@ -8626,7 +8722,7 @@ function renderNileWarehouse(){
   _NILE_WH_DATA.forEach(function(d){
     var k=d.item+'|'+(d.unit||'');
     if(!inv[k])inv[k]={item:d.item,unit:d.unit||'',bal:0};
-    if(d.type==='توريد')inv[k].bal+=d.qty;else inv[k].bal-=d.qty;
+    if(d.type==='توريد')inv[k].bal+=(parseFloat(d.qty)||0);else inv[k].bal-=(parseFloat(d.qty)||0);
   });
   var invRows=Object.values(inv);
   var kpiHtml='<div class="kpi-grid" style="margin-bottom:16px">'
@@ -8811,7 +8907,7 @@ function addNilePR(){
   _saveNilePrEntry(id,entry);
   if(statusVal==='منفذ'){
     var whId=Date.now()+1;
-    _NILE_WH_DATA.unshift({id:whId,type:'توريد',item:item,qty:qty,unit:unit,supplier:supplier||'—',note:'من طلبات الشراء — '+id,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+    _NILE_WH_DATA.unshift({id:whId,type:'توريد',item:item,qty:(parseFloat(qty)||0),unit:unit,supplier:supplier||'—',note:'من طلبات الشراء — '+id,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
     _saveNileWhData();
   }
   ['npr_project','npr_item','npr_qty','npr_supplier','npr_notes','npr_delivery_date'].forEach(function(eid){var el=document.getElementById(eid);if(el)el.value='';});
@@ -8929,7 +9025,7 @@ function approveNilePR(id,action){
   if(action==='منفذ'){
     var sess=window._CURRENT_SESSION||{};
     var whId=Date.now()+1;
-    _NILE_WH_DATA.unshift({id:whId,type:'توريد',item:d.item,qty:d.qty,unit:d.unit||'',supplier:d.supplier||'—',note:'من طلبات الشراء — '+id,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+    _NILE_WH_DATA.unshift({id:whId,type:'توريد',item:d.item,qty:(parseFloat(d.qty)||0),unit:d.unit||'',supplier:d.supplier||'—',note:'من طلبات الشراء — '+id,date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
     _saveNileWhData();
   }
   renderNilePR();
@@ -9138,7 +9234,7 @@ function addNileDel(){
   _NILE_DEL_DATA.unshift(entry);
   _saveNileDelData();
   // Auto-add to Nile Warehouse as توريد
-  _NILE_WH_DATA.unshift({id:id+1,type:'توريد',item:item,qty:qty,unit:unit,supplier:supplier||'—',note:'من توريدات نايل'+(prId?' — طلب '+prId:''),date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
+  _NILE_WH_DATA.unshift({id:id+1,type:'توريد',item:item,qty:(parseFloat(qty)||0),unit:unit,supplier:supplier||'—',note:'من توريدات نايل'+(prId?' — طلب '+prId:''),date:new Date().toLocaleDateString('ar-EG'),user:sess.name||sess.username||'—',ts:new Date().toISOString()});
   _saveNileWhData();
   // Mark linked PR as منفذ if selected
   if(prId&&_NILE_PR_DATA[prId]){
@@ -9407,7 +9503,7 @@ function startApp(){
             <th style="padding:7px 8px;text-align:right;color:var(--muted)">برنامج زمني</th>
             <th style="padding:7px 8px;text-align:right;color:var(--muted);white-space:nowrap">بداية</th>
             <th style="padding:7px 8px;text-align:center;color:var(--muted)">تكلفة إجمالية</th>
-            <th style="padding:7px 8px;text-align:center;color:var(--muted)">نسب الفيزات</th>
+            <th style="padding:7px 8px;text-align:center;color:var(--muted)">إنجاز الفيزات</th>
             <th style="padding:7px 8px;text-align:right;color:var(--muted)">الميزانية</th>
             <th style="padding:7px 8px;text-align:center;color:var(--muted)">نهاية</th>
             <th style="padding:7px 8px;text-align:center;color:var(--muted)">متوقع%</th>
