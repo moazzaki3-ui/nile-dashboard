@@ -7168,7 +7168,7 @@ function _drawCfScheduleGrid(){
   var _AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
   var priceMap={};_COST_PRICES_DATA.forEach(function(p){priceMap[p.item]=p;});
   var blIds=Object.keys(_NILE_BASELINES||{});
-  var blOptsHtml='<option value="">— AHR Local —</option>'+blIds.map(function(id){return '<option value="'+id+'">'+((_NILE_BASELINES[id]||{}).name||id).substring(0,22)+'</option>';}).join('');
+  var blOptsHtml=(_hideLocal?'<option value="">— بدون —</option>':'<option value="">— AHR Local —</option>')+blIds.map(function(id){return '<option value="'+id+'">'+((_NILE_BASELINES[id]||{}).name||id).substring(0,22)+'</option>';}).join('');
   var PHASE_COLORS=['#6366f1','#f59e0b','#a78bfa','#10b981','#22d3ee','#ef4444','#f97316','#ec4899'];
   tbody.innerHTML=_ACTV_CFG.map(function(p){
     var fromBOQ=_STD_BOQ_DATA.filter(function(d){return d.project===p.code;})
@@ -7181,7 +7181,7 @@ function _drawCfScheduleGrid(){
     var displayCost=totalCost>0?totalCost:estBudget;
     var nm=(_CF_MONTHS_DATA[p.code])||(_DEF_MONTHS[p.code]||8);
     var selBl=(selBlId&&_NILE_BASELINES&&_NILE_BASELINES[selBlId])||null;
-    var phasesForWt=selBl?(selBl.phases||[]):_AHR_PHASES;
+    var phasesForWt=selBl?(selBl.phases||[]):(_hideLocal?[]:_AHR_PHASES);
     var prog=psch.phaseProgress||{};
     var totDur=phasesForWt.reduce(function(a,ph){return a+_phDur(ph);},0)||1;
     var overall=_phaseOverall(phasesForWt,prog);
@@ -7196,10 +7196,10 @@ function _drawCfScheduleGrid(){
     }
     // === progress analysis (expected from schedule vs actual from site report) ===
     var anBl=selBl||_getActiveBaseline();
-    var anTotal=(anBl&&anBl.totalDays)||_AHR_TOTAL;
+    var anTotal=(anBl&&anBl.totalDays)||0;
     var realStart=psch.actualStart||_PROJECT_DATES[p.code]||'';
     var elapsed=realStart?calcWorkingDays(realStart):null;
-    var expPct=elapsed!==null?Math.max(0,Math.min(100,Math.round(elapsed/anTotal*100))):null;
+    var expPct=(elapsed!==null&&anTotal>0)?Math.max(0,Math.min(100,Math.round(elapsed/anTotal*100))):null;
     var actPct=overall>0?Math.round(overall):_projActualPct(p.code);
     var delay=(expPct!==null&&actPct!==null)?Math.round((expPct-actPct)/100*anTotal):null;
     var dc=delay===null?'var(--muted)':delay<=0?'var(--green)':delay<=14?'var(--yellow)':'var(--red)';
@@ -7335,6 +7335,7 @@ var _activeBlId=null;
 var _fbBlInit=false;
 var _fbProjSchInit=false;
 var _cfExpandedCodes=new Set();
+var _hideLocal=false;
 
 function _getActiveBaseline(){
   if(_activeBlId&&_NILE_BASELINES[_activeBlId])return _NILE_BASELINES[_activeBlId];
@@ -7343,7 +7344,8 @@ function _getActiveBaseline(){
     var first=_NILE_BASELINES[keys[0]];
     if(first&&first.phases)return first;
   }
-  // fallback to hardcoded AHR
+  // fallback to hardcoded AHR (unless the user deleted it)
+  if(_hideLocal)return {id:'_none',name:'لا يوجد برنامج',phases:[],totalDays:0};
   if(typeof _AHR_PHASES!=='undefined'&&_AHR_PHASES&&_AHR_PHASES.length>0){
     return {id:'_ahr_local',name:'AHR Standard (محلي)',phases:_AHR_PHASES,totalDays:typeof _AHR_TOTAL!=='undefined'?_AHR_TOTAL:205};
   }
@@ -7355,7 +7357,8 @@ function _initBaselinesListener(){
   _DB.ref('/nile_baselines').on('value',function(snap){
     var raw=snap.val()||{};
     _activeBlId=raw._active||null;
-    delete raw._active;
+    _hideLocal=!!raw._hideLocal;
+    delete raw._active;delete raw._hideLocal;
     Object.keys(raw).forEach(function(k){var b=raw[k];if(b&&b.phases){b.phases.forEach(function(ph){if(ph.startDay===undefined)ph.startDay=ph.startOffset||0;if(ph.duration===undefined)ph.duration=ph.durationWD||1;});}});
     _NILE_BASELINES=raw;
     // refresh UI if schedule tab visible
@@ -7680,14 +7683,20 @@ function _drawBaselinesMgmt(){
     });
   }
 
-  // AHR fallback info
+  // AHR fallback (local default)
   if(typeof _AHR_PHASES!=='undefined'&&_AHR_PHASES&&_AHR_PHASES.length>0){
-    var isAhrActive=(!_activeBlId||!_NILE_BASELINES[_activeBlId]);
-    html+='<div style="background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between">';
-    html+='<div><span style="color:var(--muted);font-size:.8rem">\u{1F3E0} AHR Standard (محلي — افتراضي)</span>';
-    html+='<div style="color:var(--muted);font-size:.68rem;margin-top:2px">'+_AHR_PHASES.length+' مراحل | '+(typeof _AHR_TOTAL!=='undefined'?_AHR_TOTAL:205)+' يوم عمل</div></div>';
-    if(isAhrActive)html+='<span style="background:var(--green);color:#fff;font-size:.65rem;padding:2px 8px;border-radius:10px;font-weight:600">نشط (افتراضي)</span>';
-    html+='</div>';
+    if(!_hideLocal){
+      var isAhrActive=(!_activeBlId||!_NILE_BASELINES[_activeBlId]);
+      html+='<div style="background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:10px 14px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">';
+      html+='<div><span style="color:var(--muted);font-size:.8rem">\u{1F3E0} AHR Standard (محلي — افتراضي)</span>';
+      html+='<div style="color:var(--muted);font-size:.68rem;margin-top:2px">'+_AHR_PHASES.length+' مراحل | '+(typeof _AHR_TOTAL!=='undefined'?_AHR_TOTAL:205)+' يوم عمل</div></div>';
+      html+='<div style="display:flex;gap:8px;align-items:center">';
+      if(isAhrActive)html+='<span style="background:var(--green);color:#fff;font-size:.65rem;padding:2px 8px;border-radius:10px;font-weight:600">نشط (افتراضي)</span>';
+      html+='<button onclick="deleteBaselineConfirm(\'_local\',\'AHR Standard (المحلي الافتراضي)\')" style="background:transparent;color:var(--red);border:1px solid var(--red);border-radius:6px;padding:6px 12px;font-size:.75rem;cursor:pointer;font-family:inherit">\u{1F5D1} حذف</button>';
+      html+='</div></div>';
+    }else{
+      html+='<div style="margin-top:12px;font-size:.72rem;color:var(--muted)">البرنامج المحلي الافتراضي (AHR Standard) محذوف — <a href="#" onclick="restoreLocalBaseline();return false" style="color:var(--accent2)">استرجاعه</a></div>';
+    }
   }
 
   html+='</div>';
@@ -7716,12 +7725,19 @@ function deleteBaselineConfirm(id,name){
   }
 }
 
+function restoreLocalBaseline(){_hideLocal=false;_DB.ref('/nile_baselines/_hideLocal').remove().catch(function(){});_drawBaselinesMgmt();_showSchedSubTab('baselines');}
 function deleteBaseline(){
   if(!_blToDelete)return;
   var id=_blToDelete;
   _blToDelete=null;
   var dlg=document.getElementById('blDeleteDialog');
   if(dlg)dlg.style.display='none';
+  if(id==='_local'){
+    _hideLocal=true;
+    _DB.ref('/nile_baselines/_hideLocal').set(true).then(function(){_fbOk();addChatMsg('\u{1F5D1} تم حذف البرنامج المحلي الافتراضي','bot');}).catch(function(e){_fbErr('delLocal',e);});
+    _drawBaselinesMgmt();
+    return;
+  }
   // If deleting the active baseline, clear active
   if(_activeBlId===id){
     _DB.ref('/nile_baselines/_active').remove();
