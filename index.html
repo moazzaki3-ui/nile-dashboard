@@ -8926,6 +8926,8 @@ function deleteNilePR(id){
   _saveNilePrEntry(id,null);
   renderNilePR();
 }
+var _NPR_KPI='';
+function _nprSetKpi(k){_NPR_KPI=(_NPR_KPI===k||k==='')?'':k;var sel=document.getElementById('nilePrFilterStatus');if(sel)sel.value='';renderNilePR();}
 function renderNilePR(){
   var tab=document.getElementById('tab-nile_pr');
   if(!tab)return;
@@ -8944,55 +8946,36 @@ function renderNilePR(){
     var d=e.ts?Math.floor((Date.now()-new Date(e.ts).getTime())/86400000):0;
     return d>7;
   });
-  var kpiPR='<div class="kpi-grid" style="margin-bottom:16px">'
-    +'<div class="kpi-card"><div class="kpi-label">إجمالي الطلبات</div><div class="kpi-value">'+entries.length+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">تم الطلب</div><div class="kpi-value" style="color:var(--yellow)">'+entries.filter(function(e){return e.status==='جديد';}).length+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">جارى التوريد</div><div class="kpi-value" style="color:var(--orange)">'+entries.filter(function(e){return e.status==='جارى التوريد';}).length+'</div></div>'
-    +'<div class="kpi-card"><div class="kpi-label">تم التوريد</div><div class="kpi-value" style="color:var(--green)">'+entries.filter(function(e){return e.status==='منفذ';}).length+'</div></div>'
-    +'<div class="kpi-card" style="border:1px solid rgba(239,68,68,.5);background:rgba(239,68,68,.1)"><div class="kpi-label" style="color:var(--red)">🔥 متأخرة +7 يوم</div><div class="kpi-value" style="color:var(--red)">'+lateEntries.length+'</div></div>'
+  var nprCnt={'':entries.length,'جديد':0,'جارى التوريد':0,'منفذ':0,'late':lateEntries.length};
+  entries.forEach(function(e){if(nprCnt[e.status]!==undefined)nprCnt[e.status]++;});
+  function nprCard(k,val,lbl,col,bd,bg){
+    var on=(_NPR_KPI===k);
+    return '<div onclick="_nprSetKpi(\''+k+'\')" style="cursor:pointer;'+(on?'box-shadow:0 0 0 2px '+col+';':'')+'background:'+bg+';border:1px solid '+bd+';border-radius:10px;padding:14px 20px;min-width:110px;text-align:center">'
+      +'<div style="font-size:1.4rem;font-weight:700;color:'+col+'">'+val+'</div>'
+      +'<div style="font-size:.72rem;color:'+(k==='late'?'var(--red)':'var(--muted)')+'">'+lbl+'</div></div>';
+  }
+  var kpiPR='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">'
+    +nprCard('',nprCnt[''],'إجمالي الطلبات','var(--accent2)','var(--border)','var(--card)')
+    +nprCard('جديد',nprCnt['جديد'],'تم الطلب','var(--yellow)','rgba(234,179,8,.3)','var(--card)')
+    +nprCard('جارى التوريد',nprCnt['جارى التوريد'],'جارى التوريد','var(--blue)','rgba(56,189,248,.3)','var(--card)')
+    +nprCard('منفذ',nprCnt['منفذ'],'تم التوريد','var(--green)','rgba(34,197,94,.3)','var(--card)')
+    +(lateEntries.length>0||_NPR_KPI==='late'?nprCard('late',lateEntries.length,'⚠ متأخرة +7 يوم','var(--red)','rgba(239,68,68,.4)','rgba(239,68,68,.12)'):'')
     +'</div>';
 
   // ===== FORM =====
   var todayISO=(function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
   var formPR='';
   if(canAdd){
-    formPR='<div class="project-form" style="margin-bottom:20px">'
-      +'<div class="section-title">➕ طلب شراء جديد</div>'
-      +'<span id="nprMsg" style="font-size:.8rem;min-height:1.2em;display:block;margin-bottom:6px"></span>'
-      +'<div class="form-row">'
-      +'<input id="npr_project" class="form-control" placeholder="المشروع" />'
-      +'<input id="npr_item" class="form-control" placeholder="البند / الصنف المطلوب *" style="flex:2" />'
-      +'<input id="npr_qty" class="form-control" placeholder="الكمية" />'
-      +'<select id="npr_unit" class="form-control"><option value="">-- الوحدة --</option><option>طن</option><option>كيلو</option><option>متر</option><option>م²</option><option>م³</option><option>عبوة</option><option>قطعة</option><option>لتر</option><option>كيس</option></select>'
-      +'<input id="npr_supplier" class="form-control" placeholder="المورد المقترح" />'
-      +'</div>'
-      +'<div class="form-row">'
-      +'<input id="npr_notes" class="form-control" placeholder="ملاحظات" style="flex:2" />'
-      +'<select id="npr_status" class="form-control" style="min-width:130px"><option value="جديد">📋 تم الطلب</option><option value="جارى التوريد">🔄 جارى التوريد</option><option value="منفذ">✔ تم التوريد</option></select>'
-      +'<div style="display:flex;align-items:center;gap:6px;white-space:nowrap">'
-      +'<label style="font-size:.78rem;color:var(--muted)">📅 تاريخ التوريد</label>'
-      +'<input type="date" id="npr_delivery_date" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;cursor:pointer" />'
-      +'</div>'
-      +'<div style="display:flex;align-items:center;gap:6px;white-space:nowrap">'
-      +'<label style="font-size:.78rem;color:var(--muted)">📅 تاريخ الطلب</label>'
-      +'<input type="date" id="npr_date" value="'+todayISO+'" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:5px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;cursor:pointer" />'
-      +'</div>'
-      +'</div>'
-      +'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">'
-      +'<button class="form-btn form-btn-primary" onclick="addNilePR()">📋 إضافة طلب</button>'
-      +'<button class="form-btn" onclick="document.getElementById(\'nilePrImportFile\').click()" style="background:var(--card);color:var(--accent2);border:1px solid var(--accent2);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.82rem">📤 استيراد Excel</button>'
-      +'<input type="file" id="nilePrImportFile" accept=".xlsx,.xls" style="display:none" onchange="importNilePRFromExcel()">'
-      +'<button class="form-btn" onclick="exportNilePRToExcel()" style="background:var(--card);color:var(--green);border:1px solid var(--green);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.82rem">📊 تصدير Excel</button>'
-      +'<span id="nilePrImportMsg" style="font-size:.8rem;color:var(--muted)"></span>'
-      +'</div>'
-      +'</div>';
+    formPR='<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:20px"><div style="font-size:.9rem;font-weight:700;color:var(--accent2);margin-bottom:12px">➕ طلب شراء جديد</div><span id="nprMsg" style="font-size:.8rem;min-height:1.2em;display:block;margin-bottom:6px"></span><div class="form-row" style="flex-wrap:wrap;gap:10px"><div class="form-group" style="min-width:160px;flex:1"><label>المشروع <span style="color:var(--red)">*</span></label><input id="npr_project" placeholder="كود أو اسم المشروع" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"></div><div class="form-group" style="min-width:200px;flex:2"><label>البند / الصنف <span style="color:var(--red)">*</span></label><input id="npr_item" placeholder="اسم البند أو الصنف المطلوب" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"></div><div class="form-group" style="min-width:80px;flex:0 0 90px"><label>الكمية</label><input id="npr_qty" placeholder="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"></div><div class="form-group" style="min-width:80px;flex:0 0 100px"><label>الوحدة</label><select id="npr_unit" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"><option value="">م / طن...</option><option>طن</option><option>كيلو</option><option>متر</option><option>م²</option><option>م³</option><option>عبوة</option><option>قطعة</option><option>لتر</option><option>كيس</option></select></div><div class="form-group" style="min-width:130px;flex:0 0 140px"><label>المورد</label><input id="npr_supplier" placeholder="اسم المورد" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"></div></div><div class="form-row" style="flex-wrap:wrap;gap:10px;margin-top:10px"><div class="form-group" style="min-width:130px;flex:0 0 140px"><label>تاريخ الطلب</label><input type="date" id="npr_date" value="'+todayISO+'" dir="ltr" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"></div><div class="form-group" style="min-width:130px;flex:0 0 140px"><label>تاريخ التوريد</label><input type="date" id="npr_delivery_date" dir="ltr" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"></div><div class="form-group" style="min-width:130px;flex:0 0 160px"><label>الحالة</label><select id="npr_status" style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"><option value="جديد">📋 تم الطلب</option><option value="جارى التوريد">🔄 جارى التوريد</option><option value="منفذ">✅ تم التوريد</option></select></div><div class="form-group" style="flex:2;min-width:200px"><label>ملاحظات</label><input id="npr_notes" placeholder="ملاحظات..." style="width:100%;background:var(--bg);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 10px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;box-sizing:border-box"></div></div><div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap"><button class="form-btn form-btn-primary" onclick="addNilePR()">➕ إضافة طلب</button><label style="background:var(--card);border:1px solid var(--accent);color:var(--accent2);border-radius:8px;padding:7px 16px;cursor:pointer;font-size:.8rem;font-family:Cairo,sans-serif">📥 استيراد Excel<input type="file" id="nilePrImportFile" accept=".xlsx,.xls" style="display:none" onchange="importNilePRFromExcel()"></label><button class="form-btn" onclick="exportNilePRToExcel()" style="background:var(--card);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:7px 16px;font-size:.8rem;font-family:Cairo,sans-serif;cursor:pointer">📤 تصدير Excel</button><span id="nilePrImportMsg" style="font-size:.8rem;color:var(--muted)"></span></div></div>';
   }
 
   // ===== FILTERS =====
   var filterStat=(document.getElementById('nilePrFilterStatus')||{}).value||'';
   var filterSearch=((document.getElementById('nilePrFilterSearch')||{}).value||'').toLowerCase();
   var filtered=entries.filter(function(e){
-    if(filterStat&&e.status!==filterStat)return false;
+    if(_NPR_KPI==='late'){var _d=e.ts?Math.floor((Date.now()-new Date(e.ts).getTime())/86400000):0;if(e.status==='منفذ'||e.status==='مرفوض'||!(_d>7))return false;}
+    else if(_NPR_KPI){if(e.status!==_NPR_KPI)return false;}
+    else if(filterStat&&e.status!==filterStat)return false;
     if(filterSearch&&
        !(e.item||'').toLowerCase().includes(filterSearch)&&
        !(e.supplier||'').toLowerCase().includes(filterSearch)&&
@@ -9001,7 +8984,7 @@ function renderNilePR(){
   });
   var filtersPR='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">'
     +'<input type="text" id="nilePrFilterSearch" value="'+filterSearch+'" placeholder="🔍 بحث بالمشروع أو البند..." oninput="renderNilePR()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none;min-width:220px">'
-    +'<select id="nilePrFilterStatus" onchange="renderNilePR()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">'
+    +'<select id="nilePrFilterStatus" onchange="_NPR_KPI=\'\';renderNilePR()" style="background:var(--card);border:1px solid var(--border);color:#e2e8f0;border-radius:6px;padding:6px 12px;font-family:Cairo,sans-serif;font-size:.82rem;outline:none">'
     +'<option value="" '+(filterStat===''?'selected':'')+'>كل الحالات</option>'
     +'<option value="جديد" '+(filterStat==='جديد'?'selected':'')+'>📋 تم الطلب</option>'
     +'<option value="موافق" '+(filterStat==='موافق'?'selected':'')+'>✅ موافق</option>'
@@ -9082,7 +9065,7 @@ function renderNilePR(){
   tab.innerHTML='<div class="section-title">🛒 طلبات الشراء — نايل</div>'
     +kpiPR
     +formPR
-    +'<div class="section-title" style="margin-top:4px">📋 قائمة طلبات الشراء</div>'
+    +(_NPR_KPI?'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:.8rem;color:var(--muted)">عرض: <b style="color:#e2e8f0">'+(_NPR_KPI==='late'?'⚠ المتأخرة +7 يوم':statusLabel(_NPR_KPI))+'</b> — '+filtered.length+' طلب <button onclick="_nprSetKpi(\'\')" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 10px;cursor:pointer;font-family:Cairo,sans-serif;font-size:.72rem">✕ إلغاء الفلتر</button></div>':'')
     +filtersPR
     +tablePR;
 }
