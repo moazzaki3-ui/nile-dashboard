@@ -1531,8 +1531,8 @@ function renderCashFlow(){
         var phPct=(weights[ph.id]||0)/100;
         if(phPct<=0)return;
         var phBudget=budget*phPct;
-        var phStart=ph.startOffset||0;
-        var phDur=ph.durationWD||1;
+        var phStart=(ph.startDay!==undefined?ph.startDay:ph.startOffset)||0;
+        var phDur=(ph.duration!==undefined?ph.duration:ph.durationWD)||1;
         // Convert working days to month indices
         var startMonth=Math.floor(phStart/22);
         var durMonths=Math.max(1,Math.ceil(phDur/22));
@@ -7273,6 +7273,7 @@ function _initBaselinesListener(){
     var raw=snap.val()||{};
     _activeBlId=raw._active||null;
     delete raw._active;
+    Object.keys(raw).forEach(function(k){var b=raw[k];if(b&&b.phases){b.phases.forEach(function(ph){if(ph.startDay===undefined)ph.startDay=ph.startOffset||0;if(ph.duration===undefined)ph.duration=ph.durationWD||1;});}});
     _NILE_BASELINES=raw;
     // refresh UI if schedule tab visible
     if(document.getElementById('blListContainer'))_drawBaselinesMgmt();
@@ -7329,78 +7330,86 @@ function _countWD(start,end){
 }
 
 function _xer2Baseline(text,name){
-  // Parse Primavera P6 XER (tab-delimited)
+  // Primavera P6 XER (tab-delimited). Phases = top-level WBS nodes (PROJWBS) rolled up from TASK dates.
   var lines=text.split(/\r?\n/);
-  var tables={};
-  var curTable=null,curFields=null;
+  var tables={},curTable=null,curFields=null;
   for(var i=0;i<lines.length;i++){
     var ln=lines[i];
-    if(ln.indexOf('%T')=== 0){
-      curTable=ln.split('\t')[1];
-      tables[curTable]={fields:[],rows:[]};
-      curFields=null;
-    }else if(ln.indexOf('%F')===0&&curTable){
-      curFields=ln.split('\t').slice(1);
-      tables[curTable].fields=curFields;
-    }else if(ln.indexOf('%R')===0&&curTable&&curFields){
-      var vals=ln.split('\t').slice(1);
-      var obj={};
-      for(var j=0;j<curFields.length;j++){
-        obj[curFields[j]]=vals[j]||'';
-      }
+    if(ln.indexOf('%T')===0){curTable=ln.split('\t')[1];tables[curTable]={fields:[],rows:[]};curFields=null;}
+    else if(ln.indexOf('%F')===0&&curTable){curFields=ln.split('\t').slice(1);tables[curTable].fields=curFields;}
+    else if(ln.indexOf('%R')===0&&curTable&&curFields){
+      var vals=ln.split('\t').slice(1),obj={};
+      for(var j=0;j<curFields.length;j++)obj[curFields[j]]=(vals[j]===undefined?'':vals[j]);
       tables[curTable].rows.push(obj);
-    }else if(ln.indexOf('%E')===0){
-      curTable=null;curFields=null;
-    }
+    }else if(ln.indexOf('%E')===0){curTable=null;curFields=null;}
   }
-  // Extract TASK table — WBS summary tasks
-  var taskTable=tables['TASK']||tables['task'];
-  if(!taskTable||!taskTable.rows||taskTable.rows.length===0){
-    return {error:'لم يتم العثور على جدول TASK في ملف XER'};
-  }
-  // Get all tasks — filter for TT_WBS (summary/phases) or TT_Task
-  var allTasks=taskTable.rows;
-  // Try to find WBS-level summary tasks first
-  var wbsTasks=allTasks.filter(function(t){return t.task_type==='TT_WBS';});
-  // If no WBS tasks, try all tasks that have target dates
-  if(wbsTasks.length===0)wbsTasks=allTasks.filter(function(t){return t.target_start_date||t.early_start_date;});
-  if(wbsTasks.length===0)return {error:'لا توجد مهام بتواريخ في ملف XER'};
-
-  // Find project-level earliest/latest
+  var taskTable=tables['TASK'];
+  if(!taskTable||!taskTable.rows.length)return {error:'لم يتم العثور على جدول TASK في ملف XER'};
+  function okDate(d){return d&&d.getFullYear()>=2000&&d.getFullYear()<=2100;}
+  function tStart(t){var d=_parseXERDate(t.target_start_date)||_parseXERDate(t.early_start_date)||_parseXERDate(t.act_start_date);return okDate(d)?d:null;}
+  function tEnd(t){var d=_parseXERDate(t.target_end_date)||_parseXERDate(t.early_end_date)||_parseXERDate(t.act_end_date);return okDate(d)?d:null;}
+  // pick the project with the most tasks (XER may hold several)
+  var cnt={};taskTable.rows.forEach(function(t){cnt[t.proj_id]=(cnt[t.proj_id]||0)+1;});
+  var projId=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];})[0];
+  var tasks=taskTable.rows.filter(function(t){return t.proj_id===projId&&t.task_type!=='TT_WBS'&&tStart(t)&&tEnd(t);});
+  if(!tasks.length)return {error:'لا توجد أنشطة بتواريخ صالحة في ملف XER'};
   var earliest=null,latest=null;
-  wbsTasks.forEach(function(t){
-    var s=_parseXERDate(t.target_start_date||t.early_start_date);
-    var e=_parseXERDate(t.target_end_date||t.late_end_date||t.early_end_date);
-    if(s&&(!earliest||s<earliest))earliest=s;
-    if(e&&(!latest||e>latest))latest=e;
-  });
+  tasks.forEach(function(t){var s=tStart(t),e=tEnd(t);if(!earliest||s<earliest)earliest=s;if(!latest||e>latest)latest=e;});
+  function plusDay(d){var x=new Date(d);x.setDate(x.getDate()+1);return x;}
+  var totalDays=Math.max(1,_countWD(earliest,plusDay(latest)));
+  function iso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
 
-  var totalDays=_countWD(earliest,latest);
-  if(totalDays<1)totalDays=1;
-
-  // Build phases from WBS tasks
-  var PHASE_COLORS=['#6366f1','#eab308','#f97316','#22c55e','#38bdf8','#a78bfa','#f472b6','#fb923c','#14b8a6','#ef4444'];
-  var phases=wbsTasks.map(function(t,idx){
-    var s=_parseXERDate(t.target_start_date||t.early_start_date);
-    var e=_parseXERDate(t.target_end_date||t.late_end_date||t.early_end_date);
-    var wd=_countWD(s,e);
-    var offsetDays=_countWD(earliest,s);
-    return {
-      id:'ph_'+idx,
-      nameAr:t.task_name||t.task_code||('مرحلة '+(idx+1)),
-      nameEn:t.task_code||('Phase '+(idx+1)),
-      startOffset:offsetDays,
-      durationWD:wd>0?wd:1,
-      color:PHASE_COLORS[idx%PHASE_COLORS.length]
+  // WBS tree
+  var wbsRows=((tables['PROJWBS']||{}).rows||[]).filter(function(w){return w.proj_id===projId;});
+  var wbs={},kids={};
+  wbsRows.forEach(function(w){wbs[w.wbs_id]=w;});
+  wbsRows.forEach(function(w){var p=w.parent_wbs_id;if(p&&wbs[p]){(kids[p]=kids[p]||[]).push(w.wbs_id);}});
+  var tasksBy={};tasks.forEach(function(t){(tasksBy[t.wbs_id]=tasksBy[t.wbs_id]||[]).push(t);});
+  function collect(id){var r=(tasksBy[id]||[]).slice();(kids[id]||[]).forEach(function(k){r=r.concat(collect(k));});return r;}
+  function span(list){var s=null,e=null;list.forEach(function(t){var a=tStart(t),b=tEnd(t);if(!s||a<s)s=a;if(!e||b>e)e=b;});return {s:s,e:e};}
+  function actsOf(list){
+    return list.sort(function(a,b){return tStart(a)-tStart(b);}).slice(0,80).map(function(t){
+      return {id:t.task_code||'',name:t.task_name||'',duration:Math.max(0,_countWD(tStart(t),plusDay(tEnd(t))))};
+    });
+  }
+  var nodes=[];
+  if(wbsRows.length){
+    var root=wbsRows.filter(function(w){return w.proj_node_flag==='Y'||!w.parent_wbs_id||!wbs[w.parent_wbs_id];})[0];
+    var level=root?(kids[root.wbs_id]||[]):[];
+    for(var depth=0;depth<3&&level.length===1&&(kids[level[0]]||[]).length;depth++)level=kids[level[0]];
+    // also include tasks hanging directly on the root as one extra node if no kids
+    nodes=level.filter(function(id){return collect(id).length>0;}).map(function(id){
+      return {id:id,name:wbs[id].wbs_name||wbs[id].wbs_short_name||id,seq:+wbs[id].seq_num||0};
+    });
+  }
+  if(nodes.length<1){
+    // fallback: one phase per distinct wbs_id in TASK, else a single phase
+    var ids=Object.keys(tasksBy);
+    nodes=ids.map(function(id){return {id:id,name:(wbs[id]&&wbs[id].wbs_name)||('WBS '+id),seq:0};});
+  }
+  var phases=nodes.map(function(n){
+    var list=collect(n.id);if(!list.length)list=tasksBy[n.id]||[];
+    var sp=span(list);
+    var subs=(kids[n.id]||[]).map(function(k){
+      var l=collect(k);if(!l.length)return null;var ss=span(l);
+      return {n:(wbs[k].wbs_name||k),d:_countWD(ss.s,plusDay(ss.e)),acts:actsOf(l)};
+    }).filter(Boolean);
+    var ph={
+      _n:n,nameAr:n.name,nameEn:n.name,
+      startDay:_countWD(earliest,sp.s),
+      duration:Math.max(1,_countWD(sp.s,plusDay(sp.e))),
+      startDate:iso(sp.s),endDate:iso(sp.e),
+      activities:subs.length?[]:actsOf(list)
     };
-  });
-
+    if(subs.length)ph.sub=subs;
+    return ph;
+  }).sort(function(a,b){return a.startDay-b.startDay||a._n.seq-b._n.seq;});
+  var COLORS=['#6366f1','#f59e0b','#a78bfa','#10b981','#22d3ee','#ef4444','#f97316','#ec4899','#06b6d4','#84cc16'];
+  phases.forEach(function(ph,i){ph.id='ph_'+i;ph.color=COLORS[i%COLORS.length];ph.startOffset=ph.startDay;ph.durationWD=ph.duration;delete ph._n;});
   return {
-    name:name||'Baseline',
-    phases:phases,
-    totalDays:totalDays,
-    createdAt:new Date().toISOString(),
-    taskCount:wbsTasks.length
+    name:name||'Baseline',source:'xer',phases:phases,totalDays:totalDays,
+    startDate:iso(earliest),endDate:iso(latest),
+    createdAt:new Date().toISOString(),taskCount:tasks.length
   };
 }
 
@@ -7436,7 +7445,7 @@ function _showXERPreview(bl){
   var html='<div style="background:var(--card);border:1px solid var(--accent);border-radius:10px;padding:16px;margin-top:10px">';
   html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
   html+='<h4 style="margin:0;color:var(--accent)">\u{1F4CB} معاينة البرنامج الزمني</h4>';
-  html+='<span style="color:var(--muted);font-size:.75rem">'+bl.taskCount+' مرحلة | '+bl.totalDays+' يوم عمل</span></div>';
+  html+='<span style="color:var(--muted);font-size:.75rem">'+bl.phases.length+' مرحلة | '+bl.taskCount+' نشاط | '+bl.totalDays+' يوم عمل | '+bl.startDate+' → '+bl.endDate+'</span></div>';
   html+='<div style="margin-bottom:10px"><label style="color:var(--muted);font-size:.75rem">اسم البرنامج:</label><br>';
   html+='<input id="xerBlName" type="text" value="'+bl.name.replace(/"/g,'&quot;')+'" style="width:100%;max-width:320px;background:var(--bg);color:#e2e8f0;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:.85rem;font-family:inherit;margin-top:4px"></div>';
   // phases table
@@ -7445,8 +7454,8 @@ function _showXERPreview(bl){
   bl.phases.forEach(function(ph){
     html+='<tr style="border-bottom:1px solid var(--border)">';
     html+='<td style="padding:6px;color:#e2e8f0">'+(ph.nameAr||ph.nameEn)+'</td>';
-    html+='<td style="padding:6px;text-align:center;color:var(--muted)">'+ph.startOffset+'</td>';
-    html+='<td style="padding:6px;text-align:center;color:var(--accent)">'+ph.durationWD+' ي.ع</td>';
+    html+='<td style="padding:6px;text-align:center;color:var(--muted)">'+ph.startDay+'</td>';
+    html+='<td style="padding:6px;text-align:center;color:var(--accent)">'+ph.duration+' ي.ع</td>';
     html+='<td style="padding:6px;text-align:center"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:'+ph.color+'"></span></td>';
     html+='</tr>';
   });
