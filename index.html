@@ -461,7 +461,7 @@ function _checkCreds(u,p){
   if(dy)return{username:dy.username,role:dy.role||'viewer',fullname:dy.fullname||dy.username};
   return null;
 }
-const _ROLE_LABEL={admin:'📊 Projects Manager',chairman:'👑 Chairman',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',sitemanager:'🏗 مدير الموقع',foreman:'🦺 مشرفين',storekeeper:'📦 أمين مخزن',finance:'💰 مدير مالي',customerservice:'📞 خدمة عملاء',procurement:'🛒 مشتريات',viewer:'👁 مشاهد',nile_purchasing:'🛒 مشتريات نايل',nile_storekeeper:'📦 أمين مخازن نايل'};
+const _ROLE_LABEL={admin:'📊 Projects Manager',chairman:'👑 Chairman',ceo:'🏛 CEO',hcc:'🏗 HCC Engineer',editor:'🏗️ Technical Office Manager',engineer:'📐 Technical Office Eng.',supervisor:'👷 Site Engineer',sitemanager:'🏗 مدير الموقع',foreman:'🦺 مشرفين',storekeeper:'📦 أمين مخزن',finance:'💰 مدير مالي',customerservice:'📞 خدمة عملاء',procurement:'🛒 مشتريات',viewer:'👁 مشاهد',nile_purchasing:'🛒 مشتريات نايل',nile_storekeeper:'📦 أمين مخازن نايل'};
 let _CUSTOM_ROLE_LABELS={};
 function _getRoleLabel(r){return (_EXTRA_ROLES[r]&&_EXTRA_ROLES[r].label)||_CUSTOM_ROLE_LABELS[r]||_ROLE_LABEL[r]||r;}
 function _initRoleLabelsListener(){
@@ -481,6 +481,8 @@ function _fillRoleLabelInputs(){
 let _EXTRA_ROLES={}; // { id: {label, baseRole} }
 function _getBaseRole(role){
   if(_EXTRA_ROLES[role])return _EXTRA_ROLES[role].baseRole||'viewer';
+  if(role==='ceo')return 'chairman';
+  if(role==='hcc')return 'engineer';
   return role;
 }
 function _initExtraRolesListener(){
@@ -633,7 +635,7 @@ function applyPwd(uname){
 }
 function changeUserRole(uname,nr){
   if(!nr)return;
-  const roles=['viewer','storekeeper','foreman','supervisor','sitemanager','engineer','editor','chairman','admin'];
+  const roles=['viewer','storekeeper','foreman','supervisor','sitemanager','engineer','editor','chairman','ceo','hcc','admin'];
   if(!roles.includes(nr))return;
   let users=_getUsers();
   let u=users.find(x=>x.username===uname);
@@ -660,7 +662,7 @@ function renderAdminPanel(){
     html='<table class="user-table"><thead><tr><th>اسم المستخدم</th><th>الاسم الكامل</th><th>الصلاحية</th><th>تاريخ الإضافة</th><th>إجراءات</th></tr></thead><tbody>';
     users.forEach(u=>{
       const rl=u.role||'viewer';
-      const rlColors={admin:'#6366f1',chairman:'#a855f7',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',finance:'#10b981',customerservice:'#f43f5e',procurement:'#8b5cf6',viewer:'#64748b'};
+      const rlColors={admin:'#6366f1',chairman:'#a855f7',ceo:'#d946ef',hcc:'#eab308',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',finance:'#10b981',customerservice:'#f43f5e',procurement:'#8b5cf6',viewer:'#64748b'};
       const rlBadge='<span style="background:'+rlColors[rl]+'22;color:'+rlColors[rl]+';border:1px solid '+rlColors[rl]+'44;border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700">'+_getRoleLabel(rl)+'</span>';
       const roleOpts=Object.entries(_ROLE_LABEL).map(([v])=>'<option value="'+v+'"'+(rl===v?' selected':'')+'>'+ _getRoleLabel(v)+'</option>').join('');
       html+='<tr><td><b>'+u.username+'</b></td><td>'+(u.fullname||'—')+'</td>'
@@ -709,7 +711,7 @@ const _TABS_CONFIG=[
 let _TAB_PERM_CACHE=null;let _fbTabPermInit=false;
 function _getTabPerm(){
   if(_TAB_PERM_CACHE)return _TAB_PERM_CACHE;
-  const def={};_TABS_CONFIG.forEach(t=>{def[t.id]={admin:true,chairman:true,editor:true,engineer:true,supervisor:true,sitemanager:true,foreman:true,storekeeper:true,finance:true,customerservice:true,procurement:true,viewer:true,nile_purchasing:true,nile_storekeeper:true};});return def;
+  const def={};_TABS_CONFIG.forEach(t=>{if(t.id==='portfolio'){def[t.id]={admin:true};return;}def[t.id]={admin:true,chairman:true,ceo:true,hcc:true,editor:true,engineer:true,supervisor:true,sitemanager:true,foreman:true,storekeeper:true,finance:true,customerservice:true,procurement:true,viewer:true,nile_purchasing:true,nile_storekeeper:true};});return def;
 }
 function _saveTabPerm(p){
   _TAB_PERM_CACHE=p;
@@ -739,8 +741,17 @@ function _applyTabVisibility(role){
     const btn=document.querySelector('.tab[onclick*="\''+t.id+'\'"]');
     if(!btn)return;
     const pr=perm[t.id];
-    const allowed=forced.includes(t.id)||!pr||pr[role]!==false;
+    let allowed=forced.includes(t.id)||!pr||pr[role]!==false;
+    if(t.id==='portfolio')allowed=(role==='admin')||!!(pr&&pr[role]===true); // المحفظة: للمسموح لهم صراحةً فقط
     btn.style.display=allowed?'':'none';
+    if(t.id==='portfolio'&&!allowed){
+      const tp=document.getElementById('tab-portfolio');
+      if(tp&&!tp.classList.contains('hidden')){
+        tp.classList.add('hidden');
+        const nb=Array.from(document.querySelectorAll('.tab')).find(b=>b.style.display!=='none'&&b.id!=='adminTab'&&(b.getAttribute('onclick')||'').indexOf("'portfolio'")<0);
+        if(nb)nb.click();
+      }
+    }
   });
   // Always hide admin tab for non-admin roles
   const adminBtn=document.getElementById('adminTab');
@@ -750,7 +761,7 @@ function saveTabPermissions(){
   const p={};
   _TABS_CONFIG.forEach(t=>{
     p[t.id]={admin:true};
-    ['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].forEach(r=>{
+    ['chairman','ceo','hcc','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].forEach(r=>{
       const cb=document.getElementById('tp_'+t.id+'_'+r);
       p[t.id][r]=cb?cb.checked:true;
     });
@@ -762,13 +773,13 @@ function saveTabPermissions(){
 }
 function renderTabPermissions(){
   const p=_getTabPerm();
-  const roles=['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].map(id=>({id,label:_getRoleLabel(id)}));
+  const roles=['chairman','ceo','hcc','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].map(id=>({id,label:_getRoleLabel(id)}));
   const thead='<tr style="background:var(--panel)"><th style="text-align:right;padding:8px 12px">التبويب</th>'
     +'<th style="text-align:center;padding:8px 6px;font-size:.75rem">📊 Projects Manager</th>'
     +roles.map(r=>'<th style="text-align:center;padding:8px 6px;font-size:.75rem">'+r.label+'</th>').join('')+'</tr>';
   const rows=_TABS_CONFIG.map(t=>{
     const cells=roles.map(r=>{
-      const chk=(p[t.id]===undefined||p[t.id][r.id]!==false)?'checked':'';
+      const chk=(t.id==='portfolio'?(p[t.id]&&p[t.id][r.id]===true):(p[t.id]===undefined||p[t.id][r.id]!==false))?'checked':'';
       return '<td style="text-align:center"><input type="checkbox" id="tp_'+t.id+'_'+r.id+'" '+chk+'></td>';
     }).join('');
     return '<tr><td style="padding:7px 12px;font-size:.82rem"><b>'+t.label+'</b></td>'
@@ -792,8 +803,8 @@ function applyRecommendedTabPerms(){
     stdboq:['storekeeper','foreman','viewer','customerservice'],
     balances:['storekeeper','foreman','viewer','customerservice'],
     cs:['procurement','storekeeper','foreman'],
-    nile_wh:['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','customerservice','procurement','viewer'],
-    nile_pr:['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','customerservice','procurement','viewer'],
+    nile_wh:['chairman','ceo','hcc','editor','engineer','supervisor','sitemanager','foreman','storekeeper','customerservice','procurement','viewer'],
+    nile_pr:['chairman','ceo','hcc','editor','engineer','supervisor','sitemanager','foreman','storekeeper','customerservice','procurement','viewer'],
   };
   const p=_getTabPerm();
   Object.entries(hide).forEach(([tabId,roles])=>{
@@ -822,16 +833,19 @@ function _initPresence(){
   const userData={name:sess.fullname||sess.name||sess.username||uid,role:sess.role||'viewer',ts:Date.now()};
   ref.set(userData);
   ref.onDisconnect().remove();
-  _DB.ref('/online_users').on('value',function(snap){
-    _renderOnlineBar(snap.val()||{});
-  });
+  if((window._CURRENT_ROLE||sess.role)==='admin'){
+    _DB.ref('/online_users').on('value',function(snap){
+      _renderOnlineBar(snap.val()||{});
+    });
+  }
 }
 function _renderOnlineBar(users){
   const bar=document.getElementById('onlineUsersBar');
   if(!bar)return;
+  if((window._CURRENT_ROLE||'')!=='admin'){bar.style.display='none';bar.innerHTML='';return;}
   const entries=Object.values(users||{});
   if(entries.length===0){bar.style.display='none';return;}
-  const rlColors={admin:'#6366f1',chairman:'#a855f7',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',finance:'#10b981',customerservice:'#f43f5e',procurement:'#8b5cf6',viewer:'#64748b'};
+  const rlColors={admin:'#6366f1',chairman:'#a855f7',ceo:'#d946ef',hcc:'#eab308',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',finance:'#10b981',customerservice:'#f43f5e',procurement:'#8b5cf6',viewer:'#64748b'};
   const chips=entries.map(u=>{
     const c=rlColors[u.role]||'#64748b';
     return '<span style="display:inline-flex;align-items:center;gap:3px;background:'+c+'22;border:1px solid '+c+'55;border-radius:12px;padding:2px 8px;font-size:.65rem;color:'+c+'"><span style="width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 2s infinite"></span>'+u.name+'</span>';
@@ -861,7 +875,7 @@ function _initLastEditListener(){
 function _renderLastEdit(el,data){
   if(!el)return;
   if(!data){el.innerHTML='<span style="color:var(--muted);font-size:.8rem">لا توجد تعديلات مسجّلة بعد</span>';return;}
-  const rlColors={admin:'#6366f1',chairman:'#a855f7',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',finance:'#10b981',customerservice:'#f43f5e',procurement:'#8b5cf6',viewer:'#64748b'};
+  const rlColors={admin:'#6366f1',chairman:'#a855f7',ceo:'#d946ef',hcc:'#eab308',editor:'#22c55e',engineer:'#06b6d4',supervisor:'#f97316',sitemanager:'#0ea5e9',foreman:'#fb923c',storekeeper:'#14b8a6',finance:'#10b981',customerservice:'#f43f5e',procurement:'#8b5cf6',viewer:'#64748b'};
   const c=rlColors[data.role]||'#64748b';
   el.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:var(--card);border-radius:8px;border:1px solid var(--border)">'
     +'<span style="font-size:.82rem">📝 آخر تعديل:</span>'
@@ -931,7 +945,7 @@ function saveSectionPermissions(){
     p[tabId]={};
     _SECTION_DEFS[tabId].forEach(function(s){
       p[tabId][s.id]={admin:true};
-      ['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].forEach(function(r){
+      ['chairman','ceo','hcc','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].forEach(function(r){
         const cb=document.getElementById('sp_'+s.id+'_'+r);
         p[tabId][s.id][r]=cb?cb.checked:true;
       });
@@ -944,7 +958,7 @@ function saveSectionPermissions(){
 }
 function renderSectionPermissions(){
   const p=_getSectPerm();
-  const roles=['chairman','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].map(function(id){return{id:id,label:_getRoleLabel(id)};});
+  const roles=['chairman','ceo','hcc','editor','engineer','supervisor','sitemanager','foreman','storekeeper','finance','customerservice','procurement','viewer','nile_purchasing','nile_storekeeper'].map(function(id){return{id:id,label:_getRoleLabel(id)};});
   let html='<div id="sectPermNotice" style="display:none;background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:.8rem">✅ تم حفظ إعدادات الأقسام</div>';
   Object.keys(_SECTION_DEFS).forEach(function(tabId){
     const tabCfg=_TABS_CONFIG.find(function(t){return t.id===tabId;});
@@ -1050,6 +1064,7 @@ function showTab(t){
     const _sPerm=_getTabPerm();
     const _sPr=_sPerm[t];
     if(_sPr&&_sPr[_sRole]===false)return; // silently blocked — stay on current tab
+    if(t==='portfolio'&&!(_sPr&&_sPr[_sRole]===true))return; // المحفظة: مسموح صراحةً فقط
   }
   if(t==='chat'){populateFormDropdowns();renderChangelog();}
   if(t==='admin'){renderAdminPanel();}
@@ -9440,6 +9455,8 @@ function startApp(){
           <option value="engineer">📐 Technical Office Eng.</option>
           <option value="editor">🏗️ Technical Office Manager</option>
           <option value="chairman">👑 Chairman</option>
+          <option value="ceo">🏛 CEO</option>
+          <option value="hcc">🏗 HCC Engineer</option>
           <option value="admin">📊 Projects Manager</option>
         </select>
       </div>
