@@ -1130,7 +1130,8 @@ function _pv(code,f){const ph=_PROJECT_PHASES_DATA[code];return ph&&ph[f]!==unde
 var _FUP_BOQ_DATA=[];
 function _fupIsStruct(r){return !r.kind||r.kind==='structure';}
 function _fupStruct(){return _FUP_BOQ_DATA.filter(_fupIsStruct);}
-function _fupKindPct(proj,kind){var st=0,ac=0,has=false;_FUP_BOQ_DATA.forEach(function(r){if(r.kind===kind&&r.project===proj){(r.items||[]).forEach(function(it){st+=it.concStd||0;ac+=it.concAct||0;has=true;});}});return has&&st>0?(st-ac)/st*100:null;}
+function _fupKey(r){return r.projectCode||r.project;}
+function _fupKindPct(proj,kind){var st=0,ac=0,has=false;_FUP_BOQ_DATA.forEach(function(r){if(r.kind===kind&&_fupKey(r)===proj){(r.items||[]).forEach(function(it){st+=it.concStd||0;ac+=it.concAct||0;has=true;});}});return has&&st>0?(st-ac)/st*100:null;}
 let _fbFupBoqInit=false;
 let _FUP_DEV_EXTRA={};
 let _fbFupDevExtraInit=false;
@@ -5851,16 +5852,17 @@ function renderPortDeviations(){
   if(!el)return;
   if(!_FUP_BOQ_DATA.length){el.innerHTML='';if(sec)sec.style.display='none';return;}
   if(sec)sec.style.display='';
-  // مشاريع عندها مباني/بياض فقط (بدون تقرير هيكل) تظهر ببطاقة بدون خرسانة/حديد
-  var _structProjs={};_fupStruct().forEach(function(r){_structProjs[r.project]=1;});
-  var _cardRecs=_fupStruct().slice();
-  _FUP_BOQ_DATA.forEach(function(r){if(!_fupIsStruct(r)&&!_structProjs[r.project]){_structProjs[r.project]=1;_cardRecs.push({project:r.project,projectCode:r.projectCode,items:[],_noStruct:true});}});
-  var fmt=function(v,d){return(v>=0?'+':'')+v.toFixed(d||1);};
-  var vc=function(v){return v>=0?'var(--green)':v>-3?'var(--yellow)':'var(--red)';};
+  // تجميع كل التقارير (هيكل/مباني/بياض) تحت المشروع الواحد
+  var _groups={},_order=[];
+  _FUP_BOQ_DATA.forEach(function(r){
+    var k=_fupKey(r);
+    if(!_groups[k]){_groups[k]={project:k,projectCode:k,items:[],_noStruct:true};_order.push(k);}
+    if(_fupIsStruct(r)){_groups[k].items=_groups[k].items.concat(r.items||[]);_groups[k]._noStruct=false;}
+  });
+  var _cardRecs=_order.map(function(k){return _groups[k];});
   var cards=_cardRecs.map(function(rec){
     var items=rec.items||[];var proj=rec.project;
-    var _fpc=rec.projectCode&&rec.projectCode!==proj?rec.projectCode:'';
-    var _fpn=_fpc?(_projName(_fpc)!==_fpc?_projName(_fpc):_fpc):'';
+    var _fpn=(_projName(proj)!==proj)?_projName(proj):'';
     var tCStd=items.reduce(function(s,it){return s+it.concStd;},0);
     var tCAct=items.reduce(function(s,it){return s+it.concAct;},0);
     var concP=tCStd>0?(tCStd-tCAct)/tCStd*100:0;
@@ -5869,8 +5871,8 @@ function renderPortDeviations(){
     var steelP=tSSt>0?(tSSt-tSAct)/tSSt*100:0;
     var ex=_FUP_DEV_EXTRA[proj]||{};
     var _mUp=_fupKindPct(proj,'masonry'),_pUp=_fupKindPct(proj,'plaster');
-    var masonryP=_mUp!==null?_mUp:(ex.masonry!=null?ex.masonry:0);
-    var plasterP=_pUp!==null?_pUp:(ex.plaster!=null?ex.plaster:0);
+    var masonryP=_mUp!==null?Math.round(_mUp*10)/10:(ex.masonry!=null?ex.masonry:0);
+    var plasterP=_pUp!==null?Math.round(_pUp*10)/10:(ex.plaster!=null?ex.plaster:0);
     var _avgParts=[];if(!rec._noStruct){_avgParts.push(concP,steelP);}if(_mUp!==null||ex.masonry!=null||!rec._noStruct)_avgParts.push(masonryP);if(_pUp!==null||ex.plaster!=null||!rec._noStruct)_avgParts.push(plasterP);
     var allAvg=_avgParts.length?_avgParts.reduce(function(a,b){return a+b;},0)/_avgParts.length:0;
     return '<div onclick="showTab(\'balances\')" title="اضغط لعرض التفاصيل الكاملة" style="cursor:pointer;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;min-width:195px;flex:1;max-width:255px;transition:all .2s;direction:rtl" onmouseover="this.style.borderColor=\'var(--accent2)\';this.style.background=\'rgba(99,102,241,.07)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.background=\'var(--card)\'">'
