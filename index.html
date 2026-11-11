@@ -5860,6 +5860,8 @@ function renderPortDeviations(){
     if(_fupIsStruct(r)){_groups[k].items=_groups[k].items.concat(r.items||[]);_groups[k]._noStruct=false;}
   });
   var _cardRecs=_order.map(function(k){return _groups[k];});
+  var fmt=function(v,d){return(v>=0?'+':'')+v.toFixed(d||1);};
+  var vc=function(v){return v>=0?'var(--green)':v>-3?'var(--yellow)':'var(--red)';};
   var cards=_cardRecs.map(function(rec){
     var items=rec.items||[];var proj=rec.project;
     var _fpn=(_projName(proj)!==proj)?_projName(proj):'';
