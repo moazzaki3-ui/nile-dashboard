@@ -5507,6 +5507,55 @@ function _initFupBoqListener(){
   });
 }
 
+// قراءة شيت حصر المباني/البياض: مواد في أعمدة (F فما فوق) وصفوف Standard / Actual
+function _parseMaterialSheet(ws){
+  var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+  var num=function(v){if(v===null||v===undefined||v==='')return 0;var x=parseFloat(String(v).replace(/[,،]/g,''));return isNaN(x)?0:x;};
+  var code='',pno='',zone='';
+  for(var i=0;i<Math.min(rows.length,6);i++){
+    (rows[i]||[]).forEach(function(c){
+      if(typeof c!=='string')return;
+      var m=c.match(/Proj(?:ect)?\s*No\.?\s*[:\-]?\s*(\d+)/i);if(m)pno=m[1];
+      var z=c.match(/Zone\s*[:\-]?\s*([A-Za-z0-9]+)/i);if(z)zone=z[1].toUpperCase();
+    });
+  }
+  if(pno)code=pno+zone;
+  var items=[],mats=null,unit='',std=null,act=null,n=0;
+  var flush=function(){
+    if(mats&&std&&act){
+      mats.forEach(function(m){
+        var s=num(std[m.col]),a=num(act[m.col]);
+        if(s<=0&&a<=0)return;
+        n++;
+        items.push({no:n,name:m.name,date:'',unit:unit||'',concStd:s,concAct:a,
+          st8Std:0,st10Std:0,st12Std:0,st16Std:0,st18Std:0,st22Std:0,st25Std:0,
+          st8Act:0,st10Act:0,st12Act:0,st16Act:0,st18Act:0,st22Act:0,st25Act:0,
+          totalCost:0,steelStd:0,steelAct:0,
+          concVarQty:s-a,concVarPct:s>0?(s-a)/s*100:0,steelVarQty:0,steelVarPct:0});
+      });
+    }
+    std=null;act=null;
+  };
+  for(var r=0;r<rows.length;r++){
+    var row=rows[r];if(!row)continue;
+    var b=(row[1]==null?'':String(row[1])).trim().toLowerCase();
+    var lab=(row[4]==null?'':String(row[4])).trim().toLowerCase();
+    if(b==='items'){
+      flush();
+      mats=[];
+      for(var c=5;c<row.length;c++){if(row[c]!=null&&String(row[c]).trim())mats.push({col:c,name:String(row[c]).trim()});}
+      unit='';
+      continue;
+    }
+    if(mats){
+      if(!unit&&row[2]!=null&&typeof row[2]==='string'&&row[2].trim()&&lab!=='standard'&&lab!=='actual')unit=row[2].trim();
+      if(lab==='standard')std=row;
+      else if(lab==='actual')act=row;
+    }
+  }
+  flush();
+  return {items:items,code:code};
+}
 function uploadFollowUpExcel(){
   const input=document.getElementById('boqFollowUpFile');
   if(!input||!input.files.length)return;
@@ -5571,7 +5620,15 @@ function uploadFollowUpExcel(){
         var projCode=sheetName.trim();
         if(!projCode)return;
         var ws=wb.Sheets[sheetName];
-        var items=parseSheet(ws);
+        var items;
+        if(_fupKind!=='structure'){
+          var mp=_parseMaterialSheet(ws);
+          items=mp.items;
+          if(mp.code)projCode=mp.code;
+          if(!items.length)items=parseSheet(ws);
+        }else{
+          items=parseSheet(ws);
+        }
         if(!items.length)return;
         var sess=window._CURRENT_SESSION||{};
         var record={id:now+si,kind:_fupKind,project:projCode,projectCode:_fupSelProj||projCode,uploadedAt:new Date().toISOString(),uploadedBy:sess.name||sess.fullname||sess.username||'—',items:items};
