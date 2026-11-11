@@ -1128,6 +1128,9 @@ function ring(pct,sz=56){
 function _pv(code,f){const ph=_PROJECT_PHASES_DATA[code];return ph&&ph[f]!==undefined?ph[f]:(PROJECTS.find(x=>x.code===code)||{})[f];}
 // Hoisted declarations — used in renderKPIs() before their main init block
 var _FUP_BOQ_DATA=[];
+function _fupIsStruct(r){return !r.kind||r.kind==='structure';}
+function _fupStruct(){return _FUP_BOQ_DATA.filter(_fupIsStruct);}
+function _fupKindPct(proj,kind){var st=0,ac=0,has=false;_FUP_BOQ_DATA.forEach(function(r){if(r.kind===kind&&r.project===proj){(r.items||[]).forEach(function(it){st+=it.concStd||0;ac+=it.concAct||0;has=true;});}});return has&&st>0?(st-ac)/st*100:null;}
 let _fbFupBoqInit=false;
 let _FUP_DEV_EXTRA={};
 let _fbFupDevExtraInit=false;
@@ -1158,14 +1161,14 @@ function renderKPIs(){
     <div class="kpi" style="border-right-color:#22d3ee" onclick="filterByKpi('باب','تم تركيب الباب')"><div class="kpi-val" style="color:#22d3ee">${cntDoor}</div><div class="kpi-lbl">🚪 تم تركيب الباب</div><div class="kpi-sub">${done>0?Math.round(cntDoor/done*100):0}% من المنتهية</div></div>
     <div class="kpi" style="border-right-color:var(--accent)" onclick="filterByKpi('جراج','تم صب الجراج')"><div class="kpi-val" style="color:var(--accent)">${cntGarage}</div><div class="kpi-lbl">🏗 تم صب الجراج</div><div class="kpi-sub">${done>0?Math.round(cntGarage/done*100):0}% من المنتهية</div></div>
     ${(function(){
-      if(!_FUP_BOQ_DATA||!_FUP_BOQ_DATA.length)return '';
-      var cpcts=_FUP_BOQ_DATA.map(function(rec){var it=rec.items||[];var s=it.reduce(function(a,x){return a+x.concStd;},0);var a=it.reduce(function(a,x){return a+x.concAct;},0);return s>0?(s-a)/s*100:null;}).filter(function(v){return v!==null;});
-      var spcts=_FUP_BOQ_DATA.map(function(rec){var it=rec.items||[];var s=it.reduce(function(a,x){return a+x.steelStd;},0);var a=it.reduce(function(a,x){return a+x.steelAct;},0);return s>0?(s-a)/s*100:null;}).filter(function(v){return v!==null;});
+      if(!_fupStruct().length)return '';
+      var cpcts=_fupStruct().map(function(rec){var it=rec.items||[];var s=it.reduce(function(a,x){return a+x.concStd;},0);var a=it.reduce(function(a,x){return a+x.concAct;},0);return s>0?(s-a)/s*100:null;}).filter(function(v){return v!==null;});
+      var spcts=_fupStruct().map(function(rec){var it=rec.items||[];var s=it.reduce(function(a,x){return a+x.steelStd;},0);var a=it.reduce(function(a,x){return a+x.steelAct;},0);return s>0?(s-a)/s*100:null;}).filter(function(v){return v!==null;});
       var cp=cpcts.length?cpcts.reduce(function(a,v){return a+v;},0)/cpcts.length:null;
       var sp=spcts.length?spcts.reduce(function(a,v){return a+v;},0)/spcts.length:null;
       var cc=cp!==null?(cp>=0?'var(--green)':cp>-3?'var(--yellow)':'var(--red)'):'var(--muted)';
       var sc=sp!==null?(sp>=0?'var(--green)':sp>-3?'var(--yellow)':'var(--red)'):'var(--muted)';
-      var n=_FUP_BOQ_DATA.length;
+      var n=_fupStruct().length;
       return (cp!==null?'<div class="kpi" style="border-right-color:'+cc+';cursor:pointer" onclick="showTab(\'balances\')"><div class="kpi-val" style="color:'+cc+'">'+(cp>=0?'+':'')+cp.toFixed(1)+'%</div><div class="kpi-lbl">🧱 انحراف الخرسانة</div><div class="kpi-sub">'+n+' مشروع — متوسط عام</div></div>':'')+
              (sp!==null?'<div class="kpi" style="border-right-color:'+sc+';cursor:pointer" onclick="showTab(\'balances\')"><div class="kpi-val" style="color:'+sc+'">'+(sp>=0?'+':'')+sp.toFixed(1)+'%</div><div class="kpi-lbl">🔩 انحراف الحديد</div><div class="kpi-sub">'+n+' مشروع — متوسط عام</div></div>':'');
     })()}
@@ -5458,6 +5461,7 @@ function renderBalances(){
       '</div>'+
       '<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
         '<label style="font-size:.78rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px">📥 رفع من Excel <input type="file" id="boqExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadBoqExcel()"></label>'+
+        '<select id="fupKindSel" title="نوع تقرير المتابعة" style="font-size:.75rem;background:var(--card);border:1px solid rgba(34,197,94,.45);color:#e2e8f0;border-radius:8px;padding:5px 10px;direction:rtl"><option value="structure">🏗 حصر هيكل (خرسانة + حديد)</option><option value="masonry">🧱 حصر مباني</option><option value="plaster">🪟 حصر بياض</option></select>'+
         '<select id="fupProjSel" style="font-size:.75rem;background:var(--card);border:1px solid rgba(99,102,241,.35);color:#e2e8f0;border-radius:8px;padding:5px 10px;direction:rtl;max-width:165px"><option value="">— المشروع (اختياري) —</option>'+PROJECTS.slice().sort(function(a,b){return String(a.code).localeCompare(String(b.code),undefined,{numeric:true});}).map(function(p){return '<option value="'+p.code+'">'+p.code+' — '+p.name+'</option>';}).join('')+'</select>'+
         '<label style="font-size:.78rem;color:var(--accent2);cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.35);border-radius:8px;padding:6px 14px">📋 رفع تقرير المتابعة <input type="file" id="boqFollowUpFile" accept=".xlsx,.xls" style="display:none" onchange="uploadFollowUpExcel()"></label>'+
         '<span style="font-size:.67rem;color:var(--muted)">📥 Excel بسيط: المشروع، البند، التوريد، الرصيد… &nbsp;|&nbsp; 📋 تقرير المتابعة: شيت اسمه كود المشروع، Standard/Actual في عمود F</span>'+
@@ -5549,6 +5553,7 @@ function uploadFollowUpExcel(){
         }
         if(ci)items.push(ci);
         items.forEach(function(it){
+          if(_fupKind!=='structure'){it.st8Std=it.st10Std=it.st12Std=it.st16Std=it.st18Std=it.st22Std=it.st25Std=0;it.st8Act=it.st10Act=it.st12Act=it.st16Act=it.st18Act=it.st22Act=it.st25Act=0;}
           it.steelStd=(it.st8Std+it.st10Std+it.st12Std+it.st16Std+it.st18Std+it.st22Std+it.st25Std)*it.concStd/1000;
           it.steelAct=(it.st8Act+it.st10Act+it.st12Act+it.st16Act+it.st18Act+it.st22Act+it.st25Act)*it.concAct/1000;
           it.concVarQty=it.concStd-it.concAct;
@@ -5561,6 +5566,7 @@ function uploadFollowUpExcel(){
       var parsed=0,totalItems=0,parsedCodes=[];
       var now=Date.now();
       var _fupSelProj=(document.getElementById('fupProjSel')||{}).value||'';
+      var _fupKind=(document.getElementById('fupKindSel')||{}).value||'structure';
       wb.SheetNames.forEach(function(sheetName,si){
         var projCode=sheetName.trim();
         if(!projCode)return;
@@ -5568,7 +5574,8 @@ function uploadFollowUpExcel(){
         var items=parseSheet(ws);
         if(!items.length)return;
         var sess=window._CURRENT_SESSION||{};
-        var record={id:now+si,project:projCode,projectCode:_fupSelProj||projCode,uploadedAt:new Date().toISOString(),uploadedBy:sess.name||sess.fullname||sess.username||'—',items:items};
+        var record={id:now+si,kind:_fupKind,project:projCode,projectCode:_fupSelProj||projCode,uploadedAt:new Date().toISOString(),uploadedBy:sess.name||sess.fullname||sess.username||'—',items:items};
+        _FUP_BOQ_DATA=_FUP_BOQ_DATA.filter(function(d){return !(d.project===projCode&&(d.kind||'structure')===_fupKind);});
         _FUP_BOQ_DATA.push(record);
         parsed++;totalItems+=items.length;parsedCodes.push(projCode);
       });
@@ -5591,12 +5598,26 @@ function deleteFupBoq(recId){
   _saveFupBoqData();renderBalances();
 }
 
-function renderFollowUpBoq(){
-  if(!_FUP_BOQ_DATA.length)return '';
+function renderFollowUpBoq(){return _renderFollowUpStruct()+_fupExtraHtml();}
+function _fupExtraHtml(){
+  var recs=_FUP_BOQ_DATA.filter(function(r){return !_fupIsStruct(r);});
+  if(!recs.length)return '';
+  var fmt=function(v){return(v>=0?'+':'')+v.toFixed(1);};
+  var vc=function(v){return v>=0?'var(--green)':v>-3?'var(--yellow)':'var(--red)';};
+  var lbl={masonry:'🧱 مباني',plaster:'🪟 بياض'};
+  var rows=recs.map(function(r){
+    var its=r.items||[],st=0,ac=0;its.forEach(function(it){st+=it.concStd||0;ac+=it.concAct||0;});
+    var pct=st>0?(st-ac)/st*100:0;
+    return '<tr style="border-bottom:1px solid var(--border)"><td style="padding:7px 10px;font-weight:700">'+r.project+'</td><td style="padding:7px 8px">'+(lbl[r.kind]||r.kind)+'</td><td style="padding:7px 8px;text-align:center">'+its.length+'</td><td style="padding:7px 8px;text-align:center">'+st.toFixed(1)+'</td><td style="padding:7px 8px;text-align:center">'+ac.toFixed(1)+'</td><td style="padding:7px 8px;text-align:center;font-weight:700;color:'+vc(pct)+'">'+fmt(pct)+'%</td><td style="padding:7px 8px;text-align:center;color:var(--muted);font-size:.7rem">'+(r.uploadedAt||'').substring(0,10)+'</td><td style="padding:7px 8px;text-align:center"><button onclick="deleteFupBoq(\''+r.id+'\')" style="font-size:.72rem;background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;cursor:pointer">🗑</button></td></tr>';
+  }).join('');
+  return '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:14px"><div style="font-weight:700;color:var(--accent2);margin-bottom:8px;font-size:.88rem">🧱🪟 تقارير متابعة المباني والبياض</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr style="background:var(--panel);color:var(--muted)"><th style="padding:6px 10px;text-align:right">المشروع</th><th style="padding:6px 8px;text-align:right">النوع</th><th style="padding:6px 8px">بنود</th><th style="padding:6px 8px">المعياري</th><th style="padding:6px 8px">الفعلي</th><th style="padding:6px 8px">الانحراف</th><th style="padding:6px 8px">التاريخ</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+function _renderFollowUpStruct(){
+  if(!_fupStruct().length)return '';
   const fmt=function(v,d){return(v>=0?'+':'')+v.toFixed(d||1);};
   const vc=function(v){return v>=0?'var(--green)':v>-3?'var(--yellow)':'var(--red)';};
   let html='';
-  _FUP_BOQ_DATA.forEach(function(rec){
+  _fupStruct().forEach(function(rec){
     const items=rec.items||[];if(!items.length)return;
     const proj=rec.project;
     const _fpc=rec.projectCode&&rec.projectCode!==proj?rec.projectCode:'';
@@ -5773,9 +5794,13 @@ function renderPortDeviations(){
   if(!el)return;
   if(!_FUP_BOQ_DATA.length){el.innerHTML='';if(sec)sec.style.display='none';return;}
   if(sec)sec.style.display='';
+  // مشاريع عندها مباني/بياض فقط (بدون تقرير هيكل) تظهر ببطاقة بدون خرسانة/حديد
+  var _structProjs={};_fupStruct().forEach(function(r){_structProjs[r.project]=1;});
+  var _cardRecs=_fupStruct().slice();
+  _FUP_BOQ_DATA.forEach(function(r){if(!_fupIsStruct(r)&&!_structProjs[r.project]){_structProjs[r.project]=1;_cardRecs.push({project:r.project,projectCode:r.projectCode,items:[],_noStruct:true});}});
   var fmt=function(v,d){return(v>=0?'+':'')+v.toFixed(d||1);};
   var vc=function(v){return v>=0?'var(--green)':v>-3?'var(--yellow)':'var(--red)';};
-  var cards=_FUP_BOQ_DATA.map(function(rec){
+  var cards=_cardRecs.map(function(rec){
     var items=rec.items||[];var proj=rec.project;
     var _fpc=rec.projectCode&&rec.projectCode!==proj?rec.projectCode:'';
     var _fpn=_fpc?(_projName(_fpc)!==_fpc?_projName(_fpc):_fpc):'';
@@ -5786,9 +5811,11 @@ function renderPortDeviations(){
     var tSAct=items.reduce(function(s,it){return s+it.steelAct;},0);
     var steelP=tSSt>0?(tSSt-tSAct)/tSSt*100:0;
     var ex=_FUP_DEV_EXTRA[proj]||{};
-    var masonryP=ex.masonry!=null?ex.masonry:0;
-    var plasterP=ex.plaster!=null?ex.plaster:0;
-    var allAvg=(concP+steelP+masonryP+plasterP)/4;
+    var _mUp=_fupKindPct(proj,'masonry'),_pUp=_fupKindPct(proj,'plaster');
+    var masonryP=_mUp!==null?_mUp:(ex.masonry!=null?ex.masonry:0);
+    var plasterP=_pUp!==null?_pUp:(ex.plaster!=null?ex.plaster:0);
+    var _avgParts=[];if(!rec._noStruct){_avgParts.push(concP,steelP);}if(_mUp!==null||ex.masonry!=null||!rec._noStruct)_avgParts.push(masonryP);if(_pUp!==null||ex.plaster!=null||!rec._noStruct)_avgParts.push(plasterP);
+    var allAvg=_avgParts.length?_avgParts.reduce(function(a,b){return a+b;},0)/_avgParts.length:0;
     return '<div onclick="showTab(\'balances\')" title="اضغط لعرض التفاصيل الكاملة" style="cursor:pointer;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;min-width:195px;flex:1;max-width:255px;transition:all .2s;direction:rtl" onmouseover="this.style.borderColor=\'var(--accent2)\';this.style.background=\'rgba(99,102,241,.07)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.background=\'var(--card)\'">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
         +'<span style="font-weight:800;color:var(--accent2);font-size:.88rem">📋 '+proj+(_fpn?' <span style="font-size:.72rem;color:var(--accent);font-weight:700;opacity:.9">| '+_fpn+'</span>':'')+'</span>'
@@ -5796,19 +5823,19 @@ function renderPortDeviations(){
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">'
         +'<div style="background:var(--panel);border-radius:9px;padding:8px;text-align:center;border-top:2px solid '+vc(concP)+'">'
-          +'<div style="font-size:1.05rem;font-weight:800;color:'+vc(concP)+'">'+fmt(concP,1)+'%</div>'
+          +'<div style="font-size:1.05rem;font-weight:800;color:'+(rec._noStruct?'var(--muted)':vc(concP))+'">'+(rec._noStruct?'—':fmt(concP,1)+'%')+'</div>'
           +'<div style="font-size:.62rem;color:var(--muted)">🪨 خرسانة</div>'
         +'</div>'
         +'<div style="background:var(--panel);border-radius:9px;padding:8px;text-align:center;border-top:2px solid '+vc(steelP)+'">'
-          +'<div style="font-size:1.05rem;font-weight:800;color:'+vc(steelP)+'">'+fmt(steelP,1)+'%</div>'
+          +'<div style="font-size:1.05rem;font-weight:800;color:'+(rec._noStruct?'var(--muted)':vc(steelP))+'">'+(rec._noStruct?'—':fmt(steelP,1)+'%')+'</div>'
           +'<div style="font-size:.62rem;color:var(--muted)">🔩 حديد</div>'
         +'</div>'
         +'<div style="background:var(--panel);border-radius:9px;padding:6px;text-align:center;border-top:2px solid '+vc(masonryP)+'" onclick="event.stopPropagation()">'
-          +'<input type="number" step="0.1" value="'+masonryP+'" onchange="saveFupDevExtra(\''+proj+'\',\'masonry\',this.value)" style="width:55px;background:transparent;border:none;color:'+vc(masonryP)+';font-size:.95rem;font-weight:800;text-align:center;font-family:Cairo,sans-serif;outline:none;direction:ltr" />'
+          +'<input type="number" step="0.1" value="'+masonryP+'" onchange="saveFupDevExtra(\''+proj+'\',\'masonry\',this.value)"'+(_mUp!==null?' readonly title="محسوب من تقرير المتابعة"':'')+' style="width:55px;background:transparent;border:none;color:'+vc(masonryP)+';font-size:.95rem;font-weight:800;text-align:center;font-family:Cairo,sans-serif;outline:none;direction:ltr" />'
           +'<div style="font-size:.62rem;color:var(--muted)">🧱 مباني %</div>'
         +'</div>'
         +'<div style="background:var(--panel);border-radius:9px;padding:6px;text-align:center;border-top:2px solid '+vc(plasterP)+'" onclick="event.stopPropagation()">'
-          +'<input type="number" step="0.1" value="'+plasterP+'" onchange="saveFupDevExtra(\''+proj+'\',\'plaster\',this.value)" style="width:55px;background:transparent;border:none;color:'+vc(plasterP)+';font-size:.95rem;font-weight:800;text-align:center;font-family:Cairo,sans-serif;outline:none;direction:ltr" />'
+          +'<input type="number" step="0.1" value="'+plasterP+'" onchange="saveFupDevExtra(\''+proj+'\',\'plaster\',this.value)"'+(_pUp!==null?' readonly title="محسوب من تقرير المتابعة"':'')+' style="width:55px;background:transparent;border:none;color:'+vc(plasterP)+';font-size:.95rem;font-weight:800;text-align:center;font-family:Cairo,sans-serif;outline:none;direction:ltr" />'
           +'<div style="font-size:.62rem;color:var(--muted)">🪟 بياض %</div>'
         +'</div>'
       +'</div>'
